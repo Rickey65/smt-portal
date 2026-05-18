@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>거래명세표 생성기 — SMT·건웅 통합</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+.layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; padding: 20px; max-width: 1500px; margin: 0 auto; }
+.controls { background: white; padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow-sm); height: fit-content; position: sticky; top: 70px; }
+.controls h2 { margin: 0 0 14px; font-size: 18px; }
+.controls label { display: block; margin: 10px 0 4px; font-size: 13px; color: var(--c-text-2); }
+.controls input, .controls select, .controls textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--c-border); border-radius: 6px;
+  font-family: var(--font-sans); font-size: 14px;
+}
+.controls textarea { resize: vertical; min-height: 60px; }
+.btn-primary { background: var(--c-smt); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 700; width: 100%; margin-top: 12px; }
+.btn-secondary { background: #f0f0f0; color: #333; border: 1px solid var(--c-border); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-right: 4px; }
+.row-group { background: #fafafa; padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
+.item-row { display: grid; grid-template-columns: 1fr 100px 90px 90px 30px; gap: 6px; margin: 4px 0; align-items: center; }
+.item-row input { padding: 6px 8px; font-size: 13px; }
+.item-row button { background: var(--c-danger); color: white; border: none; border-radius: 4px; cursor: pointer; padding: 6px; font-size: 12px; }
+.preview-wrap { background: #d0d0d0; padding: 20px; border-radius: var(--radius); overflow: auto; }
+
+/* ===== 거래명세표 양식 (위하고 SHDM0010 순백지1 모방) ===== */
+.invoice {
+  width: 210mm; height: 297mm; padding: 12mm 10mm; background: white; margin: 0 auto;
+  color: #1F4E8C; font-family: 'Noto Sans KR', sans-serif; font-size: 11px;
+  position: relative; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+}
+.invoice h1 { text-align: center; font-size: 36px; letter-spacing: 12px; margin: 0 0 18mm; font-weight: 700; color: #1F4E8C; }
+.invoice .meta { font-size: 12px; margin-bottom: 6mm; }
+.invoice .meta div { margin: 2px 0; }
+.invoice table { border-collapse: collapse; width: 100%; color: #1F4E8C; }
+.invoice table td, .invoice table th { border: 1px solid #1F4E8C; padding: 4px 6px; font-size: 11px; vertical-align: middle; }
+.invoice .party-table { margin-bottom: 4mm; }
+.invoice .party-table td { height: 22px; }
+.invoice .party-label { background: #f5f8fc; font-weight: 500; text-align: center; width: 18px; writing-mode: vertical-rl; letter-spacing: 4px; font-size: 11px; padding: 0 2px; }
+.invoice .field-label { background: #fafbfd; text-align: center; width: 60px; font-size: 10px; letter-spacing: 2px; }
+.invoice .items-table th { background: #f5f8fc; text-align: center; height: 26px; font-weight: 500; font-size: 11px; }
+.invoice .items-table td { height: 18px; }
+.invoice .num-cell { text-align: right; }
+.invoice .center-cell { text-align: center; }
+.invoice .summary { margin-top: 0; }
+.invoice .summary .grey { background: #ededed; font-weight: 600; }
+.invoice .footer-row { font-size: 11px; margin-top: 4mm; display: flex; gap: 20px; }
+.invoice .footer-row span { font-weight: 500; }
+.invoice .stamp-area { position: absolute; bottom: 12mm; right: 12mm; width: 50mm; height: 30mm; border: 1px dashed #ccc; font-size: 10px; color: #888; text-align: center; padding-top: 10mm; }
+
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  html, body { background: white !important; margin: 0 !important; padding: 0 !important; }
+  .controls, #company-toggle-fixed, .layout > .controls { display: none !important; }
+  .layout { display: block !important; padding: 0 !important; margin: 0 !important; max-width: none !important; grid-template-columns: none !important; }
+  .preview-wrap { background: white !important; padding: 0 !important; box-shadow: none !important; }
+  .invoice { box-shadow: none !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; padding: 12mm 10mm !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  
+  <!-- 입력 컨트롤 -->
+  <div class="controls">
+    <h2>📋 거래명세표 생성</h2>
+    
+    <label>발행 회사</label>
+    <select id="issuer">
+      <option value="SMT">에스엠티서울기연주식회사</option>
+      <option value="GW">주식회사건웅</option>
+    </select>
+    
+    <label>거래일자</label>
+    <input type="date" id="trade-date">
+    
+    <label>거래처</label>
+    <input type="text" id="client-name" placeholder="거래처명 (예: 한백전기)">
+    <input type="text" id="client-bizno" placeholder="등록번호 (예: 746-09-01734)" style="margin-top:4px">
+    <input type="text" id="client-rep" placeholder="대표자명" style="margin-top:4px">
+    <input type="text" id="client-addr" placeholder="주소" style="margin-top:4px">
+    
+    <label>품목 (행 단위)</label>
+    <div id="items"></div>
+    <button class="btn-secondary" onclick="addItem()">+ 품목 추가</button>
+    
+    <label>비고</label>
+    <textarea id="memo" placeholder="예: EU20i A/S(EAAJ-1391479) 입금자명 김성환"></textarea>
+    
+    <label>전미수액 (선택)</label>
+    <input type="number" id="prev-unpaid" placeholder="0">
+    
+    <button class="btn-primary" onclick="render()">🔄 미리보기 갱신</button>
+    <button class="btn-primary" style="background: var(--c-ok);" onclick="exportPDF()">🖨️ 인쇄 / PDF 저장</button>
+    <button class="btn-secondary" style="width:100%; margin-top: 8px;" onclick="loadSample()">📄 샘플 데이터 불러오기</button>
+  </div>
+  
+  <!-- 거래명세표 미리보기 -->
+  <div class="preview-wrap" id="preview-wrap">
+    <div class="invoice" id="invoice">
+      <h1>거 래 명 세 서</h1>
+      <div class="meta">
+        <div>납품년월일: <span id="o-date">2026 년 05 월 06 일</span></div>
+        <div>증빙번호: <span id="o-chunkno">STX2026050690001</span></div>
+      </div>
+      
+      <table class="party-table">
+        <tr>
+          <td class="party-label" rowspan="4">공급받는자</td>
+          <td class="field-label">등록번호</td>
+          <td colspan="3" id="o-c-bizno" class="center-cell">746-09-01734</td>
+          <td class="party-label" rowspan="4">공급자</td>
+          <td class="field-label">등록번호</td>
+          <td colspan="3" id="o-i-bizno" class="center-cell">134-81-77776</td>
+        </tr>
+        <tr>
+          <td class="field-label">상호</td>
+          <td colspan="2" id="o-c-name">한백전기</td>
+          <td class="field-label" style="width:30px">성명</td>
+          <td id="o-c-rep">최영희</td>
+          <td class="field-label">상호</td>
+          <td colspan="2" id="o-i-name">에스엠티서울기연주식회사</td>
+          <td class="field-label" style="width:30px">성명</td>
+          <td id="o-i-rep">임창수</td>
+        </tr>
+        <tr>
+          <td class="field-label">주소</td>
+          <td colspan="4" id="o-c-addr">경기 평택시 지산3로 4번길 25 (지산동)</td>
+          <td class="field-label">주소</td>
+          <td colspan="4" id="o-i-addr">경기 화성시 만세구 향남읍 발안공단로1길 81 2층</td>
+        </tr>
+        <tr>
+          <td class="field-label">업태</td>
+          <td colspan="2" id="o-c-up">도매및소매업</td>
+          <td class="field-label">종목</td>
+          <td id="o-c-jong">전기자재</td>
+          <td class="field-label">업태</td>
+          <td colspan="2" id="o-i-up">도매및소매업</td>
+          <td class="field-label">종목</td>
+          <td id="o-i-jong">전기용기계ㆍ장비및관련기자재도매업</td>
+        </tr>
+      </table>
+      
+      <table class="items-table" id="o-items">
+        <thead>
+          <tr>
+            <th style="width:25%">품 명</th>
+            <th style="width:18%">규 격</th>
+            <th style="width:6%">단위</th>
+            <th style="width:10%">납기일</th>
+            <th style="width:7%">수 량</th>
+            <th style="width:11%">단 가</th>
+            <th style="width:13%">공급가액</th>
+            <th style="width:10%">세 액</th>
+          </tr>
+        </thead>
+        <tbody id="o-items-body">
+        </tbody>
+      </table>
+      
+      <table class="summary">
+        <tr>
+          <td rowspan="3" style="width:8%; text-align:center; font-weight:600;">비 고</td>
+          <td rowspan="3" id="o-memo" style="width:42%"></td>
+          <td style="width:20%; text-align:center;" class="field-label">공급가액합계</td>
+          <td id="o-total-supply" class="num-cell" style="width:30%">147,800</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;" class="field-label">부 가 가 치 세</td>
+          <td id="o-total-vat" class="num-cell">14,780</td>
+        </tr>
+        <tr>
+          <td style="text-align:center; font-weight:600;" class="field-label">총      계</td>
+          <td id="o-grand-total" class="num-cell" style="font-weight:600;">162,580</td>
+        </tr>
+      </table>
+      
+      <div class="footer-row">
+        <span>전미수액 <strong id="o-prev-unpaid">0</strong></span>
+        <span>당일거래총액 <strong id="o-today-total">162,580</strong></span>
+        <span>입금액 <strong id="o-paid">0</strong></span>
+        <span>미수액 <strong id="o-final-unpaid">162,580</strong></span>
+      </div>
+      
+      <div class="stamp-area">[인]</div>
+    </div>
+  </div>
+</div>
+
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
+<script>
+// 회사 정보 (data_loader의 companyInfo와 동기화)
+const COMPANY = {
+  SMT: {
+    등록번호: '134-81-77776',
+    상호: '에스엠티서울기연주식회사',
+    대표: '임창수',
+    주소: '경기 화성시 만세구 향남읍 발안공단로1길 81 2층',
+    업태: '도매및소매업',
+    종목: '전기용기계ㆍ장비및관련기자재도매업',
+    prefix: 'STX'
+  },
+  GW: {
+    등록번호: '222-86-01511',
+    상호: '주식회사건웅',
+    대표: '김태종',
+    주소: '서울 금천구 가산디지털1로 33-33 804호 (가산동, 대륭테크노타운2차)',
+    업태: '도매및소매업',
+    종목: '전자상거래소매업',
+    prefix: 'STX'
+  }
+};
+
+let items = [];
+
+function fmt(n) {
+  if (!n) return '';
+  return Math.round(n).toLocaleString();
+}
+
+function addItem(item) {
+  item = item || {품명:'', 규격:'', 단위:'', 납기일:'', 수량:1, 단가:0};
+  items.push(item);
+  renderItemsForm();
+}
+
+function renderItemsForm() {
+  const div = document.getElementById('items');
+  div.innerHTML = items.map((it, i) => `
+    <div class="item-row" data-i="${i}">
+      <input placeholder="품명" value="${it.품명}" onchange="items[${i}].품명=this.value">
+      <input placeholder="규격" value="${it.규격}" onchange="items[${i}].규격=this.value">
+      <input type="number" placeholder="수량" value="${it.수량}" onchange="items[${i}].수량=Number(this.value)">
+      <input type="number" placeholder="단가" value="${it.단가}" onchange="items[${i}].단가=Number(this.value)">
+      <button onclick="removeItem(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function removeItem(i) {
+  items.splice(i, 1);
+  renderItemsForm();
+}
+
+function generateChunkNo(prefix) {
+  const d = document.getElementById('trade-date').value || new Date().toISOString().slice(0,10);
+  const yyyymmdd = d.replace(/-/g,'');
+  const seq = String(90000 + Math.floor(Math.random()*9999) + 1).padStart(5,'0');
+  return `${prefix}${yyyymmdd}${seq}`;
+}
+
+function render() {
+  const issuer = document.getElementById('issuer').value;
+  const info = COMPANY[issuer];
+  const date = document.getElementById('trade-date').value || '2026-05-06';
+  const [y, m, d] = date.split('-');
+  
+  document.getElementById('o-date').textContent = `${y} 년 ${m} 월 ${d} 일`;
+  document.getElementById('o-chunkno').textContent = generateChunkNo(info.prefix);
+  
+  // 공급받는자
+  document.getElementById('o-c-bizno').textContent = document.getElementById('client-bizno').value || '-';
+  document.getElementById('o-c-name').textContent = document.getElementById('client-name').value || '-';
+  document.getElementById('o-c-rep').textContent = document.getElementById('client-rep').value || '-';
+  document.getElementById('o-c-addr').textContent = document.getElementById('client-addr').value || '-';
+  document.getElementById('o-c-up').textContent = '도매및소매업';
+  document.getElementById('o-c-jong').textContent = '-';
+  
+  // 공급자
+  document.getElementById('o-i-bizno').textContent = info.등록번호;
+  document.getElementById('o-i-name').textContent = info.상호;
+  document.getElementById('o-i-rep').textContent = info.대표;
+  document.getElementById('o-i-addr').textContent = info.주소;
+  document.getElementById('o-i-up').textContent = info.업태;
+  document.getElementById('o-i-jong').textContent = info.종목;
+  
+  // 품목 18행 (빈 행 채움)
+  let totalSupply = 0, totalVat = 0;
+  let rows = '';
+  for (let i = 0; i < 18; i++) {
+    const it = items[i] || null;
+    if (it) {
+      const supply = (it.수량 || 0) * (it.단가 || 0);
+      const vat = Math.round(supply * 0.1);
+      totalSupply += supply;
+      totalVat += vat;
+      rows += `<tr>
+        <td>${it.품명||''}</td>
+        <td class="center-cell">${it.규격||''}</td>
+        <td class="center-cell">${it.단위||''}</td>
+        <td class="center-cell">${it.납기일 || date}</td>
+        <td class="num-cell">${it.수량||''}</td>
+        <td class="num-cell">${fmt(it.단가)}</td>
+        <td class="num-cell">${fmt(supply)}</td>
+        <td class="num-cell">${fmt(vat)}</td>
+      </tr>`;
+    } else {
+      rows += `<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    }
+  }
+  // 소계 행
+  rows += `<tr class="grey">
+    <td colspan="6" class="center-cell" style="font-weight:600;">소        계</td>
+    <td class="num-cell">${fmt(totalSupply)}</td>
+    <td class="num-cell">${fmt(totalVat)}</td>
+  </tr>`;
+  document.getElementById('o-items-body').innerHTML = rows;
+  
+  // 비고·총계
+  document.getElementById('o-memo').textContent = document.getElementById('memo').value;
+  document.getElementById('o-total-supply').textContent = fmt(totalSupply);
+  document.getElementById('o-total-vat').textContent = fmt(totalVat);
+  document.getElementById('o-grand-total').textContent = fmt(totalSupply + totalVat);
+  
+  // 미수 정보
+  const prevUnpaid = Number(document.getElementById('prev-unpaid').value) || 0;
+  const todayTotal = totalSupply + totalVat;
+  document.getElementById('o-prev-unpaid').textContent = fmt(prevUnpaid);
+  document.getElementById('o-today-total').textContent = fmt(todayTotal);
+  document.getElementById('o-paid').textContent = '0';
+  document.getElementById('o-final-unpaid').textContent = fmt(prevUnpaid + todayTotal);
+}
+
+function exportPDF() {
+  // 브라우저 내장 인쇄 — "PDF로 저장" 선택하면 PDF로 저장됨
+  // 또는 실제 프린터로 출력 가능
+  // 파일명을 임시로 document.title에 반영 (브라우저가 기본 파일명으로 사용)
+  const clientName = document.getElementById('client-name').value || '거래처';
+  const date = new Date().toISOString().slice(0,10);
+  const originalTitle = document.title;
+  document.title = `거래명세표_${clientName}_${date}`;
+  
+  // 인쇄 후 원래 제목 복원
+  window.print();
+  setTimeout(() => { document.title = originalTitle; }, 1000);
+}
+
+function loadSample() {
+  document.getElementById('issuer').value = 'SMT';
+  document.getElementById('trade-date').value = '2026-05-06';
+  document.getElementById('client-name').value = '한백전기';
+  document.getElementById('client-bizno').value = '746-09-01734';
+  document.getElementById('client-rep').value = '최영희';
+  document.getElementById('client-addr').value = '경기 평택시 지산3로 4번길 25 (지산동)';
+  document.getElementById('memo').value = 'EU20i A/S(EAAJ-1391479) 입금자명 김성환';
+  items = [
+    {품명:'CARBEUETOR ASSY (EU20i)', 규격:'16100-Z0D-D03', 단위:'', 납기일:'2026-05-06', 수량:1, 단가:121700},
+    {품명:'ELEMENT,AIR/C *', 규격:'17211-Z07-000', 단위:'', 납기일:'2026-05-06', 수량:1, 단가:3100},
+    {품명:'FILTER, OUTER', 규격:'17218-Z07-000', 단위:'', 납기일:'2026-05-06', 수량:1, 단가:3000},
+    {품명:'공임', 규격:'', 단위:'', 납기일:'2026-05-06', 수량:1, 단가:20000}
+  ];
+  renderItemsForm();
+  render();
+}
+
+// 초기화
+document.getElementById('trade-date').value = new Date().toISOString().slice(0,10);
+addItem();
+render();
+
+// 회사 토글 위젯
+CompanyToggle.render(null, (v) => {
+  if (v === 'SMT' || v === 'GW') {
+    document.getElementById('issuer').value = v;
+    render();
+  }
+});
+</script>
+
+</body>
+</html>

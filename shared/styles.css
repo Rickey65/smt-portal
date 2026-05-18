@@ -1,0 +1,123 @@
+/* SMT·건웅 통합 시스템 — 공통 스타일 v2 */
+
+:root {
+  --c-ok:      #1D9E75;
+  --c-warn:    #F4A100;
+  --c-danger:  #E83A3A;
+  --c-gray:    #B4B2A9;
+  --c-smt:     #3B7EE5;
+  --c-gw:      #8845D5;
+  --c-all:     #1D9E75;
+  --c-bg:      #FAFAF7;
+  --c-card:    #FFFFFF;
+  --c-text:    #1A1A1A;
+  --c-text-2:  #555;
+  --c-border:  #E0E0E0;
+  --font-sans: 'Noto Sans KR', -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  --radius:    8px;
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  color: var(--c-text);
+  background: var(--c-bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* ===== 회사 토글 위젯 ===== */
+#company-toggle-fixed {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+}
+
+.company-toggle {
+  display: inline-flex;
+  background: white;
+  border-radius: 24px;
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  gap: 2px;
+}
+
+.ct-btn {
+  background: transparent;
+  border: none;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text-2);
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+}
+
+.ct-btn:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+.ct-btn.active[data-company="ALL"] {
+  background: var(--c-all);
+  color: white;
+}
+.ct-btn.active[data-company="SMT"] {
+  background: var(--c-smt);
+  color: white;
+}
+.ct-btn.active[data-company="GW"] {
+  background: var(--c-gw);
+  color: white;
+}
+
+/* ===== 카드 컴포넌트 ===== */
+.card {
+  background: var(--c-card);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--c-border);
+}
+
+/* ===== 회사 배지 ===== */
+.badge-company {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+}
+.badge-company.smt { background: var(--c-smt); }
+.badge-company.gw  { background: var(--c-gw); }
+.badge-company.all { background: var(--c-all); }
+.badge-company.both { 
+  background: linear-gradient(90deg, var(--c-smt) 50%, var(--c-gw) 50%);
+}
+
+/* ===== 상태 배지 ===== */
+.badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.b-ok    { background: #E3F5EC; color: var(--c-ok); }
+.b-warn  { background: #FFF1D6; color: #C47700; }
+.b-danger { background: #FFE1E1; color: var(--c-danger); }
+.b-gray  { background: #F0EFEC; color: #777; }
+
+/* ===== 모바일 대응 ===== */
+@media (max-width: 768px) {
+  #company-toggle-fixed {
+    top: 8px;
+    right: 8px;
+  }
+  .ct-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}

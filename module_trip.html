@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>출장 일정 관리 · SMT서울기연</title>
+<style>
+  :root { --font-sans:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --bg:#F7F6F3;--surface:#fff;--border:#E5E3DD;--border-strong:#D4D2CB;
+    --text:#1A1A1A;--text-sec:#6B6963;--text-muted:#9C9A93;
+    --accent:#1D9E75;--accent-soft:#E8F5EF;--accent-dark:#146B4F;
+    --warn:#E89B3C;--danger:#D7493A;--info:#4A78C9; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;font-size:14px}
+  .wrap{max-width:1200px;margin:0 auto;padding:32px 24px}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .breadcrumb{font-size:13px;color:var(--text-sec)}
+  .breadcrumb a{color:var(--accent);text-decoration:none;font-weight:500}
+  .breadcrumb a:hover{text-decoration:underline}
+  .back-btn{background:transparent;border:1px solid var(--border-strong);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .back-btn:hover{background:var(--surface)}
+  .hero{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 28px;margin-bottom:20px;border-top:4px solid var(--accent)}
+  .hero .ico{font-size:36px;margin-bottom:10px;line-height:1}
+  .hero h1{font-size:22px;margin-bottom:6px}
+  .hero p{color:var(--text-sec);font-size:13.5px;line-height:1.7}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+  .panel h3{font-size:14px;font-weight:600;margin-bottom:10px}
+  .panel-sub{color:var(--text-sec);font-size:12px;margin-bottom:12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .row label{color:var(--text-sec);font-size:12px}
+  .row input, .row select{
+    padding:6px 10px;border:1px solid var(--border-strong);border-radius:6px;
+    font-family:inherit;font-size:13px;background:var(--surface);color:var(--text);
+  }
+  .btn{padding:7px 14px;border:1px solid var(--border-strong);background:var(--surface);border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--text)}
+  .btn:hover{background:var(--bg)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{opacity:0.9;background:var(--accent)}
+
+  .trip-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px}
+  .trip-row:last-child{border-bottom:none}
+  .trip-row:hover{background:var(--bg)}
+  .trip-row label{display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;margin:0}
+  .trip-row .tname{font-weight:600}
+  .trip-row .taddr{color:var(--text-sec);font-size:12px;margin-left:auto;max-width:50%;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trip-selected-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--accent-soft);border-radius:6px;margin-bottom:6px}
+  .trip-selected-item .idx{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+  .trip-selected-item .info{flex:1;font-size:13px}
+  .trip-selected-item .info .n{font-weight:600}
+  .trip-selected-item .info .a{color:var(--text-sec);font-size:11px;margin-top:2px}
+  .trip-selected-item button{padding:3px 8px;font-size:11px;min-width:28px}
+  .trip-empty{padding:30px;text-align:center;color:var(--text-muted);font-size:13px}
+
+  .howto{background:var(--accent-soft);border-left:4px solid var(--accent);padding:12px 14px;border-radius:4px;font-size:13px;line-height:1.7;color:var(--accent-dark)}
+  .howto ul{margin-top:8px;padding-left:20px}
+  .howto a{color:var(--accent-dark);font-weight:500}
+
+  .toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;background:var(--text);color:#fff;border-radius:6px;font-size:13px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:1000}
+  .toast.show{opacity:1}
+
+  .loading{padding:60px;text-align:center;color:var(--text-muted)}
+  .spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;margin-right:10px;vertical-align:middle}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="breadcrumb"><a href="index.html">🏠 홈</a> &nbsp;›&nbsp; 출장 일정 관리</div>
+    <a class="back-btn" href="index.html">← 홈으로</a>
+  </header>
+
+  <div class="hero">
+    <div class="ico">🗓️</div>
+    <h1>출장 일정 관리</h1>
+    <p>지방 거래처 방문 일정을 짜시면, 주소 기반으로 <strong>구글지도에 최적 경로</strong>를 자동 생성하고, 경로상 <strong>맛집·숙소</strong>는 네이버지도에서 바로 검색됩니다. 활성 거래처 4,975개 중에서 선택하실 수 있습니다.</p>
+  </div>
+
+  <div id="loadingBox" class="panel loading"><span class="spinner"></span>거래처 데이터 불러오는 중...</div>
+
+  <div id="mainBox" style="display:none">
+    <div class="panel">
+      <h3>1단계 · 방문할 거래처 선택</h3>
+      <div class="row">
+        <label>지역
+          <select id="tripRegion"><option value="">전체</option></select>
+        </label>
+        <label>검색
+          <input type="search" id="tripSearch" placeholder="거래처명 일부" autocomplete="off" style="min-width:200px">
+        </label>
+        <label><input type="checkbox" id="tripOnlyActive" checked> 활성만</label>
+        <label><input type="checkbox" id="tripHasSales"> 매출 이력 있는 곳만</label>
+        <span id="tripListMeta" style="color:var(--text-sec);font-size:12px;margin-left:auto"></span>
+      </div>
+      <div id="tripClientList" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:#fff"></div>
+    </div>
+
+    <div class="panel">
+      <h3>2단계 · 선택된 거래처 (순서대로 방문)</h3>
+      <div id="tripSelectedList"></div>
+      <div class="row" style="margin-top:10px">
+        <label>출발지
+          <input type="text" id="tripOrigin" size="48" placeholder="예: 경기 화성시 하길로 (회사 주소)" value="경기 화성시 하길로 (에스엠티서울기연)">
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>3단계 · 경로 및 주변 찾기</h3>
+      <div class="row">
+        <button class="btn primary" id="btnTripRoute">🗺️ 최적 경로 (구글지도)</button>
+        <button class="btn" id="btnTripFood">🍽️ 경로상 맛집</button>
+        <button class="btn" id="btnTripHotel">🏨 경로상 숙소</button>
+        <button class="btn" id="btnTripClear">전체 비우기</button>
+      </div>
+      <div id="tripOutput" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// 포털 로그인 확인
+if (sessionStorage.getItem('smtAuth') !== '1') {
+  alert('먼저 포털에 로그인하세요.');
+  location.href = 'index.html';
+}
+
+/* ==================== 상태 ==================== */
+let CLIENTS = [];
+let SALES_SET = new Set();  // 매출 이력 있는 거래처명 Set
+let TRIP_SELECTED = [];
+
+/* ==================== 유틸 ==================== */
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function extractRegion(addr) {
+  if (!addr) return '';
+  const s = addr.trim();
+  const map = {
+    '서울':/^서울/,'부산':/^부산/,'대구':/^대구/,'인천':/^인천/,
+    '광주':/^광주/,'대전':/^대전/,'울산':/^울산/,'세종':/^세종/,
+    '경기':/^경기/,'강원':/^강원/,'충북':/^충청\s*북|^충북/,
+    '충남':/^충청\s*남|^충남/,'전북':/^전라\s*북|^전북/,
+    '전남':/^전라\s*남|^전남/,'경북':/^경상\s*북|^경북/,
+    '경남':/^경상\s*남|^경남/,'제주':/^제주/
+  };
+  for (const [k, re] of Object.entries(map)) {
+    if (re.test(s)) return k;
+  }
+  return '기타';
+}
+
+/* ==================== 데이터 로드 ==================== */
+async function loadData() {
+  const diag = [];
+  let cRes = null, sRes = null;
+  try {
+    // clients.json
+    try {
+      const r = await fetch('clients.json?t=' + Date.now(), { cache: 'no-store' });
+      diag.push(`clients.json: HTTP ${r.status} ${r.ok ? '✓' : '✗'}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const txt = await r.text();
+      diag.push(`clients.json 크기: ${(txt.length/1024).toFixed(1)} KB`);
+      try {
+        cRes = JSON.parse(txt);
+        diag.push(`clients.json 파싱: ✓ (${(cRes.rows||[]).length}행)`);
+      } catch (je) {
+        diag.push(`clients.json 파싱 오류: ${je.message}`);
+        diag.push(`파일 앞 100자: ${txt.slice(0, 100)}`);
+        throw je;
+      }
+    } catch (e) {
+      diag.push(`clients.json 실패: ${e.message}`);
+    }
+
+    // sales.json (optional)
+    try {
+      const r = await fetch('sales.json?t=' + Date.now(), { cache: 'no-store' });
+      diag.push(`sales.json: HTTP ${r.status}`);
+      if (r.ok) sRes = await r.json();
+    } catch (e) {
+      diag.push(`sales.json 실패 (매출이력 필터만 영향): ${e.message}`);
+    }
+
+    CLIENTS = (cRes && cRes.rows) ? cRes.rows : [];
+    if (sRes && sRes.rows) {
+      sRes.rows.forEach(r => { if (r.거래처명) SALES_SET.add(r.거래처명); });
+    }
+    if (CLIENTS.length === 0) throw new Error('거래처 데이터를 불러오지 못했습니다');
+
+    document.getElementById('loadingBox').style.display = 'none';
+    document.getElementById('mainBox').style.display = 'block';
+    populateRegions();
+    renderList();
+    renderSelected();
+  } catch (e) {
+    document.getElementById('loadingBox').innerHTML = `
+      <div style="color:var(--danger);font-weight:600;margin-bottom:12px">❌ ${e.message}</div>
+      <div style="text-align:left;max-width:600px;margin:0 auto;background:var(--bg);padding:14px;border-radius:6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.7;color:var(--text-sec)">
+        <strong style="color:var(--text)">진단 정보</strong><br>
+        ${diag.map(d => '• ' + d).join('<br>')}
+      </div>
+      <div style="margin-top:16px;font-size:13px;color:var(--text-sec)">
+        다음 URL을 브라우저 새 탭에서 직접 열어 확인해주세요:<br>
+        <a href="clients.json" target="_blank" style="color:var(--accent)">→ clients.json 직접 열기</a>
+      </div>`;
+  }
+}
+
+function populateRegions() {
+  const counts = {};
+  CLIENTS.forEach(c => {
+    if (c.주소 && !c.폐업일자) {
+      const r = extractRegion(c.주소);
+      counts[r] = (counts[r] || 0) + 1;
+    }
+  });
+  const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  const sel = document.getElementById('tripRegion');
+  sel.innerHTML = '<option value="">전체</option>' +
+    sorted.map(([r,n]) => `<option value="${r}">${r} (${n.toLocaleString()})</option>`).join('');
+}
+
+/* ==================== 거래처 목록 렌더 ==================== */
+function renderList() {
+  const region = document.getElementById('tripRegion').value;
+  const q = document.getElementById('tripSearch').value.trim().toLowerCase().replace(/\s+/g,'');
+  const onlyActive = document.getElementById('tripOnlyActive').checked;
+  const hasSales = document.getElementById('tripHasSales').checked;
+
+  let pool = CLIENTS.filter(c => c.주소);
+  if (onlyActive) pool = pool.filter(c => !c.폐업일자);
+  if (region) pool = pool.filter(c => extractRegion(c.주소) === region);
+  if (hasSales) pool = pool.filter(c => SALES_SET.has(c.거래처명));
+  if (q) {
+    pool = pool.filter(c => {
+      const hay = ((c.거래처명||'') + (c.주소||'')).toLowerCase().replace(/\s+/g, '');
+      return hay.includes(q);
+    });
+  }
+
+  document.getElementById('tripListMeta').textContent = `${pool.length.toLocaleString()}곳`;
+  const shown = pool.slice(0, 200);
+  let html = '';
+  if (shown.length === 0) html = '<div class="trip-empty">조건에 맞는 거래처가 없습니다.</div>';
+  shown.forEach(c => {
+    const checked = TRIP_SELECTED.find(x => x.거래처명 === c.거래처명) ? 'checked' : '';
+    const safeName = c.거래처명.replace(/"/g, '&quot;');
+    const salesTag = SALES_SET.has(c.거래처명) ? ' <span style="color:var(--accent);font-size:10px;font-weight:600">●거래중</span>' : '';
+    html += `<div class="trip-row">
+      <label>
+        <input type="checkbox" class="trip-check" data-name="${safeName}" ${checked}>
+        <span class="tname">${c.거래처명}</span>${salesTag}
+      </label>
+      <span class="taddr" title="${c.주소}">${c.주소.slice(0, 42)}${c.주소.length > 42 ? '…' : ''}</span>
+    </div>`;
+  });
+  if (pool.length > 200) html += `<div style="padding:10px;text-align:center;color:var(--text-muted);font-size:12px">상위 200개 표시 (총 ${pool.length.toLocaleString()})</div>`;
+  document.getElementById('tripClientList').innerHTML = html;
+
+  document.querySelectorAll('#tripClientList .trip-check').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const name = e.target.dataset.name;
+      if (e.target.checked) {
+        const c = CLIENTS.find(x => x.거래처명 === name);
+        if (c && !TRIP_SELECTED.find(x => x.거래처명 === name)) TRIP_SELECTED.push(c);
+      } else {
+        TRIP_SELECTED = TRIP_SELECTED.filter(x => x.거래처명 !== name);
+      }
+      renderSelected();
+    });
+  });
+}
+
+function renderSelected() {
+  const wrap = document.getElementById('tripSelectedList');
+  if (TRIP_SELECTED.length === 0) {
+    wrap.innerHTML = '<div class="trip-empty">아직 선택된 거래처가 없습니다. 위에서 체크하세요.</div>';
+    return;
+  }
+  let html = '';
+  TRIP_SELECTED.forEach((c, i) => {
+    html += `<div class="trip-selected-item">
+      <div class="idx">${i+1}</div>
+      <div class="info">
+        <div class="n">${c.거래처명}</div>
+        <div class="a">${c.주소}${c.대표전화 ? ' · ☎ '+c.대표전화 : ''}</div>
+      </div>
+      <button class="btn" data-action="up" data-idx="${i}" ${i === 0 ? 'disabled style="opacity:0.3"' : ''}>↑</button>
+      <button class="btn" data-action="down" data-idx="${i}" ${i === TRIP_SELECTED.length-1 ? 'disabled style="opacity:0.3"' : ''}>↓</button>
+      <button class="btn" data-action="remove" data-idx="${i}" title="제외">✕</button>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.idx);
+      const action = btn.dataset.action;
+      if (action === 'remove') TRIP_SELECTED.splice(idx, 1);
+      else if (action === 'up' && idx > 0) {
+        [TRIP_SELECTED[idx-1], TRIP_SELECTED[idx]] = [TRIP_SELECTED[idx], TRIP_SELECTED[idx-1]];
+      } else if (action === 'down' && idx < TRIP_SELECTED.length-1) {
+        [TRIP_SELECTED[idx], TRIP_SELECTED[idx+1]] = [TRIP_SELECTED[idx+1], TRIP_SELECTED[idx]];
+      }
+      renderSelected();
+      renderList();
+    });
+  });
+}
+
+/* ==================== 경로·주변 ==================== */
+function buildGoogleMapsRoute() {
+  if (TRIP_SELECTED.length === 0) return null;
+  const origin = document.getElementById('tripOrigin').value.trim();
+  if (!origin) return null;
+  const addrs = TRIP_SELECTED.map(c => c.주소);
+  const destination = addrs[addrs.length - 1];
+  const waypoints = addrs.slice(0, -1);
+  const params = new URLSearchParams();
+  params.set('api', '1');
+  params.set('origin', origin);
+  params.set('destination', destination);
+  if (waypoints.length > 0) params.set('waypoints', waypoints.join('|'));
+  params.set('travelmode', 'driving');
+  return 'https://www.google.com/maps/dir/?' + params.toString();
+}
+
+function tripAction(kind) {
+  if (TRIP_SELECTED.length === 0) { toast('거래처를 먼저 선택하세요'); return; }
+  const out = document.getElementById('tripOutput');
+  if (kind === 'route') {
+    const url = buildGoogleMapsRoute();
+    if (!url) { toast('출발지를 입력하세요'); return; }
+    window.open(url, '_blank');
+    out.innerHTML = `<div class="howto">
+      <strong>✓ 구글지도 새 창에서 경로가 열렸습니다.</strong><br>
+      출발지 → ${TRIP_SELECTED.map((c,i) => `<strong>${i+1}. ${c.거래처명}</strong>`).join(' → ')}<br>
+      구글지도 화면 좌측에서 드래그로 순서 재조정 가능합니다.<br>
+      <a href="${url}" target="_blank">→ 경로 다시 열기</a>
+    </div>`;
+  } else if (kind === 'food' || kind === 'hotel') {
+    const kw = kind === 'food' ? '맛집' : '호텔';
+    const emoji = kind === 'food' ? '🍽️' : '🏨';
+    const regions = new Set();
+    TRIP_SELECTED.forEach(c => {
+      const parts = (c.주소 || '').split(/\s+/);
+      if (parts.length >= 2) regions.add(parts.slice(0, 2).join(' '));
+      else if (parts.length >= 1) regions.add(parts[0]);
+    });
+    let html = `<div class="howto"><strong>${emoji} ${kw} 검색 (네이버지도, 지역별)</strong><ul>`;
+    [...regions].forEach(r => {
+      const encR = encodeURIComponent(`${r} ${kw}`);
+      html += `<li><a href="https://map.naver.com/p/search/${encR}" target="_blank">${r} ${kw} 검색 →</a></li>`;
+    });
+    html += '</ul></div>';
+    out.innerHTML = html;
+  }
+}
+
+/* ==================== 이벤트 ==================== */
+['tripRegion','tripOnlyActive','tripHasSales'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderList)
+);
+let _tripSearchTimer = null;
+document.getElementById('tripSearch').addEventListener('input', () => {
+  clearTimeout(_tripSearchTimer);
+  _tripSearchTimer = setTimeout(renderList, 200);
+});
+document.getElementById('btnTripRoute').addEventListener('click', () => tripAction('route'));
+document.getElementById('btnTripFood').addEventListener('click', () => tripAction('food'));
+document.getElementById('btnTripHotel').addEventListener('click', () => tripAction('hotel'));
+document.getElementById('btnTripClear').addEventListener('click', () => {
+  TRIP_SELECTED = [];
+  renderList(); renderSelected();
+  document.getElementById('tripOutput').innerHTML = '';
+  toast('전체 비움');
+});
+
+loadData();
+</script>
+</body>
+</html>

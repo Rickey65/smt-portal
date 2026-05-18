@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>대표이사 요약 · SMT서울기연</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root { --font-sans:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --bg:#F7F6F3;--surface:#fff;--border:#E5E3DD;--border-strong:#D4D2CB;
+    --text:#1A1A1A;--text-sec:#6B6963;--text-muted:#9C9A93;
+    --accent:#1D9E75;--accent-soft:#E8F5EF;--accent-dark:#146B4F;
+    --warn:#E89B3C;--warn-soft:#FBEFDB;
+    --danger:#D7493A;--danger-soft:#FAE3E0;
+    --info:#4A78C9; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;font-size:16px}
+  .wrap{max-width:1280px;margin:0 auto;padding:32px 28px}
+
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .breadcrumb{font-size:14px;color:var(--text-sec)}
+  .breadcrumb a{color:var(--accent);text-decoration:none;font-weight:500}
+  .home-btn{background:transparent;border:1px solid var(--border-strong);padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+  .home-btn:hover{background:var(--surface)}
+
+  .hero{margin-bottom:24px}
+  .hero h1{font-size:32px;font-weight:800;margin-bottom:6px;letter-spacing:-0.5px}
+  .hero p{color:var(--text-sec);font-size:15px}
+
+  /* 핵심 지표 카드 (큰 사이즈) */
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:18px}
+  .kpi-grid.row2{grid-template-columns:repeat(2,1fr)}
+  .kpi-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    padding:32px 28px;position:relative;overflow:hidden;
+    transition:all .2s;
+  }
+  .kpi-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.06)}
+  .kpi-card .label{font-size:14px;color:var(--text-sec);margin-bottom:14px;font-weight:500}
+  .kpi-card .value{font-size:48px;font-weight:800;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .kpi-card .value.danger{color:var(--danger)}
+  .kpi-card .value.warn{color:var(--warn)}
+  .kpi-card .value.ok{color:var(--accent)}
+  .kpi-card .sub{font-size:14px;color:var(--text-sec);margin-top:14px;display:flex;align-items:center;gap:6px}
+  .kpi-card .arrow{font-size:18px;font-weight:700}
+  .kpi-card .arrow.up{color:var(--accent)}
+  .kpi-card .arrow.down{color:var(--danger)}
+  .kpi-card .accent-bar{position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent)}
+  .kpi-card.danger .accent-bar{background:var(--danger)}
+  .kpi-card.warn .accent-bar{background:var(--warn)}
+
+  /* 음성 영역 */
+  .voice-section{
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    padding:36px;margin-bottom:18px;text-align:center;
+  }
+  .voice-section h2{font-size:18px;color:var(--text-sec);margin-bottom:20px;font-weight:600}
+  .big-mic{
+    width:120px;height:120px;border-radius:50%;
+    background:var(--accent);color:#fff;border:none;cursor:pointer;
+    font-size:54px;display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 32px rgba(29,158,117,0.3);
+    transition:all .2s;margin-bottom:20px;
+  }
+  .big-mic:hover{transform:scale(1.05);box-shadow:0 12px 40px rgba(29,158,117,0.4)}
+  .big-mic.listening{background:var(--danger);animation:micpulse 1.2s infinite}
+  @keyframes micpulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(215,73,58,0.5)}
+    50%{box-shadow:0 0 0 30px rgba(215,73,58,0)}
+  }
+  .voice-status{font-size:18px;color:var(--text-sec);margin-top:12px;min-height:28px;font-weight:500}
+  .voice-status.listening{color:var(--danger)}
+  .voice-examples{margin-top:28px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+  .voice-examples .ex{
+    background:var(--accent-soft);color:var(--accent-dark);
+    padding:10px 18px;border-radius:999px;font-size:14px;font-weight:500;
+    cursor:pointer;border:none;font-family:inherit;
+  }
+  .voice-examples .ex:hover{background:var(--accent);color:#fff}
+  .voice-mute{
+    position:absolute;top:36px;right:36px;
+    background:transparent;border:1px solid var(--border-strong);
+    padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;
+    font-family:inherit;color:var(--text-sec);
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .voice-mute.muted{background:var(--danger-soft);color:var(--danger);border-color:var(--danger)}
+  .voice-section{position:relative}
+
+  /* 음성 답변 박스 */
+  .voice-answer{
+    margin-top:20px;padding:18px 22px;background:var(--accent-soft);
+    border-left:5px solid var(--accent);border-radius:8px;text-align:left;
+    font-size:16px;line-height:1.7;color:var(--accent-dark);display:none;
+  }
+  .voice-answer.show{display:block}
+  .voice-answer .heard{font-size:13px;color:var(--text-sec);margin-bottom:6px}
+
+  /* 빠른 이동 */
+  .quick-nav{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;
+  }
+  .quick-nav a{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:20px 18px;text-decoration:none;color:var(--text);
+    display:flex;align-items:center;gap:12px;transition:all .2s;
+  }
+  .quick-nav a:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .quick-nav .ico{font-size:28px}
+  .quick-nav .info{flex:1}
+  .quick-nav .name{font-size:15px;font-weight:600}
+  .quick-nav .descr{font-size:12px;color:var(--text-sec);margin-top:2px}
+
+  /* 미니 트렌드 차트 */
+  .trend-section{
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    padding:24px 28px;margin-bottom:18px;
+  }
+  .trend-section h2{font-size:16px;font-weight:600;margin-bottom:14px}
+  .trend-wrap{height:200px;position:relative}
+
+  .toast{position:fixed;bottom:30px;right:30px;padding:14px 22px;background:var(--text);color:#fff;border-radius:10px;font-size:14px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:1000}
+  .toast.show{opacity:1}
+
+  /* 출발 전 브리핑 */
+  .briefing-card {
+    background: linear-gradient(135deg, #1D9E75 0%, #146B4F 100%);
+    color: #fff; border-radius: 18px; padding: 28px;
+    margin-bottom: 18px; position: relative; overflow: hidden;
+  }
+  .briefing-card .b-title { font-size: 14px; opacity: 0.9; margin-bottom: 6px; font-weight: 500; }
+  .briefing-card .b-desc { font-size: 13px; opacity: 0.85; margin-bottom: 18px; line-height: 1.6; }
+  .briefing-btn {
+    width: 100%; min-height: 72px;
+    background: #fff; color: var(--accent-dark);
+    border: none; border-radius: 14px;
+    font-size: 22px; font-weight: 700; font-family: inherit;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); transition: all 0.2s;
+  }
+  .briefing-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,0,0,0.2); }
+  .briefing-btn .ico { font-size: 28px; line-height: 1; }
+  .briefing-btn.playing { background: var(--danger); color: #fff; animation: bpulse 1.5s infinite; }
+  @keyframes bpulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+  }
+  .briefing-progress {
+    margin-top: 18px; padding: 16px; background: rgba(255,255,255,0.12);
+    border-radius: 10px; display: none;
+  }
+  .briefing-progress.show { display: block; }
+  .briefing-progress .b-step {
+    padding: 8px 12px; font-size: 14px; line-height: 1.5;
+    color: rgba(255,255,255,0.6); border-left: 3px solid transparent;
+    margin-bottom: 4px; transition: all 0.2s;
+  }
+  .briefing-progress .b-step.active {
+    color: #fff; font-weight: 600; border-left-color: #fff;
+    background: rgba(255,255,255,0.1); border-radius: 4px;
+  }
+  .briefing-progress .b-step.done {
+    color: rgba(255,255,255,0.45); text-decoration: line-through;
+  }
+
+  .loading{text-align:center;padding:80px;color:var(--text-muted);font-size:16px}
+  .spinner{display:inline-block;width:32px;height:32px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;margin-right:12px;vertical-align:middle}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  @media (max-width:900px){
+    .kpi-grid,.kpi-grid.row2{grid-template-columns:1fr 1fr}
+    .kpi-card .value{font-size:36px}
+    .big-mic{width:100px;height:100px;font-size:44px}
+    .hero h1{font-size:24px}
+  }
+  @media (max-width:600px){
+    .kpi-grid,.kpi-grid.row2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="breadcrumb"><a href="index.html">🏠 홈</a> &nbsp;›&nbsp; 대표이사 요약</div>
+    <a class="home-btn" href="index.html">← 홈으로</a>
+  </header>
+
+  <div class="hero">
+    <h1>📋 경영 요약</h1>
+    <p id="dateLabel"></p>
+  </div>
+
+  <div id="loadingBox" class="loading"><span class="spinner"></span>데이터 불러오는 중...</div>
+
+  <div id="mainBox" style="display:none">
+    <!-- 출발 전 브리핑 -->
+    <div class="briefing-card">
+      <div class="b-title">📻 출발 전 음성 브리핑</div>
+      <div class="b-desc">차에 타시기 전 한 번 탭하시면, 회사 핵심 현황을 30초~1분간 음성으로 들려드립니다. 운전 중 손 안 대셔도 됩니다.</div>
+      <button class="briefing-btn" id="briefingBtn">
+        <span class="ico">▶️</span><span>출발 전 브리핑 듣기</span>
+      </button>
+      <div class="briefing-progress" id="briefingProgress"></div>
+    </div>
+
+    <!-- 핵심 지표 5개 -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="accent-bar"></div>
+        <div class="label">이번달 매출 (공급가)</div>
+        <div class="value ok" id="kpiThisMonth">-</div>
+        <div class="sub" id="kpiThisMonthSub"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="accent-bar"></div>
+        <div class="label">전년 동월 대비</div>
+        <div class="value" id="kpiYoY">-</div>
+        <div class="sub" id="kpiYoYSub"></div>
+      </div>
+      <div class="kpi-card danger">
+        <div class="accent-bar"></div>
+        <div class="label">총 미수금</div>
+        <div class="value danger" id="kpiRecv">-</div>
+        <div class="sub" id="kpiRecvSub"></div>
+      </div>
+    </div>
+    <div class="kpi-grid row2">
+      <div class="kpi-card warn">
+        <div class="accent-bar"></div>
+        <div class="label">부족·주의 재고</div>
+        <div class="value warn" id="kpiShort">-</div>
+        <div class="sub" id="kpiShortSub"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="accent-bar"></div>
+        <div class="label">최근 거래</div>
+        <div class="value" id="kpiRecent">-</div>
+        <div class="sub" id="kpiRecentSub"></div>
+      </div>
+    </div>
+
+    <!-- 매출 트렌드 -->
+    <div class="trend-section">
+      <h2>📈 최근 12개월 매출 추이</h2>
+      <div class="trend-wrap"><canvas id="trendChart" role="img" aria-label="매출 추이"></canvas></div>
+    </div>
+
+    <!-- 음성 명령 영역 -->
+    <div class="voice-section">
+      <button class="voice-mute" id="voiceMute" title="음성 답변 끄기/켜기">🔊 음성 켜짐</button>
+      <button class="voice-mute" id="voiceTest" title="음성 출력 진단 + 테스트" style="right:170px">🔧 음성 테스트</button>
+      <h2>🎤 궁금한 것을 음성으로 물어보세요</h2>
+      <button class="big-mic" id="bigMic">🎤</button>
+      <div class="voice-status" id="voiceStatus">마이크를 누르고 말씀하세요</div>
+      <div class="voice-answer" id="voiceAnswer"></div>
+      <div class="voice-examples">
+        <button class="ex" data-ex="이번달 매출">이번달 매출</button>
+        <button class="ex" data-ex="전년 하반기 대비">전년 하반기 대비</button>
+        <button class="ex" data-ex="혼다발전기 매출">혼다발전기 매출</button>
+        <button class="ex" data-ex="미수금 얼마야">미수금 얼마야</button>
+        <button class="ex" data-ex="재고 부족한 거">재고 부족</button>
+      </div>
+    </div>
+
+    <!-- 빠른 이동 -->
+    <div class="quick-nav">
+      <a href="dashboard.html">
+        <div class="ico">📊</div>
+        <div class="info">
+          <div class="name">전체 대시보드</div>
+          <div class="descr">상세 분석·차트</div>
+        </div>
+      </a>
+      <a href="dashboard.html#client"><div class="ico">🔍</div><div class="info"><div class="name">거래처 조회</div><div class="descr">6,732개 통합</div></div></a>
+      <a href="module_trip.html"><div class="ico">🗓️</div><div class="info"><div class="name">출장 일정</div><div class="descr">최적 경로</div></div></a>
+      <a href="dashboard.html#recon"><div class="ico">📦</div><div class="info"><div class="name">재고 차이</div><div class="descr">실재고 분석</div></div></a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// 인증 확인
+if (sessionStorage.getItem('smtAuth') !== '1') {
+  alert('먼저 포털에 로그인하세요.');
+  location.href = 'index.html';
+}
+
+/* ==================== 상태 ==================== */
+let SALES = [], RECV = [], INV = [], CLIENTS = [];
+let voiceMuted = sessionStorage.getItem('smtVoiceMuted') === '1';
+
+/* ==================== 유틸 ==================== */
+const fmt = n => {
+  n = Number(n) || 0;
+  const sign = n < 0 ? '-' : '';
+  n = Math.abs(n);
+  if (n >= 100000000) return sign + (n / 100000000).toFixed(1) + '억';
+  if (n >= 10000) return sign + Math.round(n / 10000).toLocaleString() + '만';
+  return sign + n.toLocaleString() + '원';
+};
+const fmtNum = n => (Number(n)||0).toLocaleString();
+const fmtSpoken = n => {
+  n = Math.round(Math.abs(Number(n)||0));
+  if (n >= 100000000) {
+    const eok = Math.floor(n / 100000000);
+    const rem = n % 100000000;
+    if (rem >= 10000000) return `${eok}억 ${Math.round(rem/10000000)}천만 원`;
+    if (rem >= 1000000) return `${eok}억 ${Math.round(rem/1000000)}백만 원`;
+    return `${eok}억 원`;
+  }
+  if (n >= 10000) return `${Math.round(n/10000).toLocaleString()}만 원`;
+  return `${n.toLocaleString()}원`;
+};
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// 날짜 라벨
+const today = new Date();
+const dayName = ['일','월','화','수','목','금','토'][today.getDay()];
+document.getElementById('dateLabel').textContent =
+  `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일 ${dayName}요일 기준`;
+
+/* ==================== 데이터 로드 ==================== */
+async function loadData() {
+  try {
+    const [s, r, i, c] = await Promise.all([
+      fetch('sales.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
+      fetch('receivable.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
+      fetch('inventory.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
+      fetch('clients.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
+    ]);
+    SALES = (s && s.rows) ? s.rows : [];
+    RECV = (r && r.rows) ? r.rows : [];
+    INV = (i && i.rows) ? i.rows : [];
+    CLIENTS = (c && c.rows) ? c.rows : [];
+
+    document.getElementById('loadingBox').style.display = 'none';
+    document.getElementById('mainBox').style.display = 'block';
+
+    renderKPIs();
+    renderTrendChart();
+  } catch (e) {
+    document.getElementById('loadingBox').innerHTML = `<div style="color:var(--danger)">❌ ${e.message}</div>`;
+  }
+}
+
+/* ==================== KPI 렌더 ==================== */
+function renderKPIs() {
+  const now = new Date();
+  const cy = now.getFullYear();
+  const cm = now.getMonth() + 1;
+  const thisYM = `${cy}-${String(cm).padStart(2,'0')}`;
+  const lastYearYM = `${cy-1}-${String(cm).padStart(2,'0')}`;
+
+  // 이번달 매출
+  const thisMSales = SALES.filter(r => r._month === thisYM).reduce((s,r) => s + (r.금액||0), 0);
+  const thisMCount = SALES.filter(r => r._month === thisYM).length;
+  document.getElementById('kpiThisMonth').textContent = fmt(thisMSales);
+  document.getElementById('kpiThisMonthSub').innerHTML =
+    `${thisMCount}건 거래 · ${cm}월 누적`;
+
+  // 전년 동월 대비
+  const lastYSales = SALES.filter(r => r._month === lastYearYM).reduce((s,r) => s + (r.금액||0), 0);
+  const yoyEl = document.getElementById('kpiYoY');
+  const yoySubEl = document.getElementById('kpiYoYSub');
+  if (lastYSales > 0) {
+    const rate = ((thisMSales - lastYSales) / lastYSales) * 100;
+    const grew = rate >= 0;
+    yoyEl.textContent = (grew ? '+' : '') + rate.toFixed(1) + '%';
+    yoyEl.className = 'value ' + (grew ? 'ok' : 'danger');
+    yoySubEl.innerHTML = `<span class="arrow ${grew?'up':'down'}">${grew?'▲':'▼'}</span> 전년 ${cm}월 ${fmt(lastYSales)} 대비`;
+  } else {
+    yoyEl.textContent = '-';
+    yoyEl.className = 'value';
+    yoySubEl.textContent = '전년 동월 데이터 없음';
+  }
+
+  // 미수금
+  const totalRecv = RECV.reduce((s,r) => s + (r.미수금||0), 0);
+  const recvCnt = RECV.length;
+  const bigRecv = RECV.filter(r => r.미수금 >= 50000000).length;
+  document.getElementById('kpiRecv').textContent = fmt(totalRecv);
+  document.getElementById('kpiRecvSub').innerHTML =
+    `${recvCnt}거래처 · 5천만 이상 ${bigRecv}건`;
+
+  // 부족·주의 재고
+  const shortCnt = INV.filter(r => (r.기말재고||0) < 10).length;
+  const danger = INV.filter(r => (r.기말재고||0) <= 0).length;
+  document.getElementById('kpiShort').textContent = fmtNum(shortCnt) + '건';
+  document.getElementById('kpiShortSub').innerHTML =
+    `품절·부족 ${danger}건 / 주의 ${shortCnt - danger}건`;
+
+  // 최근 거래
+  const sortedSales = SALES.slice().sort((a,b) => (b.날짜||'').localeCompare(a.날짜||''));
+  const lastDate = sortedSales[0]?.날짜 || '-';
+  const lastDayCount = sortedSales.filter(r => r.날짜 === lastDate).length;
+  const lastDaySum = sortedSales.filter(r => r.날짜 === lastDate).reduce((s,r) => s + (r.금액||0), 0);
+  document.getElementById('kpiRecent').textContent = fmtNum(lastDayCount) + '건';
+  document.getElementById('kpiRecentSub').innerHTML =
+    `${lastDate} · ${fmt(lastDaySum)}`;
+}
+
+/* ==================== 트렌드 차트 ==================== */
+function renderTrendChart() {
+  // 최근 12개월
+  const months = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  const data = months.map(m => SALES.filter(r => r._month === m).reduce((s,r) => s + (r.금액||0), 0));
+
+  new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: {
+      labels: months.map(m => m.slice(2,4)+'/'+m.slice(5)),
+      datasets: [{
+        label: '매출',
+        data: data,
+        backgroundColor: data.map((v, i) => i === months.length - 1 ? '#1D9E75' : '#9C9A93'),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+      scales: {
+        y: { ticks: { callback: v => Math.round(v/10000).toLocaleString() + '만' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+/* ==================== 음성 ==================== */
+const VOICE_OK = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+let recog = null, listening = false;
+
+// 음성 목록 미리 로드 (Chrome은 비동기로 채워짐)
+let _voicesReady = false;
+let _koVoice = null;
+function loadVoices() {
+  const voices = speechSynthesis.getVoices();
+  if (voices.length > 0) {
+    _voicesReady = true;
+    _koVoice = voices.find(v => v.lang === 'ko-KR')
+            || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ko'))
+            || null;
+    console.log('[TTS] Voices loaded:', voices.length, '/ Korean voice:', _koVoice ? _koVoice.name : 'NONE');
+  }
+}
+if ('speechSynthesis' in window) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function speak(text) {
+  if (voiceMuted) return;
+  if (!('speechSynthesis' in window)) {
+    console.warn('[TTS] SpeechSynthesis 미지원');
+    return;
+  }
+  // 진행 중인 음성 정리
+  try { speechSynthesis.cancel(); } catch(e) {}
+
+  // Chrome 버그 회피: cancel 직후 50ms 지연
+  setTimeout(() => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ko-KR';
+    u.rate = 1.05;
+    u.pitch = 1;
+    u.volume = 1.0;
+    if (_koVoice) u.voice = _koVoice;
+    u.onstart = () => console.log('[TTS] 시작:', text.slice(0,40));
+    u.onerror = (e) => console.error('[TTS] 오류:', e.error || e);
+    u.onend = () => console.log('[TTS] 종료');
+    try {
+      speechSynthesis.speak(u);
+      // Chrome 15초 무음 버그 회피
+      const keep = setInterval(() => {
+        if (!speechSynthesis.speaking) { clearInterval(keep); return; }
+        speechSynthesis.pause(); speechSynthesis.resume();
+      }, 8000);
+    } catch (e) {
+      console.error('[TTS] speak 실패:', e);
+    }
+  }, 50);
+}
+
+function ttsTest() {
+  if (!('speechSynthesis' in window)) {
+    alert('이 브라우저는 음성 출력(TTS)을 지원하지 않습니다.');
+    return;
+  }
+  const voices = speechSynthesis.getVoices();
+  const koVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
+  let info = `브라우저 음성 엔진 진단\n\n`;
+  info += `• 전체 음성 목록: ${voices.length}개\n`;
+  info += `• 한국어 음성: ${koVoices.length}개\n`;
+  if (koVoices.length > 0) {
+    info += `• 사용될 한국어 음성: ${koVoices[0].name} (${koVoices[0].lang})\n`;
+  } else {
+    info += `\n⚠️ 한국어 음성이 시스템에 설치되지 않았습니다.\n`;
+    info += `Windows: 설정 > 시간 및 언어 > 음성 > 음성 추가에서 "한국어" 추가\n`;
+    info += `Mac: 시스템 설정 > 손쉬운 사용 > 음성 콘텐츠 > 시스템 음성 > 한국어 다운로드\n`;
+    info += `\n그 전까지는 기본 음성으로 한국어 텍스트를 읽어드립니다 (어색할 수 있음)`;
+  }
+  alert(info);
+  // 실제 테스트 음성 재생
+  setTimeout(() => speak('안녕하세요. 음성 출력 테스트입니다. 잘 들리시면 성공입니다.'), 200);
+}
+function setVoiceStatus(msg, isListening) {
+  const el = document.getElementById('voiceStatus');
+  el.textContent = msg;
+  el.classList.toggle('listening', !!isListening);
+}
+function showAnswer(heard, ans) {
+  const el = document.getElementById('voiceAnswer');
+  el.innerHTML = `<div class="heard">🗣️ "${heard}"</div><div>💬 ${ans}</div>`;
+  el.classList.add('show');
+}
+
+if (VOICE_OK) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recog = new SR();
+  recog.lang = 'ko-KR'; recog.continuous = false; recog.interimResults = false;
+  recog.onstart = () => {
+    listening = true;
+    document.getElementById('bigMic').classList.add('listening');
+    setVoiceStatus('듣고 있어요... 말씀하세요', true);
+  };
+  recog.onend = () => {
+    listening = false;
+    document.getElementById('bigMic').classList.remove('listening');
+    if (document.getElementById('voiceStatus').textContent.startsWith('듣')) {
+      setVoiceStatus('마이크를 누르고 말씀하세요');
+    }
+  };
+  recog.onerror = (e) => {
+    listening = false;
+    document.getElementById('bigMic').classList.remove('listening');
+    setVoiceStatus(e.error === 'no-speech' ? '말소리를 못 들었습니다. 다시 눌러주세요' : '음성 오류: ' + e.error);
+  };
+  recog.onresult = (e) => handleVoice(e.results[0][0].transcript);
+}
+
+document.getElementById('bigMic').addEventListener('click', () => {
+  if (!VOICE_OK) { alert('Chrome/Edge 브라우저에서 사용해주세요'); return; }
+  if (listening) { recog.stop(); return; }
+  try { recog.start(); } catch(e) { setVoiceStatus('마이크를 시작할 수 없어요'); }
+});
+
+document.getElementById('voiceTest').addEventListener('click', ttsTest);
+document.getElementById('voiceMute').addEventListener('click', () => {
+  voiceMuted = !voiceMuted;
+  sessionStorage.setItem('smtVoiceMuted', voiceMuted ? '1' : '0');
+  const btn = document.getElementById('voiceMute');
+  btn.textContent = voiceMuted ? '🔇 음성 꺼짐' : '🔊 음성 켜짐';
+  btn.classList.toggle('muted', voiceMuted);
+  if (voiceMuted) speechSynthesis.cancel();
+  toast(voiceMuted ? '음성 답변 끔' : '음성 답변 켬');
+});
+// 초기 상태 반영
+if (voiceMuted) {
+  const btn = document.getElementById('voiceMute');
+  btn.textContent = '🔇 음성 꺼짐';
+  btn.classList.add('muted');
+}
+
+// 예시 버튼 클릭 시 그대로 처리
+document.querySelectorAll('.voice-examples .ex').forEach(b => {
+  b.addEventListener('click', () => handleVoice(b.dataset.ex));
+});
+
+/* ==================== 음성 명령 처리 ==================== */
+const ITEM_ALIASES = {
+  '혼다발전기|혼다\\s*발전기':['EU','EG','ER','EZ','EP'],
+  '혼다':['EU','EG','ER','EZ','GX','GP','GK','WB','GW','HCR'],
+  '재커리|잭커리':['JE-','JS-','JBP','JPC','재커리'],
+  '블루에티|블루에띠':['EB','AC180','PV','블루에티','블루에띠'],
+  '예초기':['예초기','KE4','KS4','TB4','BK4','GT4'],
+  '펌프|양수기':['WP','KWP','LWP','GPW','양수기','분무기','LX35'],
+  '송풍기|블로워':['BL9','BLX','송풍','블로워'],
+};
+
+function findItemFilter(kw) {
+  if (!kw) return null;
+  for (const [a, codes] of Object.entries(ITEM_ALIASES)) {
+    if (new RegExp(a, 'i').test(kw)) {
+      return { name: kw, check: r => {
+        const t = `${r.품목명||''} ${r.품목코드||''} ${r.규격||''}`.toUpperCase();
+        return codes.some(c => t.includes(c.toUpperCase()));
+      }};
+    }
+  }
+  const norm = kw.toUpperCase().replace(/\s+/g,'');
+  if (norm.length < 2) return null;
+  return { name: kw, check: r => `${r.품목명||''} ${r.품목코드||''}`.toUpperCase().replace(/\s+/g,'').includes(norm) };
+}
+
+function findClient(query) {
+  if (!query || !CLIENTS.length) return null;
+  const q = String(query).trim().toLowerCase().replace(/\s+/g,'');
+  if (q.length < 2) return null;
+  let m = CLIENTS.find(c => c.거래처명.toLowerCase().replace(/\s+/g,'') === q);
+  if (m) return m;
+  const active = CLIENTS.filter(c => !c.폐업일자);
+  m = active.find(c => c.거래처명.toLowerCase().replace(/\s+/g,'').startsWith(q));
+  if (m) return m;
+  return active.find(c => c.거래처명.toLowerCase().replace(/\s+/g,'').includes(q)) || null;
+}
+
+function extractKeyword(t) {
+  let s = ' ' + t + ' ';
+  s = s.replace(/(올해|금년|작년|전년|지난해|이번\s*달|금월|당월|이달|지난달|전월|상반기|하반기|\d+\s*분기|\d+\s*월|일분기|이분기|삼분기|사분기)/g, ' ');
+  s = s.replace(/(매출|판매|판매현황|재고|재고현황|미수금|미수|받을\s*돈|보여줘|보여|얼마|얼만|얼마야|알려줘|좀|대비|비교|성장|감소|증가|얼마나|늘었|줄었|현황|상황|이번|총|합계|요약)/g, ' ');
+  s = s.replace(/[은는이가을를도만에서와과의]/g, '');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+function parsePeriod(text) {
+  const now = new Date();
+  const cy = now.getFullYear(), cm = now.getMonth()+1;
+  const p = { year: cy, unit: 'year', label: '올해' };
+  if (/작년|전년|지난해/.test(text)) { p.year = cy-1; p.label = '작년'; }
+  else if (/재작년/.test(text)) { p.year = cy-2; p.label = '재작년'; }
+
+  if (/이번\s*달|금월|당월|이달/.test(text)) { p.unit='month'; p.month=cm; p.label=`이번달 (${cy}년 ${cm}월)`; }
+  else if (/지난달|전월/.test(text)) {
+    const d = new Date(cy, cm-2, 1); p.unit='month'; p.year=d.getFullYear(); p.month=d.getMonth()+1;
+    p.label = `지난달 (${p.year}년 ${p.month}월)`;
+  }
+  else if (/상반기/.test(text)) { p.unit='half'; p.half=1; p.label=`${p.year}년 상반기`; }
+  else if (/하반기/.test(text)) { p.unit='half'; p.half=2; p.label=`${p.year}년 하반기`; }
+  else if (/(1\s*분기|일\s*분기)/.test(text)) { p.unit='quarter'; p.quarter=1; p.label=`${p.year}년 1분기`; }
+  else if (/(2\s*분기|이\s*분기)/.test(text)) { p.unit='quarter'; p.quarter=2; p.label=`${p.year}년 2분기`; }
+  else if (/(3\s*분기|삼\s*분기)/.test(text)) { p.unit='quarter'; p.quarter=3; p.label=`${p.year}년 3분기`; }
+  else if (/(4\s*분기|사\s*분기)/.test(text)) { p.unit='quarter'; p.quarter=4; p.label=`${p.year}년 4분기`; }
+  else {
+    const mm = text.match(/(\d{1,2})\s*월/);
+    if (mm) { p.unit='month'; p.month=Number(mm[1]); p.label=`${p.year}년 ${p.month}월`; }
+  }
+  if (p.unit === 'year') p.label = `${p.year}년`;
+  return p;
+}
+
+function periodMonths(p) {
+  const list = [];
+  if (p.unit === 'year') for (let m=1; m<=12; m++) list.push({y:p.year, m});
+  else if (p.unit === 'half') { const s = p.half===1?1:7; for (let m=s; m<s+6; m++) list.push({y:p.year,m}); }
+  else if (p.unit === 'quarter') { const s = (p.quarter-1)*3+1; for (let m=s; m<s+3; m++) list.push({y:p.year,m}); }
+  else if (p.unit === 'month') list.push({y:p.year,m:p.month});
+  return list;
+}
+
+function periodSales(p, filter) {
+  const months = periodMonths(p);
+  let total = 0, count = 0;
+  SALES.forEach(r => {
+    const yy = Number(r._month.slice(0,4)), mm = Number(r._month.slice(5,7));
+    if (months.some(x => x.y===yy && x.m===mm)) {
+      if (filter && !filter.check(r)) return;
+      total += r.금액 || 0; count++;
+    }
+  });
+  return { total, count };
+}
+
+function handleVoice(text) {
+  const t = text.trim();
+  let answer = '';
+
+  // 1) 요약 → 새로고침
+  if (/^요약$|새로고침|화면\s*갱신/.test(t)) {
+    renderKPIs(); renderTrendChart();
+    answer = '경영 요약을 갱신했습니다';
+    speak(answer); showAnswer(t, answer); return;
+  }
+  // 2) 대시보드 / 출장
+  if (/^대시보드|상세|차트/.test(t)) {
+    answer = '대시보드 화면으로 이동합니다';
+    speak(answer); showAnswer(t, answer);
+    setTimeout(() => location.href = 'dashboard.html', 1000); return;
+  }
+  if (/출장|일정/.test(t)) {
+    answer = '출장 일정 화면으로 이동합니다';
+    speak(answer); showAnswer(t, answer);
+    setTimeout(() => location.href = 'module_trip.html', 1000); return;
+  }
+
+  const kw = extractKeyword(t);
+  const client = findClient(kw);
+  // 3) 거래처 정보
+  if (client) {
+    const sumRows = SALES.filter(r => r.거래처명 === client.거래처명);
+    const total = sumRows.reduce((s,r) => s + r.금액, 0);
+    const recvAmt = (RECV.find(r => r.거래처명 === client.거래처명) || {}).미수금 || 0;
+    const parts = [`${client.거래처명}`];
+    if (client.대표자) parts.push(`대표 ${client.대표자}`);
+    if (sumRows.length > 0) parts.push(`누적 매출 ${fmtSpoken(total)}, ${sumRows.length}건`);
+    if (recvAmt > 0) parts.push(`미수금 ${fmtSpoken(recvAmt)}`);
+    if (sumRows.length === 0 && recvAmt === 0) parts.push('판매·미수 기록 없음');
+    answer = parts.join('. ');
+    speak(answer); showAnswer(t, answer); return;
+  }
+
+  // 4) 미수금
+  if (/미수|받을\s*돈/.test(t)) {
+    const total = RECV.reduce((s,r) => s + r.미수금, 0);
+    answer = `총 미수금은 ${fmtSpoken(total)}이고 거래처는 ${RECV.length}곳입니다`;
+    speak(answer); showAnswer(t, answer); return;
+  }
+  // 5) 부족 재고
+  if (/부족|품절/.test(t) && /재고/.test(t)) {
+    const sh = INV.filter(r => r.기말재고 < 10).length;
+    const dn = INV.filter(r => r.기말재고 <= 0).length;
+    answer = `부족·주의 품목은 ${sh}개이고, 그 중 품절·부족이 ${dn}개입니다`;
+    speak(answer); showAnswer(t, answer); return;
+  }
+
+  const filter = findItemFilter(kw);
+
+  // 6) 비교 명령
+  if (/대비|비교|얼마나\s*(늘|줄|성장|증가|감소)/.test(t)) {
+    const ref = parsePeriod(t);
+    const now = new Date();
+    const cur = { ...ref, year: now.getFullYear() };
+    if (ref.year === now.getFullYear()) { ref.year = now.getFullYear() - 1; ref.label = ref.label.replace(String(now.getFullYear()), String(now.getFullYear()-1)); }
+    if (cur.unit === 'half') cur.label = `${now.getFullYear()}년 ${cur.half===1?'상반기':'하반기'}`;
+    else if (cur.unit === 'quarter') cur.label = `${now.getFullYear()}년 ${cur.quarter}분기`;
+    else if (cur.unit === 'month') cur.label = `${now.getFullYear()}년 ${cur.month}월`;
+    else cur.label = `올해 (${now.getFullYear()}년)`;
+    const c = periodSales(cur, filter), r = periodSales(ref, filter);
+    const prefix = filter ? `${filter.name} ` : '';
+    if (r.total === 0 && c.total === 0) answer = `${prefix}${ref.label}과 ${cur.label} 모두 데이터가 없습니다`;
+    else if (r.total === 0) answer = `${prefix}${ref.label} 데이터는 없고, ${cur.label}은 ${fmtSpoken(c.total)}입니다`;
+    else if (c.total === 0) answer = `${prefix}${cur.label} 데이터가 아직 없습니다. ${ref.label}은 ${fmtSpoken(r.total)}이었습니다`;
+    else {
+      const diff = c.total - r.total;
+      const rate = (diff / r.total) * 100;
+      const word = diff >= 0 ? '늘었습니다' : '줄었습니다';
+      answer = `${prefix}${cur.label}은 ${fmtSpoken(c.total)}, ${ref.label}은 ${fmtSpoken(r.total)}로, ${fmtSpoken(Math.abs(diff))}, 약 ${Math.abs(rate).toFixed(1)} 퍼센트 ${word}`;
+    }
+    speak(answer); showAnswer(t, answer); return;
+  }
+
+  // 7) 매출/판매 질의
+  if (/매출|판매/.test(t) || /얼마|얼만/.test(t)) {
+    const p = parsePeriod(t);
+    const r = periodSales(p, filter);
+    const prefix = filter ? `${filter.name} ` : '';
+    if (r.total === 0) answer = `${prefix}${p.label} 매출 데이터가 없습니다`;
+    else answer = `${prefix}${p.label} 매출은 ${fmtSpoken(r.total)}${filter ? ', '+r.count+'건' : ''}입니다`;
+    speak(answer); showAnswer(t, answer); return;
+  }
+
+  answer = '명령을 이해하지 못했어요. "이번달 매출", "전년 하반기 대비" 등으로 말씀해주세요';
+  speak(answer); showAnswer(t, answer);
+}
+
+/* ==================== 출발 전 브리핑 ==================== */
+let briefingPlaying = false;
+let briefingQueue = [];
+let briefingIndex = 0;
+
+function buildBriefing() {
+  const today = new Date();
+  const cy = today.getFullYear();
+  const cm = today.getMonth() + 1;
+  const dayName = ['일','월','화','수','목','금','토'][today.getDay()];
+  const dateStr = `${cy}년 ${cm}월 ${today.getDate()}일 ${dayName}요일`;
+  const thisYM = `${cy}-${String(cm).padStart(2,'0')}`;
+  const lastYearYM = `${cy-1}-${String(cm).padStart(2,'0')}`;
+
+  const sentences = [];
+  sentences.push(`${dateStr}, 에스엠티서울기연 경영 요약입니다.`);
+
+  // 매출
+  const thisMSales = SALES.filter(r => r._month === thisYM).reduce((s,r) => s + (r.금액||0), 0);
+  const thisMCount = SALES.filter(r => r._month === thisYM).length;
+  if (thisMSales > 0) {
+    sentences.push(`이번달 ${cm}월 매출은 ${fmtSpoken(thisMSales)}, 거래 건수는 ${thisMCount}건입니다.`);
+    const lastYSales = SALES.filter(r => r._month === lastYearYM).reduce((s,r) => s + (r.금액||0), 0);
+    if (lastYSales > 0) {
+      const rate = ((thisMSales - lastYSales) / lastYSales) * 100;
+      const word = rate >= 0 ? '증가했습니다' : '감소했습니다';
+      sentences.push(`전년 동월 ${fmtSpoken(lastYSales)} 대비, 약 ${Math.abs(rate).toFixed(1)} 퍼센트 ${word}.`);
+    }
+  } else {
+    sentences.push(`이번달 ${cm}월 매출 데이터는 아직 없습니다.`);
+  }
+
+  // 미수금
+  const totalRecv = RECV.reduce((s,r) => s + r.미수금, 0);
+  const bigRecv = RECV.filter(r => r.미수금 >= 50000000).length;
+  if (totalRecv > 0) {
+    sentences.push(`총 미수금은 ${fmtSpoken(totalRecv)}이고, 거래처는 ${RECV.length}곳입니다.`);
+    if (bigRecv > 0) {
+      sentences.push(`그 중 5천만 원 이상 미수 거래처가 ${bigRecv}곳 있습니다.`);
+    }
+  }
+
+  // 재고
+  const shortCnt = INV.filter(r => r.기말재고 < 10).length;
+  const dangerCnt = INV.filter(r => r.기말재고 <= 0).length;
+  if (shortCnt > 0) {
+    sentences.push(`재고는 부족 또는 주의 품목이 ${shortCnt}개이고, 그 중 품절·부족이 ${dangerCnt}개입니다.`);
+  } else {
+    sentences.push(`재고는 모두 정상 수준입니다.`);
+  }
+
+  // 최근 거래
+  const sortedSales = SALES.slice().sort((a,b) => (b.날짜||'').localeCompare(a.날짜||''));
+  const lastDate = sortedSales[0]?.날짜;
+  if (lastDate) {
+    const lastDayCount = sortedSales.filter(r => r.날짜 === lastDate).length;
+    const lastDaySum = sortedSales.filter(r => r.날짜 === lastDate).reduce((s,r) => s + (r.금액||0), 0);
+    const dParts = lastDate.split('-');
+    sentences.push(`최근 거래는 ${dParts[1]}월 ${dParts[2]}일자 ${lastDayCount}건, 총 ${fmtSpoken(lastDaySum)}입니다.`);
+  }
+
+  // 이번달 매출 상위 3 거래처
+  const monthByClient = {};
+  SALES.filter(r => r._month === thisYM).forEach(r => {
+    if (r.거래처명) monthByClient[r.거래처명] = (monthByClient[r.거래처명] || 0) + r.금액;
+  });
+  const top3 = Object.entries(monthByClient).sort((a,b) => b[1] - a[1]).slice(0, 3);
+  if (top3.length > 0) {
+    const names = top3.map(([n]) => n).join(', ');
+    sentences.push(`${cm}월 매출 상위 거래처는 ${names} 순서입니다.`);
+  }
+
+  sentences.push(`이상 브리핑을 마칩니다. 안전 운전 부탁드립니다.`);
+  return sentences;
+}
+
+function showBriefingProgress() {
+  const wrap = document.getElementById('briefingProgress');
+  if (briefingQueue.length === 0) { wrap.classList.remove('show'); return; }
+  wrap.classList.add('show');
+  wrap.innerHTML = briefingQueue.map((s, i) => `<div class="b-step" data-i="${i}">${s}</div>`).join('');
+}
+function highlightBriefing(i) {
+  document.querySelectorAll('#briefingProgress .b-step').forEach(el => {
+    const idx = Number(el.dataset.i);
+    el.classList.remove('active', 'done');
+    if (idx < i) el.classList.add('done');
+    else if (idx === i) el.classList.add('active');
+  });
+  // 자동 스크롤 (현재 문장이 화면에 보이도록)
+  const cur = document.querySelector(`#briefingProgress .b-step[data-i="${i}"]`);
+  if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateBriefingBtn() {
+  const btn = document.getElementById('briefingBtn');
+  if (briefingPlaying) {
+    btn.classList.add('playing');
+    btn.innerHTML = '<span class="ico">⏹️</span><span>중지</span>';
+  } else {
+    btn.classList.remove('playing');
+    btn.innerHTML = '<span class="ico">▶️</span><span>출발 전 브리핑 듣기</span>';
+  }
+}
+
+function playBriefingNext() {
+  if (!briefingPlaying) return;
+  if (briefingIndex >= briefingQueue.length) {
+    briefingPlaying = false;
+    updateBriefingBtn();
+    // 모든 단계 완료 표시
+    document.querySelectorAll('#briefingProgress .b-step').forEach(el => {
+      el.classList.remove('active');
+      el.classList.add('done');
+    });
+    return;
+  }
+  highlightBriefing(briefingIndex);
+  const u = new SpeechSynthesisUtterance(briefingQueue[briefingIndex]);
+  u.lang = 'ko-KR';
+  u.rate = 1.0;
+  u.pitch = 1;
+  u.volume = 1.0;
+  if (_koVoice) u.voice = _koVoice;
+  u.onend = () => {
+    briefingIndex++;
+    // 문장 사이 약간의 호흡
+    setTimeout(playBriefingNext, 250);
+  };
+  u.onerror = (e) => {
+    console.error('[Briefing] error:', e);
+    briefingIndex++;
+    setTimeout(playBriefingNext, 250);
+  };
+  try { speechSynthesis.speak(u); } catch (e) { console.error(e); }
+}
+
+function startBriefing() {
+  if (briefingPlaying) {
+    stopBriefing();
+    return;
+  }
+  if (!('speechSynthesis' in window)) {
+    alert('이 브라우저는 음성 출력을 지원하지 않습니다.');
+    return;
+  }
+  // 이전 음성 정리
+  try { speechSynthesis.cancel(); } catch(e) {}
+  // 음소거 상태면 잠깐 풀기 (브리핑은 들려야 의미가 있음)
+  const wasMuted = voiceMuted;
+  if (wasMuted) {
+    voiceMuted = false;
+    toast('브리핑 동안 음성 답변을 일시적으로 켭니다');
+  }
+  briefingQueue = buildBriefing();
+  briefingIndex = 0;
+  briefingPlaying = true;
+  showBriefingProgress();
+  updateBriefingBtn();
+  // 약간 지연 후 시작 (cancel 효과 적용 대기)
+  setTimeout(playBriefingNext, 100);
+}
+
+function stopBriefing() {
+  briefingPlaying = false;
+  try { speechSynthesis.cancel(); } catch(e) {}
+  updateBriefingBtn();
+  toast('브리핑 중지');
+}
+
+document.getElementById('briefingBtn').addEventListener('click', startBriefing);
+
+loadData();
+</script>
+</body>
+</html>

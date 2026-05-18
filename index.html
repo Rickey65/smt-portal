@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>SMT서울기연·건웅 통합 업무 포털</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+/* === 로그인 게이트 === */
+.login-overlay {
+  position: fixed; inset: 0; background: rgba(15,30,55,0.95);
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  color: white;
+}
+.login-box {
+  background: white; color: var(--c-text); padding: 36px 40px;
+  border-radius: 12px; min-width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.login-box h2 { margin: 0 0 8px; font-size: 22px; }
+.login-box p { color: var(--c-text-2); margin: 0 0 20px; font-size: 13px; }
+.login-box input {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--c-border);
+  border-radius: 6px; font-size: 16px; font-family: var(--font-sans);
+}
+.login-box button {
+  width: 100%; background: var(--c-smt); color: white; border: none;
+  padding: 12px; border-radius: 6px; font-size: 15px; font-weight: 700;
+  cursor: pointer; margin-top: 10px;
+}
+.login-err { color: var(--c-danger); font-size: 13px; margin-top: 6px; min-height: 18px; }
+
+/* === 메인 레이아웃 === */
+.portal-header {
+  background: white; padding: 18px 24px; border-bottom: 1px solid var(--c-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.portal-header h1 { margin: 0; font-size: 22px; color: var(--c-smt); }
+.portal-header .sub { color: var(--c-text-2); font-size: 13px; margin-top: 2px; }
+
+.portal-body { max-width: 1280px; margin: 0 auto; padding: 24px; }
+
+/* === KPI 카드 === */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px; margin-bottom: 28px;
+}
+.kpi {
+  background: white; border-radius: var(--radius); padding: 18px 20px;
+  border-left: 4px solid var(--c-smt); box-shadow: var(--shadow-sm);
+}
+.kpi .label { color: var(--c-text-2); font-size: 13px; margin-bottom: 6px; }
+.kpi .value { font-size: 26px; font-weight: 700; color: var(--c-text); }
+.kpi .sub { color: var(--c-text-2); font-size: 12px; margin-top: 4px; }
+.kpi.warn { border-left-color: var(--c-warn); }
+.kpi.danger { border-left-color: var(--c-danger); }
+.kpi.ok { border-left-color: var(--c-ok); }
+
+/* === 모듈 타일 === */
+.section-title { font-size: 18px; margin: 20px 0 12px; color: var(--c-text); }
+.tile-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.tile {
+  background: white; border-radius: var(--radius); padding: 22px;
+  box-shadow: var(--shadow-sm); text-decoration: none; color: var(--c-text);
+  display: flex; flex-direction: column; gap: 8px; transition: transform 0.15s, box-shadow 0.15s;
+  border-top: 4px solid var(--c-smt);
+}
+.tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.tile .icon { font-size: 36px; line-height: 1; margin-bottom: 8px; }
+.tile .title { font-size: 17px; font-weight: 700; }
+.tile .desc { color: var(--c-text-2); font-size: 13px; min-height: 36px; }
+.tile .status {
+  font-size: 11px; padding: 3px 8px; border-radius: 10px;
+  background: #E3F5EC; color: var(--c-ok); display: inline-block; margin-top: 4px;
+  align-self: flex-start;
+}
+.tile .status.coming { background: #FFF1D6; color: #C47700; }
+.tile.disabled { opacity: 0.55; cursor: default; pointer-events: none; }
+.tile.green { border-top-color: var(--c-ok); }
+.tile.purple { border-top-color: var(--c-gw); }
+.tile.orange { border-top-color: var(--c-warn); }
+.tile.blue { border-top-color: var(--c-smt); }
+
+.footer { text-align: center; color: var(--c-text-2); font-size: 12px; padding: 24px; }
+</style>
+</head>
+<body>
+
+<!-- 로그인 게이트 -->
+<div class="login-overlay" id="login">
+  <div class="login-box">
+    <h2>업무 포털 접속</h2>
+    <p>사내 운영 시스템입니다. 비밀번호를 입력하세요.</p>
+    <input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">접속</button>
+    <div class="login-err" id="err"></div>
+  </div>
+</div>
+
+<!-- 메인 -->
+<div id="main" style="display:none">
+  <header class="portal-header">
+    <div>
+      <h1>SMT서울기연·건웅 통합 업무 포털</h1>
+      <div class="sub" id="company-sub">양사 통합 모드 · 오늘 <span id="today"></span></div>
+    </div>
+  </header>
+  
+  <div class="portal-body">
+    
+    <!-- KPI 카드 -->
+    <div class="kpi-grid" id="kpis">
+      <div class="kpi"><div class="label">이번달 매출</div><div class="value" id="kpi-sales">—</div><div class="sub" id="kpi-sales-sub"></div></div>
+      <div class="kpi ok"><div class="label">전년 동월 대비</div><div class="value" id="kpi-yoy">—</div><div class="sub" id="kpi-yoy-sub"></div></div>
+      <div class="kpi warn"><div class="label">총 미수금</div><div class="value" id="kpi-unpaid">—</div><div class="sub" id="kpi-unpaid-sub"></div></div>
+      <div class="kpi danger"><div class="label">부족 재고</div><div class="value" id="kpi-stock">—</div><div class="sub" id="kpi-stock-sub"></div></div>
+      <div class="kpi"><div class="label">활성 거래처</div><div class="value" id="kpi-clients">—</div><div class="sub" id="kpi-clients-sub"></div></div>
+    </div>
+    
+    <!-- 모듈 타일 -->
+    <h2 class="section-title">📊 조회·분석</h2>
+    <div class="tile-grid">
+      <a href="dashboard.html" class="tile green">
+        <div class="icon">📊</div>
+        <div class="title">경영 현황 대시보드</div>
+        <div class="desc">매출·재고·미수·실적비교 한눈에 (10탭)</div>
+        <span class="status">이용 가능</span>
+      </a>
+      <a href="module_ceo.html" class="tile orange">
+        <div class="icon">📋</div>
+        <div class="title">대표이사 요약</div>
+        <div class="desc">핵심 지표 5개 + 음성 조회 + 출발 전 브리핑</div>
+        <span class="status">이용 가능</span>
+      </a>
+      <a href="module_trip.html" class="tile blue">
+        <div class="icon">🗓️</div>
+        <div class="title">출장 일정 관리</div>
+        <div class="desc">거래처 6,753곳 + 최적 경로 + 맛집·숙소</div>
+        <span class="status">이용 가능</span>
+      </a>
+      <a href="module_catalog.html" class="tile orange">
+        <div class="icon">📖</div>
+        <div class="title">전자 카탈로그</div>
+        <div class="desc">회사 카탈로그 45페이지 (표지·1~44p)</div>
+        <span class="status">이용 가능</span>
+      </a>
+    </div>
+    
+    <h2 class="section-title">📝 영업·물류·회계</h2>
+    <div class="tile-grid">
+      <a href="module_invoice.html" class="tile blue">
+        <div class="icon">🧾</div>
+        <div class="title">거래명세표 발급</div>
+        <div class="desc">위하고 양식 즉시 PDF 발급, 양사 토글</div>
+        <span class="status">이용 가능 (베타)</span>
+      </a>
+      <a href="module_order.html" class="tile purple">
+        <div class="icon">📦</div>
+        <div class="title">영업 주문 처리</div>
+        <div class="desc">모바일 폼 입력 → PDF·폼택·택배·엑셀 자동</div>
+        <span class="status coming">곧 시작 (Phase 1)</span>
+      </a>
+      <a href="module_acct.html" class="tile orange">
+        <div class="icon">💰</div>
+        <div class="title">회계 처리</div>
+        <div class="desc">미수 자동 팩스·세금계산서·경비 자동 분류</div>
+        <span class="status coming">Phase 3</span>
+      </a>
+    </div>
+    
+    <h2 class="section-title">🔧 기타</h2>
+    <div class="tile-grid">
+      <a href="module_parts.html" class="tile blue">
+        <div class="icon">🔧</div>
+        <div class="title">부품 관리</div>
+        <div class="desc">대리점 요청·재고·가격·할인율 관리</div>
+        <span class="status coming">Phase 3+</span>
+      </a>
+      <a href="module_digital.html" class="tile purple">
+        <div class="icon">🛒</div>
+        <div class="title">디지털사업부</div>
+        <div class="desc">쇼핑몰·SNS·마케팅 통합 허브 (7카테고리)</div>
+        <span class="status coming">Phase 4+</span>
+      </a>
+      <a href="converter.html" class="tile">
+        <div class="icon">🔄</div>
+        <div class="title">데이터 변환기</div>
+        <div class="desc">위하고 Excel → 시스템 JSON (관리자용)</div>
+        <span class="status">관리자</span>
+      </a>
+    </div>
+    
+    <div class="footer">
+      © SMT서울기연·건웅 · v2.0 · 마지막 데이터 갱신: <span id="data-time">—</span>
+    </div>
+  </div>
+</div>
+
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
+<script>
+const PW = 'smt2026';
+
+function doLogin() {
+  const v = document.getElementById('pw').value;
+  if (v === PW) {
+    sessionStorage.setItem('auth', '1');
+    showMain();
+  } else {
+    document.getElementById('err').textContent = '비밀번호가 틀렸습니다';
+  }
+}
+
+function showMain() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  initPortal();
+}
+
+if (sessionStorage.getItem('auth') === '1') showMain();
+
+function initPortal() {
+  // 회사 토글 위젯
+  CompanyToggle.render(null);
+  
+  // 오늘 날짜
+  const now = new Date();
+  document.getElementById('today').textContent = 
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  
+  // 회사 토글 라벨
+  updateCompanyLabel();
+  
+  // KPI 로딩
+  loadKPIs();
+}
+
+function updateCompanyLabel() {
+  const c = Company.get();
+  const sub = document.getElementById('company-sub');
+  const label = c === 'ALL' ? '양사 통합 모드' : 
+                c === 'SMT' ? 'SMT서울기연 단독' : '주식회사건웅 단독';
+  sub.querySelector(':first-child') ? null : sub.firstChild.textContent = label + ' · 오늘 ';
+  sub.innerHTML = `${label} · 오늘 ${new Date().toISOString().slice(0,10)}`;
+  
+  // KPI 카드 좌측 색상 변경
+  document.querySelectorAll('.kpi').forEach(k => {
+    k.style.borderLeftColor = Company.color();
+  });
+}
+
+async function loadKPIs() {
+  try {
+    // 매출
+    const sales = await Data.sales([2025, 2026]);
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const lastYearMonth = `${now.getFullYear()-1}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    
+    const thisMonthSales = sales.filter(s => s._month === thisMonth).reduce((a,s)=>a+(s.공급가액||0),0);
+    const thisMonthCnt = sales.filter(s => s._month === thisMonth).length;
+    const lastYearSales = sales.filter(s => s._month === lastYearMonth).reduce((a,s)=>a+(s.공급가액||0),0);
+    
+    document.getElementById('kpi-sales').textContent = Fmt.won(thisMonthSales);
+    document.getElementById('kpi-sales-sub').textContent = `${thisMonthCnt}건 · ${thisMonth}`;
+    
+    if (lastYearSales > 0) {
+      const yoy = (thisMonthSales - lastYearSales) / lastYearSales * 100;
+      document.getElementById('kpi-yoy').textContent = (yoy>=0?'▲ ':'▼ ') + Math.abs(yoy).toFixed(1) + '%';
+      document.getElementById('kpi-yoy-sub').textContent = `전년 동월 ${Fmt.won(lastYearSales)}`;
+    } else {
+      document.getElementById('kpi-yoy').textContent = '—';
+      document.getElementById('kpi-yoy-sub').textContent = '전년 데이터 없음';
+    }
+    
+    // 미수
+    const rec = await Data.receivable();
+    let totalUnpaid = 0;
+    rec.forEach(c => {
+      totalUnpaid += (c.채권_잔액 ?? c.잔액 ?? 0);
+    });
+    const activeClients = rec.filter(c => (c.채권_잔액 ?? c.잔액 ?? 0) > 0).length;
+    document.getElementById('kpi-unpaid').textContent = Fmt.won(totalUnpaid);
+    document.getElementById('kpi-unpaid-sub').textContent = `${activeClients}거래처`;
+    
+    // 재고
+    const inv = await Data.inventory();
+    const shortage = inv.filter(i => {
+      const q = i.기말재고 || i.현재고 || 0;
+      return q <= 0;
+    }).length;
+    const lowStock = inv.filter(i => {
+      const q = i.기말재고 || i.현재고 || 0;
+      return q > 0 && q < 10;
+    }).length;
+    document.getElementById('kpi-stock').textContent = String(shortage + lowStock);
+    document.getElementById('kpi-stock-sub').textContent = `품절 ${shortage} / 주의 ${lowStock}`;
+    
+    // 거래처
+    const clients = await Data.clients();
+    document.getElementById('kpi-clients').textContent = clients.length.toLocaleString();
+    document.getElementById('kpi-clients-sub').textContent = '활성 등록';
+    
+    // 데이터 갱신 시간
+    document.getElementById('data-time').textContent = new Date().toISOString().slice(0,16).replace('T', ' ');
+  } catch(e) {
+    console.error('KPI 로딩 오류:', e);
+  }
+}
+</script>
+</body>
+</html>

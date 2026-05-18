@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>디지털사업부 · SMT서울기연</title>
+<style>
+  :root { --font-sans:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --bg:#F7F6F3;--surface:#fff;--border:#E5E3DD;--border-strong:#D4D2CB;
+    --text:#1A1A1A;--text-sec:#6B6963;--text-muted:#9C9A93;
+    --accent:#1D9E75;--accent-soft:#E8F5EF;--accent-dark:#146B4F;
+    --warn:#E89B3C;--danger:#D7493A;--info:#4A78C9;--purple:#7854A6; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+  .wrap{max-width:1200px;margin:0 auto;padding:32px 24px}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .breadcrumb{font-size:13px;color:var(--text-sec)}
+  .breadcrumb a{color:var(--accent);text-decoration:none;font-weight:500}
+  .hero{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 32px;margin-bottom:24px;border-top:4px solid var(--purple)}
+  .hero .ico{font-size:42px;margin-bottom:12px;line-height:1}
+  .hero h1{font-size:24px;margin-bottom:8px}
+  .hero p{color:var(--text-sec);font-size:14px;line-height:1.7}
+  .category{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:14px}
+  .category > h2{font-size:16px;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+  .category > h2 .cat-ico{font-size:22px}
+  .category > .cat-desc{color:var(--text-sec);font-size:13px;margin-bottom:16px}
+  .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+  .menu-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;transition:all .2s;cursor:pointer}
+  .menu-item:hover{border-color:var(--border-strong);background:#fff;transform:translateY(-1px)}
+  .menu-item .label{font-size:13.5px;font-weight:600;margin-bottom:3px}
+  .menu-item .descr{color:var(--text-sec);font-size:11.5px;line-height:1.5}
+  .menu-item .badge{position:absolute;top:10px;right:10px;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:600;background:#FEF5E7;color:#8B5A00}
+  .menu-item .badge.ext{background:#E3F0FB;color:#1E5A94}
+  .back-btn{background:transparent;border:1px solid var(--border-strong);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .back-btn:hover{background:var(--surface)}
+  .note{background:#F4EEFA;border-left:4px solid var(--purple);padding:14px 16px;border-radius:6px;color:#4A2F6E;font-size:13px;margin-top:20px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="breadcrumb"><a href="index.html">🏠 홈</a> &nbsp;›&nbsp; 디지털사업부</div>
+    <a class="back-btn" href="index.html">← 홈으로</a>
+  </header>
+
+  <div class="hero">
+    <div class="ico">🛒</div>
+    <h1>디지털사업부 통합 관리</h1>
+    <p>홈페이지·쇼핑몰·상세페이지 제작·유튜브·SNS·마케팅 등 디지털 사업 전반을 한 곳에서 관리합니다. 실제 작업은 외부 플랫폼(네이버·카페24·유튜브 등)에서 진행되지만, 본 모듈에서는 <strong>현황 조회·이력 관리·데이터 통합</strong>을 담당하여 전체 디지털 자산을 체계적으로 운영합니다. ⚡ 외부 플랫폼 바로가기 표시: <span class="badge ext" style="position:relative;top:auto;right:auto">외부</span></p>
+  </div>
+
+  <!-- 홈페이지 관리 -->
+  <div class="category">
+    <h2><span class="cat-ico">🏢</span> 홈페이지 관리</h2>
+    <div class="cat-desc">회사 공식 홈페이지 및 브랜드 사이트 운영·업데이트 관리</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">공식 홈페이지 운영</div><div class="descr">메인 배너·공지·소식 업데이트 이력 관리</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">브랜드 사이트</div><div class="descr">Honda·Jackery·Bluetti 등 브랜드별 랜딩</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">랜딩페이지 제작</div><div class="descr">이벤트·신제품 출시 전용 페이지</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">도메인/호스팅 관리</div><div class="descr">카페24·가비아 등 도메인 만료·갱신 현황</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">SSL 인증서 관리</div><div class="descr">HTTPS 보안 인증서 갱신 알림</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">방문자 통계</div><div class="descr">GA/네이버 애널리틱스 지표 요약</div></div>
+    </div>
+  </div>
+
+  <!-- 쇼핑몰 관리 -->
+  <div class="category">
+    <h2><span class="cat-ico">🛍️</span> 쇼핑몰 관리</h2>
+    <div class="cat-desc">B2B·B2C 모든 판매 채널의 상품·주문·배송·재고 통합 관리</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">B2B 쇼핑몰 (카페24)</div><div class="descr">대리점·업체 전용 도매 쇼핑몰 관리자</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">B2C 쇼핑몰</div><div class="descr">일반 소비자 대상 자사몰 관리자</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">네이버 스마트스토어</div><div class="descr">네이버쇼핑 입점 계정 관리</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">쿠팡 판매자센터</div><div class="descr">쿠팡·로켓배송 입점 관리</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">11번가 / G마켓</div><div class="descr">오픈마켓 추가 채널</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">주문 통합 조회</div><div class="descr">전 채널 주문을 한 화면에서 확인</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">재고 동기화</div><div class="descr">위하고 재고와 각 몰 재고 자동 연동</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">채널별 매출 비교</div><div class="descr">쇼핑몰별 일·월·분기 매출 추이</div></div>
+    </div>
+  </div>
+
+  <!-- 상세페이지 제작 -->
+  <div class="category">
+    <h2><span class="cat-ico">🎨</span> 상세페이지 제작</h2>
+    <div class="cat-desc">상품 상세·이벤트 배너·이미지 에셋 제작 및 자산 관리</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">신제품 상세페이지 등록</div><div class="descr">신규 출시 상품 상세페이지 작업 이력</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">이벤트 배너 관리</div><div class="descr">메인 배너·팝업 배너 교체 일정표</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">이미지 에셋 라이브러리</div><div class="descr">제품 이미지·로고·그래픽 소스 공용 저장소</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">상세페이지 A/B 테스트</div><div class="descr">버전별 전환율 비교</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">디자인 외주 관리</div><div class="descr">외주 디자이너·대행사 작업 의뢰·완료 추적</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">브랜드 가이드</div><div class="descr">로고·컬러·폰트 가이드 문서</div></div>
+    </div>
+  </div>
+
+  <!-- 유튜브 관리 -->
+  <div class="category">
+    <h2><span class="cat-ico">📺</span> 유튜브 관리</h2>
+    <div class="cat-desc">브랜드 유튜브 채널 운영 및 콘텐츠 전략</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">유튜브 스튜디오</div><div class="descr">채널 관리자 페이지 바로가기</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">채널 현황</div><div class="descr">구독자·조회수·댓글 주요 지표</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">영상 기획·대본</div><div class="descr">월별 업로드 계획 및 대본 초안</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">콘텐츠 성과 분석</div><div class="descr">영상별 조회수·시청지속률·유입 경로</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">협업 채널 관리</div><div class="descr">리뷰어·유튜버 협찬 및 리뷰 발주 현황</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">영상 자산 관리</div><div class="descr">촬영 원본·편집본·썸네일 저장소</div></div>
+    </div>
+  </div>
+
+  <!-- SNS 관리 -->
+  <div class="category">
+    <h2><span class="cat-ico">📱</span> SNS 관리</h2>
+    <div class="cat-desc">인스타그램·페이스북·블로그·카카오 채널 등 SNS 통합 운영</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">인스타그램</div><div class="descr">공식 계정 관리 (@smt_seoul)</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">페이스북 페이지</div><div class="descr">공식 페이지 관리</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">네이버 블로그</div><div class="descr">공식 블로그 포스팅</div></div>
+      <div class="menu-item"><span class="badge ext">외부</span><div class="label">카카오 채널</div><div class="descr">카카오톡 채널 메시지 발송</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">콘텐츠 캘린더</div><div class="descr">채널별 게시물 발행 일정 관리</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">인게이지먼트 추적</div><div class="descr">좋아요·댓글·공유 지표 모니터링</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">댓글·DM 응대</div><div class="descr">고객 문의 대응 이력 관리</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">해시태그 분석</div><div class="descr">효과적인 해시태그 성과 분석</div></div>
+    </div>
+  </div>
+
+  <!-- 마케팅 -->
+  <div class="category">
+    <h2><span class="cat-ico">📣</span> 마케팅</h2>
+    <div class="cat-desc">광고 집행·키워드·이메일·이벤트 등 통합 마케팅 관리</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">광고 집행 현황</div><div class="descr">네이버·카카오·구글·메타 광고 집행 내역</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">광고비 대비 매출 (ROAS)</div><div class="descr">채널별 광고 효율 분석</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">키워드 순위 추적</div><div class="descr">네이버·구글 주요 키워드 노출 순위</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">이메일 마케팅</div><div class="descr">뉴스레터 발송·오픈율·클릭률 분석</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">이벤트·프로모션 기획</div><div class="descr">계절·신제품 이벤트 일정표 및 실적</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">경쟁사 모니터링</div><div class="descr">경쟁사 가격·프로모션 현황 파악</div></div>
+    </div>
+  </div>
+
+  <!-- 통합 품목·거래처 -->
+  <div class="category">
+    <h2><span class="cat-ico">🔗</span> 통합 데이터 관리</h2>
+    <div class="cat-desc">위하고·네이버·카페24 3곳에 흩어진 거래처·상품·가격 정보를 통합 관리</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">거래처 통합 관리</div><div class="descr">위하고·네이버스토어·카페24 회원 DB 3곳 동기화</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">품목 가격 통합 관리</div><div class="descr">채널별 판매가·할인율을 한 표에서 일괄 수정</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">공급처별 할인율</div><div class="descr">브랜드·공급사별 매입 조건 관리</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">B2B 가격표 / B2C 소매가</div><div class="descr">도매·소매 구분 가격 정책</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">채널별 판매가 비교</div><div class="descr">동일 상품의 채널별 최종 판매가 모니터링</div></div>
+      <div class="menu-item"><span class="badge">준비중</span><div class="label">상품 마스터</div><div class="descr">전 채널 공통 상품 정보 (명칭·규격·이미지·상세)</div></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>📌 디지털사업부 운영 방향.</strong> 본 모듈의 실제 콘텐츠 작업은 각 외부 플랫폼에서 이뤄지지만, 이 포털에서는 <strong>"무엇을 어디서 어떻게 진행 중인지"</strong> 를 한눈에 파악하고, 팀원 간 업무 공유·인수인계가 원활하도록 하는 <strong>허브 역할</strong>을 합니다. 각 메뉴는 실제 구현 단계에서 조정·통합 가능하며, 회의 후 우선순위에 따라 단계적으로 구축됩니다.
+  </div>
+</div>
+<script>
+if (sessionStorage.getItem('smtAuth') !== '1') {
+  alert('먼저 포털에 로그인하세요.');
+  location.href = 'index.html';
+}
+</script>
+</body>
+</html>

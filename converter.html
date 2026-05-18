@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>위하고 엑셀 → JSON 변환기 · SMT서울기연</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --accent: #1D9E75;
+    --accent-soft: #E8F5EF;
+    --danger: #D7493A;
+    --danger-soft: #FAE3E0;
+    --warn: #E89B3C;
+    --warn-soft: #FBEFDB;
+    --border: #E5E3DD;
+    --bg: #F7F6F3;
+    --text: #1A1A1A;
+    --text-sec: #6B6963;
+    --text-muted: #9C9A93;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    font-size: 14px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 30px 20px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: var(--text-sec); font-size: 13px; margin-bottom: 24px; }
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 10px; }
+  .card p { margin: 0 0 10px; color: var(--text-sec); font-size: 13px; }
+  code { background: var(--bg); padding: 1px 6px; border-radius: 3px; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+  .drop {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+    background: #fff;
+  }
+  .drop.hover { border-color: var(--accent); background: var(--accent-soft); }
+  .drop-icon { font-size: 40px; margin-bottom: 8px; }
+  .drop-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .drop-sub { color: var(--text-sec); font-size: 12px; }
+  .drop input[type=file] { display: none; }
+  .btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 6px;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-top: 10px;
+  }
+
+  .log {
+    margin-top: 20px;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .log-item {
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    border-left: 4px solid var(--border);
+    background: #fff;
+  }
+  .log-item.ok { border-left-color: var(--accent); background: var(--accent-soft); }
+  .log-item.err { border-left-color: var(--danger); background: var(--danger-soft); }
+  .log-item.proc { border-left-color: var(--warn); background: var(--warn-soft); }
+  .log-item .name { font-weight: 600; }
+  .log-item .meta { color: var(--text-sec); font-size: 12px; margin-top: 2px; }
+
+  .types {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .type {
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .type strong { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>위하고 엑셀 → JSON 변환기</h1>
+  <div class="sub">에스엠티서울기연㈜ · 경영 대시보드용 · 로컬에서만 처리되며 외부로 전송되지 않음</div>
+
+  <div class="card">
+    <h2>사용법</h2>
+    <p>위하고에서 받은 엑셀(또는 직접 수정한 <code>physical_baseline.xlsx</code>, <code>adjustments.xlsx</code>) 파일을 아래 상자에 드래그하시면 자동으로 JSON으로 변환되어 다운로드됩니다. 변환된 JSON 파일을 카페24 파일업로더에 덮어쓰기로 올리시면 대시보드에 바로 반영됩니다.</p>
+    <div class="types">
+      <div class="type"><strong>판매일(월)보</strong> (SHDV*) → <code>sales.json</code></div>
+      <div class="type"><strong>현재고 총괄현황</strong> (SHSV*) → <code>inventory.json</code></div>
+      <div class="type"><strong>미수채권상세현황</strong> (SHBM*) → <code>receivable.json</code></div>
+      <div class="type"><strong>거래처정보</strong> (거래처관리 내보내기) → <code>clients.json</code></div>
+      <div class="type"><strong>실재고 기준</strong> (physical_baseline.xlsx) → <code>physical_baseline.json</code></div>
+      <div class="type"><strong>수동 조정</strong> (adjustments.xlsx) → <code>adjustments.json</code></div>
+      <div class="type" style="color:var(--text-muted)">파일명 관계없이 내용 자동 인식 · 거래처 파일은 여러 개 한 번에 드래그해도 자동 병합</div>
+    </div>
+  </div>
+
+  <div class="drop" id="drop">
+    <div class="drop-icon">📂</div>
+    <div class="drop-title">엑셀 파일을 여기 드래그하세요</div>
+    <div class="drop-sub">여러 파일 한 번에 가능 · .xls / .xlsx 지원</div>
+    <button class="btn" id="pickBtn">또는 파일 선택</button>
+    <input type="file" id="fileInput" multiple accept=".xls,.xlsx">
+  </div>
+
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+/* ===== 유틸 ===== */
+function yyyymmddToDate(s) {
+  s = String(s || '').trim();
+  if (/^\d{8}$/.test(s)) return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+  return s;
+}
+function excelSerialToDate(n) {
+  const d = new Date(Math.round((Number(n) - 25569) * 86400 * 1000));
+  return d.toISOString().slice(0,10);
+}
+function num(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  const n = Number(String(v).replace(/,/g,''));
+  return isNaN(n) ? 0 : n;
+}
+function str(v) { return v === null || v === undefined ? '' : String(v).trim(); }
+
+/* ===== 자동 타입 감지 ===== */
+function detectType(aoa, fileName) {
+  const top = aoa.slice(0, 20);
+  const flat = top.map(r => r ? r.map(v => String(v||'')).join('|') : '').join('\n');
+  // 미수채권: 문서 제목에 "미수채권" 포함
+  if (flat.includes('미수채권상세현황') || /거래처\s*:\s*\d+\s*\[/.test(flat)) return 'receivable';
+  // 현재고: "품목계정" + "기말재고" + "기초수량"
+  if (flat.includes('품목계정') && flat.includes('기말재고') && flat.includes('기초수량')) return 'inventory';
+  // 판매일보: "일자" + "품목계정" + "거래처명" + "공급가액"
+  if (flat.includes('일자') && flat.includes('품목계정') && flat.includes('거래처명') && flat.includes('공급가액')) return 'sales';
+  // 거래처 정보: "* 거래처 이름" + "사업자등록번호" 또는 "대표주소"
+  if (flat.includes('거래처 이름') && flat.includes('사업자등록번호')) return 'clients';
+  if (flat.includes('거래처명') && flat.includes('대표주소') && flat.includes('담당자')) return 'clients';
+  // 실재고 기준: "기준일자" + "실재고"
+  if (flat.includes('기준일자') && flat.includes('실재고')) return 'baseline';
+  // 수동 조정: "사유" + "수량(+/-)" 혹은 제목에 "수동 재고 조정"
+  if (flat.includes('수동 재고 조정') || (flat.includes('사유') && (flat.includes('수량(+/-)') || flat.includes('수량')))) return 'adjustments';
+  return null;
+}
+
+/* ===== 파서 ===== */
+function parseSales(aoa) {
+  let hi = -1;
+  for (let i = 0; i < Math.min(20, aoa.length); i++) {
+    if (aoa[i] && str(aoa[i][0]) === '일자' && str(aoa[i][1]) === '품목계정') { hi = i; break; }
+  }
+  if (hi < 0) throw new Error('판매일보 헤더를 찾지 못했습니다');
+  const rows = [];
+  for (let i = hi + 1; i < aoa.length; i++) {
+    const r = aoa[i]; if (!r) continue;
+    const dt = str(r[0]);
+    if (!/^\d{8}$/.test(dt)) continue;
+    const date = yyyymmddToDate(dt);
+    const 공급가액 = num(r[8]);
+    rows.push({
+      날짜: date, _month: date.slice(0,7),
+      품목계정: str(r[1]), 품목코드: str(r[2]), 품목명: str(r[3]), 규격: str(r[4]),
+      수량: num(r[6]), 단가: num(r[7]),
+      공급가액: 공급가액, 부가세: num(r[9]), 합계금액: num(r[10]), 금액: 공급가액,
+      거래처명: str(r[13]), 유형: str(r[14]) || '판매출고', 상태: str(r[14]) || '판매출고',
+      부서: str(r[15]), 담당자: str(r[16]), 창고: str(r[18])
+    });
+  }
+  return rows;
+}
+
+function parseInventory(aoa) {
+  let hi = -1;
+  for (let i = 0; i < Math.min(20, aoa.length); i++) {
+    if (aoa[i] && str(aoa[i][0]) === '품목계정' && str(aoa[i][1]) === '품목코드') { hi = i; break; }
+  }
+  if (hi < 0) throw new Error('현재고 헤더를 찾지 못했습니다');
+  const rows = [];
+  for (let i = hi + 2; i < aoa.length; i++) {
+    const r = aoa[i]; if (!r) continue;
+    const cat = str(r[0]), code = str(r[1]), name = str(r[2]);
+    if (!cat || !name || !code) continue;
+    if (cat === '품목계정' || code === '품목코드') continue;
+    if (cat.includes('합') || cat.startsWith('합')) continue;
+    if (!/^\d/.test(cat)) continue;
+    rows.push({
+      품목계정: cat, 품목코드: code, 품목명: name, 규격: str(r[3]),
+      기초수량: num(r[7]), 입고합계: num(r[11]), 출고합계: num(r[15]), 기말재고: num(r[16])
+    });
+  }
+  return rows;
+}
+
+function parseReceivable(aoa) {
+  const re = /거래처\s*:\s*\d+\s*\[(.+?)\]/;
+  const rows = [];
+  let cur = null, bal = 0;
+  function flush() { if (cur !== null && Math.abs(bal) > 0) rows.push({ 거래처명: cur, 미수금: bal }); }
+  for (let i = 0; i < aoa.length; i++) {
+    const r = aoa[i]; if (!r) continue;
+    let sec = false;
+    for (let j = 0; j < r.length; j++) {
+      const m = String(r[j]||'').match(re);
+      if (m) { flush(); cur = m[1].trim(); bal = 0; sec = true; break; }
+    }
+    if (sec || cur === null) continue;
+    const v = r[12];
+    if (v !== null && v !== undefined && v !== '') {
+      const n = Number(String(v).replace(/,/g,''));
+      if (!isNaN(n)) bal = n;
+    }
+  }
+  flush();
+  return rows;
+}
+
+function parseBaseline(aoa) {
+  let hi = -1;
+  for (let i = 0; i < Math.min(20, aoa.length); i++) {
+    const r = aoa[i]; if (!r) continue;
+    const cells = r.map(v => str(v));
+    if (cells.includes('기준일자') && cells.includes('품목코드') && cells.includes('실재고')) { hi = i; break; }
+  }
+  if (hi < 0) throw new Error('실재고 헤더를 찾지 못했습니다');
+  const hdr = aoa[hi].map(v => str(v));
+  const idx = {
+    기준일자: hdr.indexOf('기준일자'), 품목코드: hdr.indexOf('품목코드'),
+    품목명: hdr.indexOf('품목명'), 규격: hdr.indexOf('규격'),
+    실재고: hdr.indexOf('실재고'), 비고: hdr.indexOf('비고')
+  };
+  const rows = [];
+  for (let i = hi + 1; i < aoa.length; i++) {
+    const r = aoa[i]; if (!r) continue;
+    const code = str(r[idx.품목코드]);
+    if (!code) continue;
+    const sRaw = r[idx.실재고];
+    if (sRaw === null || sRaw === undefined || sRaw === '') continue;
+    const s = Number(String(sRaw).replace(/,/g,''));
+    if (isNaN(s)) continue;
+    let date = str(r[idx.기준일자]);
+    if (/^\d+$/.test(date)) date = excelSerialToDate(Number(date));
+    if (date.length > 10) date = date.slice(0,10);
+    rows.push({
+      기준일자: date, 품목코드: code,
+      품목명: str(r[idx.품목명]),
+      규격: idx.규격 >= 0 ? str(r[idx.규격]) : '',
+      실재고: s,
+      비고: idx.비고 >= 0 ? str(r[idx.비고]) : ''
+    });
+  }
+  return rows;
+}
+
+/* ---- 거래처 정보 파서 (위하고 거래처관리 내보내기) ---- */
+function parseClients(aoa) {
+  let hi = -1;
+  for (let i = 0; i < Math.min(10, aoa.length); i++) {
+    const r = aoa[i]; if (!r) continue;
+    const cells = r.map(v => String(v||'').trim());
+    if (cells.some(c => c.includes('거래처 이름')) || cells.some(c => c === '거래처명')) {
+      hi = i; break;
+    }
+  }
+  if (hi < 0) throw new Error('거래처 헤더를 찾지 못했습니다');
+  const hdr = aoa[hi].map(v => String(v||'').trim().replace(/^\*\s*/, ''));
+  const idx = {};
+  const keyMap = {
+    '거래처 이름':'거래처명', '거래처명':'거래처명',
+    '구분':'구분',
+    '사업자등록번호':'사업자번호',
+    '업태':'업태', '업종':'업종',
+    '대표자 이름':'대표자', '대표자':'대표자',
+    '대표 전화번호':'대표전화', '대표전화번호':'대표전화',
+    '대표주소':'대표주소', '상세주소':'상세주소',
+    '대표 팩스번호':'대표팩스', '대표팩스번호':'대표팩스',
+    '담당자 이름':'담당자', '담당자':'담당자',
+    '담당자 소속':'담당자소속',
+    '담당자 전화번호':'담당자전화',
+    '담당자 휴대전화번호':'담당자휴대전화',
+    '담당자 이메일 주소':'담당자이메일',
+    '담당자 담당업무':'담당자업무'
+  };
+  hdr.forEach((h, i) => { if (keyMap[h]) idx[keyMap[h]] = i; });
+
+  function cleanPhone(v) {
+    let s = String(v||'').trim().replace(/\s/g,'').replace(/-/g,'');
+    if (!s || s === '0' || s === 'NaN') return '';
+    s = s.replace(/\.0$/, '');  // Excel float 제거
+    s = s.replace(/[^\d]/g, '');
+    if (!s) return '';
+    if (!s.startsWith('0') && s.length >= 9) s = '0' + s;
+    if (s.length === 11 && s.startsWith('010')) return `${s.slice(0,3)}-${s.slice(3,7)}-${s.slice(7)}`;
+    if (s.length === 10) {
+      if (s.startsWith('02')) return `${s.slice(0,2)}-${s.slice(2,6)}-${s.slice(6)}`;
+      return `${s.slice(0,3)}-${s.slice(3,6)}-${s.slice(6)}`;
+    }
+    if (s.length === 9 && s.startsWith('02')) return `${s.slice(0,2)}-${s.slice(2,5)}-${s.slice(5)}`;
+    return s;
+  }
+  function extractClosed(name) {
+    const m = String(name||'').match(/폐업일자:(\d{4}-\d{2}-\d{2})/);
+    if (m) {
+      const clean = name.replace(/\s*폐업일자:\d{4}-\d{2}-\d{2}\s*\d*\s*$/, '').trim();
+      return [clean, m[1]];
+    }
+    return [name, ''];
+  }
+
+  const rows = [];
+  const seen = new Set();
+  for (let i = hi + 1; i < aoa.length; i++) {
+    const r = aoa[i]; if (!r) continue;
+    let rawName = str(r[idx['거래처명']]);
+    if (!rawName) continue;
+    let [name, closedDate] = extractClosed(rawName);
+    name = name.replace(/\s+\d{3,}$/, '').trim();
+    const biz = str(r[idx['사업자번호']]);
+    const key = name + '|' + biz;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const addr = [str(r[idx['대표주소']]), str(r[idx['상세주소']])].filter(Boolean).join(' ').trim();
+    rows.push({
+      거래처명: name,
+      폐업일자: closedDate,
+      구분: str(r[idx['구분']]),
+      사업자번호: biz,
+      업태: str(r[idx['업태']]),
+      업종: str(r[idx['업종']]),
+      대표자: str(r[idx['대표자']]),
+      대표전화: cleanPhone(r[idx['대표전화']]),
+      대표팩스: cleanPhone(r[idx['대표팩스']]),
+      주소: addr,
+      담당자: str(r[idx['담당자']]),
+      담당자소속: str(r[idx['담당자소속']]),
+      담당자전화: cleanPhone(r[idx['담당자전화']]),
+      담당자휴대전화: cleanPhone(r[idx['담당자휴대전화']]),
+      담당자이메일: str(r[idx['담당자이메일']]),
+      담당자업무: str(r[idx['담당자업무']]),
+    });
+  }
+  return rows;
+}
+
+function parseAdjustments(aoa) {
+  let hi = -1;
+  for (let i = 0; i < Math.min(20, aoa.length); i++) {
+    const r = aoa[i]; if (!r) continue;
+    const cells = r.map(v => str(v));
+    if (cells.includes('일자') && cells.includes('품목코드') && (cells.includes('수량(+/-)') || cells.includes('수량'))) { hi = i; break; }
+  }
+  if (hi < 0) throw new Error('조정 헤더를 찾지 못했습니다');
+  const hdr = aoa[hi].map(v => str(v));
+  const idx = {
+    일자: hdr.indexOf('일자'), 품목코드: hdr.indexOf('품목코드'),
+    품목명: hdr.indexOf('품목명'),
+    수량: hdr.indexOf('수량(+/-)') >= 0 ? hdr.indexOf('수량(+/-)') : hdr.indexOf('수량'),
+    사유: hdr.indexOf('사유'), 등록자: hdr.indexOf('등록자')
+  };
+  const rows = [];
+  for (let i = hi + 1; i < aoa.length; i++) {
+    const r = aoa[i]; if (!r) continue;
+    const code = str(r[idx.품목코드]);
+    if (!code) continue;
+    const qRaw = r[idx.수량];
+    if (qRaw === null || qRaw === undefined || qRaw === '') continue;
+    const q = Number(String(qRaw).replace(/,/g,''));
+    if (isNaN(q) || q === 0) continue;
+    let date = str(r[idx.일자]);
+    if (/^\d+$/.test(date)) date = excelSerialToDate(Number(date));
+    if (date.length > 10) date = date.slice(0,10);
+    rows.push({
+      일자: date, 품목코드: code,
+      품목명: str(r[idx.품목명]),
+      수량: q,
+      사유: idx.사유 >= 0 ? str(r[idx.사유]) : '',
+      등록자: idx.등록자 >= 0 ? str(r[idx.등록자]) : ''
+    });
+  }
+  return rows;
+}
+
+/* ===== 파일 처리 ===== */
+const TYPE_INFO = {
+  sales: { name: '판매일보', outName: 'sales.json', parser: parseSales },
+  inventory: { name: '현재고', outName: 'inventory.json', parser: parseInventory },
+  receivable: { name: '미수채권', outName: 'receivable.json', parser: parseReceivable },
+  clients: { name: '거래처', outName: 'clients.json', parser: parseClients, merge: true },
+  baseline: { name: '실재고기준', outName: 'physical_baseline.json', parser: parseBaseline },
+  adjustments: { name: '수동조정', outName: 'adjustments.json', parser: parseAdjustments }
+};
+
+// 거래처 파일은 여러 개일 수 있어서 메모리에 쌓아뒀다가 "병합 다운로드" 버튼으로 합쳐서 저장
+let CLIENT_BUFFER = [];
+let CLIENT_BUFFER_SEEN = new Set();
+
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function logItem(cls, name, msg) {
+  const el = document.createElement('div');
+  el.className = 'log-item ' + cls;
+  el.innerHTML = `<div class="name">${name}</div><div class="meta">${msg}</div>`;
+  document.getElementById('log').prepend(el);
+}
+
+async function processFile(file) {
+  const procEl = document.createElement('div');
+  procEl.className = 'log-item proc';
+  procEl.innerHTML = `<div class="name">${file.name}</div><div class="meta">변환 중...</div>`;
+  document.getElementById('log').prepend(procEl);
+
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: false, raw: true });
+    const sh = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(sh, { header: 1, defval: null, raw: false });
+    const type = detectType(aoa, file.name);
+    if (!type) throw new Error('파일 형식을 인식하지 못했습니다. 위하고 원본 또는 baseline/adjustments 양식을 사용하세요.');
+    const info = TYPE_INFO[type];
+    const rows = info.parser(aoa);
+    if (rows.length === 0) throw new Error('데이터가 비어있습니다 (헤더만 있고 내용 없음)');
+
+    if (info.merge) {
+      // 거래처 파일: 버퍼에 누적 병합
+      let added = 0;
+      rows.forEach(r => {
+        const key = (r.거래처명 || '') + '|' + (r.사업자번호 || '');
+        if (!CLIENT_BUFFER_SEEN.has(key)) {
+          CLIENT_BUFFER_SEEN.add(key);
+          CLIENT_BUFFER.push(r);
+          added++;
+        }
+      });
+      procEl.className = 'log-item ok';
+      procEl.innerHTML = `<div class="name">✓ ${file.name}</div><div class="meta">${info.name} 병합 (${added.toLocaleString()}개 추가, 누적 ${CLIENT_BUFFER.length.toLocaleString()}개) · <button class="btn" id="btnDownloadClients">병합 완료 → ${info.outName} 다운로드</button></div>`;
+      // 병합 다운로드 버튼
+      const btn = procEl.querySelector('#btnDownloadClients');
+      if (btn) btn.addEventListener('click', () => {
+        const out = { _generated: new Date().toISOString(), _type: 'clients', rows: CLIENT_BUFFER };
+        downloadJSON(out, info.outName);
+        CLIENT_BUFFER = []; CLIENT_BUFFER_SEEN = new Set();
+        btn.textContent = '다운로드 완료 (버퍼 비움)';
+        btn.disabled = true;
+      });
+    } else {
+      const out = { _generated: new Date().toISOString(), _type: type, rows: rows };
+      downloadJSON(out, info.outName);
+      procEl.className = 'log-item ok';
+      procEl.innerHTML = `<div class="name">✓ ${file.name}</div><div class="meta">${info.name} 인식 → <strong>${info.outName}</strong> 다운로드 완료 (${rows.length.toLocaleString()}건)</div>`;
+    }
+  } catch (e) {
+    procEl.className = 'log-item err';
+    procEl.innerHTML = `<div class="name">✗ ${file.name}</div><div class="meta">${e.message || e}</div>`;
+  }
+}
+
+/* ===== UI 이벤트 ===== */
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const pickBtn = document.getElementById('pickBtn');
+
+drop.addEventListener('click', (e) => {
+  if (e.target !== pickBtn) fileInput.click();
+});
+pickBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+
+drop.addEventListener('dragover', (e) => {
+  e.preventDefault(); drop.classList.add('hover');
+});
+drop.addEventListener('dragleave', () => drop.classList.remove('hover'));
+drop.addEventListener('drop', (e) => {
+  e.preventDefault(); drop.classList.remove('hover');
+  const files = Array.from(e.dataTransfer.files);
+  files.forEach(processFile);
+});
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  files.forEach(processFile);
+  fileInput.value = '';
+});
+</script>
+</body>
+</html>

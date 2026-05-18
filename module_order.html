@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>영업 주문 처리 — SMT·건웅</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+body { background: var(--c-bg); }
+.crumb { padding: 12px 24px; font-size: 13px; color: var(--c-text-2); }
+.crumb a { color: var(--c-smt); text-decoration: none; }
+.layout { max-width: 760px; margin: 0 auto; padding: 12px 16px 80px; }
+
+.step-card { background: white; border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+.step-card h3 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.step-num { background: var(--c-smt); color: white; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+
+.search-box { position: relative; }
+.search-box input { width: 100%; padding: 14px 44px 14px 14px; border: 2px solid var(--c-border); border-radius: 8px; font-size: 16px; font-family: var(--font-sans); }
+.search-box input:focus { outline: none; border-color: var(--c-smt); }
+.mic-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: var(--c-ok); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 14px; }
+.mic-btn.recording { background: var(--c-danger); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.suggestions { max-height: 280px; overflow-y: auto; border: 1px solid var(--c-border); border-radius: 8px; margin-top: 6px; background: white; }
+.sg-item { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.sg-item:hover { background: #f5f9ff; }
+.sg-item .name { font-weight: 500; }
+.sg-item .meta { color: var(--c-text-2); font-size: 12px; }
+.sg-item .recent { background: #FFF1D6; color: #C47700; padding: 2px 6px; border-radius: 8px; font-size: 11px; margin-left: 6px; }
+.sg-item .smt-tag { background: var(--c-smt); color: white; padding: 2px 5px; border-radius: 4px; font-size: 10px; }
+.sg-item .gw-tag { background: var(--c-gw); color: white; padding: 2px 5px; border-radius: 4px; font-size: 10px; }
+
+.chip { background: #E3F2FD; color: var(--c-smt); padding: 6px 10px; border-radius: 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; margin: 4px 4px 0 0; }
+.chip .x { cursor: pointer; opacity: 0.6; }
+
+.item-list { margin-top: 10px; }
+.item-card { background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+.item-card .row { display: grid; grid-template-columns: 1fr 100px 110px; gap: 8px; align-items: center; }
+.item-card .name { font-weight: 500; }
+.item-card .meta { font-size: 12px; color: var(--c-text-2); margin-top: 2px; }
+.item-card input { padding: 6px 8px; border: 1px solid var(--c-border); border-radius: 4px; font-size: 14px; }
+.item-card .price-history { font-size: 11px; color: var(--c-smt); margin-top: 4px; cursor: pointer; }
+.item-card .remove { background: var(--c-danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; float: right; }
+
+.qty-buttons { display: flex; gap: 4px; align-items: center; }
+.qty-buttons button { width: 32px; height: 32px; border: 1px solid var(--c-border); background: white; border-radius: 4px; font-size: 18px; cursor: pointer; }
+.qty-buttons input { width: 50px !important; text-align: center; }
+
+.radio-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.radio-group label {
+  border: 2px solid var(--c-border); padding: 10px 14px; border-radius: 8px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; font-size: 14px;
+  transition: all 0.15s;
+}
+.radio-group input[type="radio"] { display: none; }
+.radio-group label:has(input:checked), .radio-group label.checked { background: var(--c-smt); color: white; border-color: var(--c-smt); }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.field-row > div label { display: block; font-size: 12px; color: var(--c-text-2); margin-bottom: 4px; }
+.field-row > div input, .field-row > div select { width: 100%; padding: 10px; border: 1px solid var(--c-border); border-radius: 6px; font-size: 14px; }
+
+.summary { background: linear-gradient(135deg, #E3F2FD, #F1F8E9); border: 2px solid var(--c-smt); border-radius: 8px; padding: 14px; margin-top: 12px; }
+.summary div { margin: 4px 0; }
+.summary .total { font-size: 20px; font-weight: 700; color: var(--c-smt); margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.1); }
+
+.alert-internal { background: #FFF7CC; border-left: 4px solid var(--c-warn); padding: 10px 14px; border-radius: 6px; margin-top: 10px; font-size: 13px; }
+
+.action-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px 16px;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.1); display: flex; gap: 8px; z-index: 100;
+}
+.action-bar button { flex: 1; padding: 14px; font-size: 15px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; }
+.btn-submit { background: var(--c-ok); color: white; }
+.btn-reset { background: #eee; color: #333; }
+
+/* === 오늘 미처리 풀 (관리자) === */
+.pool-bar {
+  background: #fffbef; padding: 14px 18px; border-radius: var(--radius);
+  border-left: 4px solid var(--c-warn); margin-bottom: 14px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pool-bar .label { font-weight: 600; }
+.pool-bar button { background: var(--c-warn); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+
+/* === 회사 토글 영향 === */
+.company-banner {
+  background: var(--c-smt); color: white; padding: 8px 16px; text-align: center;
+  font-size: 13px; font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div class="company-banner" id="banner">발행 회사: SMT서울기연주식회사</div>
+
+<div class="crumb">
+  <a href="index.html">🏠 홈</a> › 영업 주문 처리 · <a href="module_catalog.html" target="_blank">📖 카탈로그 보기 (새 창)</a>
+</div>
+
+<div class="layout">
+
+  <!-- 오늘 미처리 풀 (회계 담당용) -->
+  <div class="pool-bar">
+    <div>
+      <div class="label">📦 오늘 미처리 주문 <strong id="pool-cnt">0</strong>건</div>
+      <div style="font-size:12px; color:var(--c-text-2); margin-top:4px">위하고 일괄 업로드 엑셀로 다운 가능</div>
+    </div>
+    <button onclick="downloadAllExcel()">📥 위하고 엑셀 4종 다운로드</button>
+  </div>
+
+  <!-- Step 1: 영업맨 -->
+  <div class="step-card">
+    <h3><span class="step-num">1</span> 영업맨</h3>
+    <select id="salesperson" style="width:100%; padding:10px; font-size:15px; border:1px solid var(--c-border); border-radius:6px">
+      <option value="">— 본인 선택 —</option>
+    </select>
+  </div>
+
+
+  <!-- 입력 모드 탭 -->
+  <div class="step-card" style="background: linear-gradient(135deg, #E3F2FD, #FFF7CC);">
+    <h3>📝 입력 방식 선택</h3>
+    <div class="radio-group">
+      <label class="checked"><input type="radio" name="input-mode" value="form" checked onchange="switchMode('form')"> 폼 직접 입력</label>
+      <label><input type="radio" name="input-mode" value="katalk" onchange="switchMode('katalk')"> 카톡 붙여넣기 (자동 파싱)</label>
+    </div>
+    
+    <div id="katalk-input" style="display:none; margin-top:14px">
+      <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">영업맨이 보낸 카톡 그대로 붙여넣기 ↓</label>
+      <textarea id="katalk-text" placeholder="예시:
+전주 혼다대흥
+30a 8.5×50 2대
+30a 밸브 50개
+내일 호남 정규배송"
+        style="width:100%; min-height:140px; padding:12px; border:2px solid var(--c-warn); border-radius:8px; font-family:var(--font-sans); font-size:14px;"></textarea>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <button class="btn-primary" style="flex:2; background: var(--c-warn);" onclick="parseKatalk()">🔄 자동 파싱 → 폼 자동 채움</button>
+        <button class="btn-secondary" onclick="loadKatalkExample()">샘플 보기</button>
+      </div>
+      <div id="parse-warning" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: 거래처 -->
+  <div class="step-card">
+    <h3><span class="step-num">2</span> 거래처</h3>
+    <div class="search-box">
+      <input type="text" id="client-search" placeholder="거래처명·지역·대표 검색 (예: 청주 대흥)" oninput="searchClients()" autocomplete="off">
+      <button class="mic-btn" id="client-mic" onclick="startVoiceClient()">🎤</button>
+    </div>
+    <div class="suggestions" id="client-suggestions" style="display:none"></div>
+    <div id="client-selected"></div>
+  </div>
+
+  <!-- Step 3: 품목 -->
+  <div class="step-card">
+    <h3><span class="step-num">3</span> 품목 (여러 개 가능) 
+      <a href="module_catalog.html" target="_blank" style="margin-left:auto; font-size:13px; background:var(--c-warn); color:white; padding:4px 10px; border-radius:6px; text-decoration:none; font-weight:500;">📖 카탈로그</a>
+    </h3>
+    <div class="search-box">
+      <input type="text" id="item-search" placeholder="품목명·코드 검색 (예: 혼다발전기, GW4000)" oninput="searchItems()" autocomplete="off">
+      <button class="mic-btn" id="item-mic" onclick="startVoiceItem()">🎤</button>
+    </div>
+    <div class="suggestions" id="item-suggestions" style="display:none"></div>
+    
+    <div class="item-list" id="item-list"></div>
+  </div>
+
+  <!-- Step 4: 발행 회사 -->
+  <div class="step-card">
+    <h3><span class="step-num">4</span> 발행 회사</h3>
+    <div class="radio-group">
+      <label><input type="radio" name="issuer" value="SMT" checked onchange="updateIssuer()"> SMT서울기연 명의</label>
+      <label><input type="radio" name="issuer" value="GW" onchange="updateIssuer()"> 건웅 명의</label>
+    </div>
+    <div id="internal-alert"></div>
+  </div>
+
+  <!-- Step 5: 배송 -->
+  <div class="step-card">
+    <h3><span class="step-num">5</span> 배송</h3>
+    
+    <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">배송 유형</label>
+    <div class="radio-group">
+      <label><input type="radio" name="ship-type" value="일반" checked> 일반 (발송=발행회사 / 수령=거래처)</label>
+      <label><input type="radio" name="ship-type" value="직배송요청"> 직배송요청 (발송=거래처)</label>
+      <label><input type="radio" name="ship-type" value="직직배송"> 직직배송 (발송=거래처의 거래처)</label>
+    </div>
+    
+    <div class="field-row">
+      <div>
+        <label>배송일</label>
+        <input type="date" id="ship-date">
+      </div>
+      <div>
+        <label>배송 방법</label>
+        <select id="ship-method" onchange="calcShipFee()">
+          <option value="대신화물">대신화물</option>
+          <option value="대신택배">대신택배</option>
+          <option value="경동화물">경동화물</option>
+          <option value="경동택배">경동택배</option>
+          <option value="직송">직송</option>
+          <option value="고객수령">고객수령</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="field-row">
+      <div>
+        <label>박스 수</label>
+        <input type="number" id="box-count" value="1" min="1">
+      </div>
+      <div>
+        <label>화물운송비 <span style="color:var(--c-smt); font-size:11px">(품목별 자동 계산, 직접 수정 가능)</span></label>
+        <input type="number" id="ship-fee" placeholder="자동 계산 또는 직접 입력" onchange="markShipFeeManual()">
+        <div id="ship-fee-info" style="font-size:11px; color:var(--c-text-2); margin-top:4px"></div>
+      </div>
+    </div>
+    
+    <div id="direct-fields" style="display:none; margin-top:8px">
+      <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">수신지 정보</label>
+      <input type="text" id="recv-name" placeholder="받는 사람" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="tel" id="recv-phone" placeholder="연락처" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="text" id="recv-addr" placeholder="주소" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px">
+    </div>
+    
+    <div id="direct2-fields" style="display:none; margin-top:8px">
+      <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">발신지 (거래처의 거래처)</label>
+      <input type="text" id="send-name" placeholder="발신 거래처명" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="text" id="send-addr" placeholder="발신 주소" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px">
+    </div>
+  </div>
+
+  <!-- Step 6: 비고 -->
+  <div class="step-card">
+    <h3><span class="step-num">6</span> 비고 (선택)</h3>
+    <textarea id="memo" placeholder="예: 호스만 빼고, 파레트작업출고, EU20i A/S 처리"
+      style="width:100%; padding:10px; border:1px solid var(--c-border); border-radius:6px; min-height:60px; font-family:var(--font-sans)"></textarea>
+  </div>
+
+  <!-- 합계 미리보기 -->
+  <div class="summary" id="summary">
+    <div>품목 <strong id="sum-cnt">0</strong>종</div>
+    <div>공급가액 <strong id="sum-supply">0원</strong></div>
+    <div>부가세 <strong id="sum-vat">0원</strong></div>
+    <div class="total">총 <strong id="sum-total">0원</strong></div>
+  </div>
+
+</div>
+
+<!-- 하단 액션바 -->
+<div class="action-bar">
+  <button class="btn-reset" onclick="resetForm()">↻ 초기화</button>
+  <button class="btn-submit" onclick="submitOrder()">✅ 주문 등록 + 거래명세표 발급</button>
+</div>
+
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
+<script src="shared/wehago_exporter.js"></script>
+<script src="shared/katalk_parser.js"></script>
+<script>
+// ===== 전역 상태 =====
+let CLIENTS = [];
+let INVENTORY = [];
+let SALES = [];
+let ITEM_OWNER = {};
+let SELECTED_CLIENT = null;
+let SELECTED_ITEMS = [];
+let SALESPERSONS = [];
+let PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]');
+
+// ===== 초기 로딩 =====
+async function init() {
+  document.getElementById('ship-date').value = new Date().toISOString().slice(0,10);
+  
+  // 데이터 로딩
+  CLIENTS = await Data.clients();
+  INVENTORY = await Data.inventory();
+  SALES = await Data.sales([2025, 2026]);
+  ITEM_OWNER = await Data.itemOwner();
+  
+  // 입력자 드롭다운 — 부장님 단순화 결정: 회사 토글 무관 전체 표시
+  // (우리 시스템은 위하고 앞단이라 양사 분리 불필요, 누구든 양사 작업 가능)
+  const respAll = await fetch('data/shared/employees.json').then(r=>r.json());
+  const allEmps_raw = respAll.rows;
+  
+  // 대표 제외, 공통권한자 + 영업맨 표시 (총무·회계 등 포함)
+  SALESPERSONS = allEmps_raw
+    .filter(e => e._role !== '대표' && e._role !== '총무_퇴사예정')
+    .map(e => ({
+      code: e.사원코드,
+      name: e.사원명,
+      label: e._label || e.사원명,
+      company: e._company,
+      role: e._role,
+      직급: e._직급 || '',
+      shared: e._sharedAuth,
+      age: e.나이,
+      address: (e.주소 || '').slice(0, 20)
+    }))
+    .sort((a,b) => {
+      // 1순위: 공통권한자
+      if (a.shared !== b.shared) return a.shared ? -1 : 1;
+      // 2순위: 회사 (SMT 먼저)
+      if (a.company !== b.company) return a.company === 'SMT' ? -1 : 1;
+      // 3순위: 이름
+      return a.name.localeCompare(b.name);
+    });
+  
+  const sel = document.getElementById('salesperson');
+  sel.innerHTML = '<option value="">— 본인 선택 —</option>';
+  
+  // 3그룹 분리: 공통권한 / SMT 영업 / GW 영업
+  const sharedGroup = document.createElement('optgroup');
+  sharedGroup.label = '── 💎 공통권한 (관리·회계·총무·CFO·CS) ──';
+  const smtGroup = document.createElement('optgroup');
+  smtGroup.label = '── SMT 영업맨 ──';
+  const gwGroup = document.createElement('optgroup');
+  gwGroup.label = '── 건웅 영업맨 ──';
+  
+  SALESPERSONS.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.name;
+    let tag = '';
+    if (p.shared) tag = '💎 ';
+    else if (p.직급 === '대표이사') tag = '👑 ';
+    const roleNote = p.shared && p.role ? ` · ${p.role}` : (p.직급 ? ` · ${p.직급}` : '');
+    o.textContent = `${tag}${p.label} (${p.company} ${p.code}번${roleNote})`;
+    o.dataset.company = p.company;
+    o.dataset.code = p.code;
+    o.dataset.role = p.role;
+    o.dataset.shared = p.shared ? '1' : '0';
+    
+    if (p.shared) sharedGroup.appendChild(o);
+    else if (p.company === 'SMT') smtGroup.appendChild(o);
+    else gwGroup.appendChild(o);
+  });
+  sel.appendChild(sharedGroup);
+  sel.appendChild(smtGroup);
+  sel.appendChild(gwGroup);
+  
+  // 회사 토글
+  CompanyToggle.render(null, () => location.reload());
+  updatePoolCount();
+  updateBanner();
+  
+  // 배송 유형 변경 감지
+  document.querySelectorAll('input[name="ship-type"]').forEach(r => {
+    r.addEventListener('change', updateShipFields);
+  });
+  
+  // 운송비 마스터 로딩
+  SHIPPING_FEE = await Data.shippingFee();
+  calcShipFee();
+}
+
+function updateBanner() {
+  const issuer = document.querySelector('input[name="issuer"]:checked').value;
+  const name = issuer === 'SMT' ? 'SMT서울기연주식회사' : '주식회사건웅';
+  const color = issuer === 'SMT' ? 'var(--c-smt)' : 'var(--c-gw)';
+  const b = document.getElementById('banner');
+  b.textContent = `발행 회사: ${name}`;
+  b.style.background = color;
+}
+
+function updateIssuer() {
+  updateBanner();
+  checkInternalTransfer();
+}
+
+function updateShipFields() {
+  const type = document.querySelector('input[name="ship-type"]:checked').value;
+  document.getElementById('direct-fields').style.display = (type === '일반') ? 'none' : 'block';
+  document.getElementById('direct2-fields').style.display = (type === '직직배송') ? 'block' : 'none';
+}
+
+// ===== Step 2: 거래처 검색 =====
+function searchClients() {
+  const q = document.getElementById('client-search').value.trim().toLowerCase();
+  const box = document.getElementById('client-suggestions');
+  
+  if (q.length < 1) {
+    // 본인 직전 거래 5개 추천
+    const sp = document.getElementById('salesperson').value;
+    let recent = [];
+    if (sp) {
+      const recentClients = new Map();
+      SALES.filter(s => s.사원 === sp).reverse().forEach(s => {
+        if (s.거래처명 && !recentClients.has(s.거래처명)) {
+          recentClients.set(s.거래처명, s.일자);
+          if (recentClients.size >= 5) return;
+        }
+      });
+      recent = Array.from(recentClients.entries()).map(([n,d]) => ({name:n, date:d, recent:true}));
+    }
+    if (recent.length === 0) { box.style.display = 'none'; return; }
+    box.innerHTML = recent.map(r => {
+      const c = CLIENTS.find(c => (c.거래처명||c.상호) === r.name);
+      return renderClientItem(c, true, r.date);
+    }).join('');
+    box.style.display = 'block';
+    return;
+  }
+  
+  const results = CLIENTS.filter(c => {
+    const n = (c.거래처명 || c.상호 || '').toLowerCase();
+    const a = (c.사업장주소 || c.주소 || '').toLowerCase();
+    const r = (c.대표자명 || c.대표자 || '').toLowerCase();
+    return n.includes(q) || a.includes(q) || r.includes(q);
+  }).slice(0, 30);
+  
+  if (results.length === 0) {
+    box.innerHTML = '<div class="sg-item">검색 결과 없음</div>';
+  } else {
+    box.innerHTML = results.map(c => renderClientItem(c, false)).join('');
+  }
+  box.style.display = 'block';
+}
+
+function renderClientItem(c, isRecent, recentDate) {
+  if (!c) return '';
+  const name = c.거래처명 || c.상호 || '';
+  const rep = c.대표자명 || c.대표자 || '';
+  const addr = (c.사업장주소 || c.주소 || '').slice(0, 30);
+  const code = c.거래처코드 || c.코드 || c.code || '';
+  const companies = c._companies || [];
+  let tags = '';
+  if (companies.includes('SMT')) tags += '<span class="smt-tag">SMT</span> ';
+  if (companies.includes('GW')) tags += '<span class="gw-tag">건웅</span> ';
+  if (isRecent) tags += `<span class="recent">최근 ${recentDate}</span>`;
+  return `<div class="sg-item" onclick='selectClient(${JSON.stringify(code)})'>
+    <div>
+      <div class="name">${name}</div>
+      <div class="meta">${rep} · ${addr}</div>
+    </div>
+    <div>${tags}</div>
+  </div>`;
+}
+
+function selectClient(code) {
+  SELECTED_CLIENT = CLIENTS.find(c => (c.거래처코드 || c.코드 || c.code) == code);
+  if (!SELECTED_CLIENT) return;
+  document.getElementById('client-search').value = '';
+  document.getElementById('client-suggestions').style.display = 'none';
+  const name = SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || '';
+  
+  // 이 거래처의 직전 거래 3건 표시
+  const recentSales = SALES
+    .filter(s => s.거래처명 === name)
+    .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
+    .slice(0, 3);
+  
+  let recentHtml = '';
+  if (recentSales.length > 0) {
+    recentHtml = `<div style="margin-top:10px; padding:10px; background:#fff7e6; border-left:3px solid var(--c-warn); border-radius:4px; font-size:13px;">
+      <div style="font-weight:600; margin-bottom:6px;">📜 직전 거래 ${recentSales.length}건</div>
+      ${recentSales.map(s => `
+        <div style="padding:3px 0; display:flex; gap:8px;">
+          <span style="color:#888; min-width:90px;">${s.일자||''}</span>
+          <span style="flex:1;">${(s.품목명||'').slice(0,30)}</span>
+          <span style="color:var(--c-smt); font-weight:600;">${Fmt.wonFull(s.단가||0)}원 × ${s.수량||0}</span>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+  
+  document.getElementById('client-selected').innerHTML = `
+    <div class="chip">✓ ${name} <span class="x" onclick="unselectClient()">×</span></div>
+    ${recentHtml}
+  `;
+}
+
+function unselectClient() {
+  SELECTED_CLIENT = null;
+  document.getElementById('client-selected').innerHTML = '';
+}
+
+// ===== Step 3: 품목 검색 + 별칭 =====
+const ITEM_ALIASES = {
+  '혼다발전기|혼다': ['EU','EM','EG','EP','GENERATOR','HONDA'],
+  '예초기': ['BCM','EBCM','SG','LS','예초'],
+  '송풍기|블로워': ['BLX','HHB','EBZ','송풍','블로워'],
+  '재커리': ['JACKERY','EXPLORER','솔라']
+};
+
+function getAliasKeys(q) {
+  const out = [q];
+  for (const [pat, keys] of Object.entries(ITEM_ALIASES)) {
+    if (new RegExp(pat,'i').test(q)) {
+      out.push(...keys);
+    }
+  }
+  return out;
+}
+
+function searchItems() {
+  const q = document.getElementById('item-search').value.trim();
+  const box = document.getElementById('item-suggestions');
+  if (q.length < 2) { box.style.display = 'none'; return; }
+  
+  const keys = getAliasKeys(q).map(s => s.toLowerCase());
+  const results = INVENTORY.filter(i => {
+    const name = (i.품명 || i.품목명 || '').toLowerCase();
+    const code = (i.품목코드 || '').toLowerCase();
+    const spec = (i.규격 || '').toLowerCase();
+    return keys.some(k => name.includes(k) || code.includes(k) || spec.includes(k));
+  }).slice(0, 30);
+  
+  if (results.length === 0) {
+    box.innerHTML = '<div class="sg-item">검색 결과 없음</div>';
+  } else {
+    box.innerHTML = results.map(i => {
+      const code = i.품목코드 || '';
+      const name = i.품명 || i.품목명 || '';
+      const spec = i.규격 || '';
+      const stock = i.기말재고 ?? i.현재고 ?? '?';
+      const owner = ITEM_OWNER[code];
+      let ownerTag = '';
+      if (owner) {
+        if (owner.owner === 'SMT') ownerTag = '<span class="smt-tag">SMT</span>';
+        else if (owner.owner === 'GW') ownerTag = '<span class="gw-tag">건웅</span>';
+      }
+      return `<div class="sg-item" onclick='addItem(${JSON.stringify(code)})'>
+        <div>
+          <div class="name">${name} ${ownerTag}</div>
+          <div class="meta">${code} · ${spec} · 재고 ${stock}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  box.style.display = 'block';
+}
+
+function addItem(code) {
+  const inv = INVENTORY.find(i => i.품목코드 === code);
+  if (!inv) return;
+  
+  // 직전 거래 3건 추출 — 거래처+품목 매칭 우선, 부족하면 거래처 무관으로 채움
+  const clientName = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호) : null;
+  let history = [];
+  if (clientName) {
+    history = SALES.filter(s => s.품목코드 === code && s.거래처명 === clientName)
+      .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
+      .slice(0, 3);
+  }
+  // 3건 미만이면 거래처 무관으로 채움
+  if (history.length < 3) {
+    const others = SALES.filter(s => s.품목코드 === code && s.거래처명 !== clientName)
+      .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
+      .slice(0, 3 - history.length);
+    history = [...history, ...others];
+  }
+  
+  // 기본 단가 = 거래처 매칭 직전 1건 (없으면 fallback)
+  const defaultPrice = history.length > 0 ? (history[0].단가 || 0) : 0;
+  const defaultDate = history.length > 0 ? (history[0].일자 || '') : '';
+  
+  SELECTED_ITEMS.push({
+    품목코드: code,
+    품목명: inv.품명 || inv.품목명,
+    규격: inv.규격 || '',
+    단위: inv.단위 || '',
+    수량: 1,
+    단가: defaultPrice,
+    _lastDate: defaultDate,
+    _history: history.map(h => ({
+      일자: h.일자, 단가: h.단가, 거래처: h.거래처명
+    })),
+    _owner: ITEM_OWNER[code]?.owner || 'BOTH'
+  });
+  document.getElementById('item-search').value = '';
+  document.getElementById('item-suggestions').style.display = 'none';
+  renderItems();
+  checkInternalTransfer();
+  updateSummary();
+  calcShipFee();
+}
+
+function renderItems() {
+  const list = document.getElementById('item-list');
+  if (SELECTED_ITEMS.length === 0) { list.innerHTML = ''; return; }
+  list.innerHTML = SELECTED_ITEMS.map((it, i) => {
+    let historyHtml = '';
+    if (it._history && it._history.length > 0) {
+      historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#f5f9ff; border-left:3px solid var(--c-smt); border-radius:4px; font-size:12px;">
+        <div style="color:#666; margin-bottom:4px;">💡 직전거래 ${it._history.length}건 (클릭하면 단가 자동 입력)</div>
+        ${it._history.map((h, hi) => `
+          <div style="padding:3px 0; display:flex; gap:6px; cursor:pointer; ${hi===0?'font-weight:600':''}" 
+               onclick="setPrice(${i}, ${h.단가}); event.stopPropagation();"
+               onmouseover="this.style.background='#e6f0fb'" onmouseout="this.style.background='transparent'">
+            <span style="color:#999; min-width:80px;">${h.일자||''}</span>
+            <span style="flex:1; color:#555;">${(h.거래처||'').slice(0,15)}</span>
+            <span style="color:var(--c-smt); font-weight:600;">${Fmt.wonFull(h.단가||0)}원</span>
+          </div>
+        `).join('')}
+      </div>`;
+    }
+    return `
+    <div class="item-card">
+      <div>
+        <div class="name">${it.품목명}</div>
+        <div class="meta">${it.품목코드} · ${it.규격}</div>
+        ${historyHtml}
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div>품목 ${i+1}</div>
+        <div class="qty-buttons">
+          <button onclick="changeQty(${i},-1)">−</button>
+          <input type="number" value="${it.수량}" onchange="setQty(${i},this.value)">
+          <button onclick="changeQty(${i},1)">+</button>
+        </div>
+        <input type="number" placeholder="단가" value="${it.단가}" onchange="setPrice(${i},this.value)" id="price-${i}">
+      </div>
+      <button class="remove" onclick="removeItem(${i})">삭제</button>
+    </div>
+  `;
+  }).join('');
+}
+
+// setPrice 갱신 — 단가 입력 박스도 동기화
+function setPrice(i, v) {
+  SELECTED_ITEMS[i].단가 = Number(v) || 0;
+  const inp = document.getElementById('price-' + i);
+  if (inp) inp.value = v;
+  updateSummary();
+}
+
+function changeQty(i, d) { SELECTED_ITEMS[i].수량 = Math.max(1, SELECTED_ITEMS[i].수량 + d); renderItems(); updateSummary(); calcShipFee(); }
+function setQty(i, v) { SELECTED_ITEMS[i].수량 = Number(v) || 1; updateSummary(); calcShipFee(); }
+function removeItem(i) { SELECTED_ITEMS.splice(i,1); renderItems(); checkInternalTransfer(); updateSummary(); calcShipFee(); }
+
+// ===== Step 4: 양사간 내부거래 자동 알림 =====
+function checkInternalTransfer() {
+  const issuer = document.querySelector('input[name="issuer"]:checked').value;
+  const conflicts = SELECTED_ITEMS.filter(it => it._owner !== 'BOTH' && it._owner !== issuer);
+  const alertBox = document.getElementById('internal-alert');
+  if (conflicts.length > 0) {
+    const other = issuer === 'SMT' ? '건웅' : 'SMT';
+    alertBox.innerHTML = `<div class="alert-internal">
+      ⚠️ <strong>양사간 내부거래 자동 생성됩니다</strong><br>
+      ${conflicts.length}개 품목이 ${other} 1차 입고품입니다.
+      ${other}에서 ${issuer}로 입고처리 → ${issuer}이 거래처에 출고 (위하고 양사 전표 자동 생성)
+    </div>`;
+  } else {
+    alertBox.innerHTML = '';
+  }
+}
+
+// ===== 합계 미리보기 =====
+function updateSummary() {
+  const supply = SELECTED_ITEMS.reduce((a,i) => a + (i.수량 * i.단가), 0);
+  const vat = Math.round(supply * 0.1);
+  document.getElementById('sum-cnt').textContent = SELECTED_ITEMS.length;
+  document.getElementById('sum-supply').textContent = Fmt.wonFull(supply) + '원';
+  document.getElementById('sum-vat').textContent = Fmt.wonFull(vat) + '원';
+  document.getElementById('sum-total').textContent = Fmt.wonFull(supply + vat) + '원';
+}
+
+// ===== 음성 입력 =====
+function startVoiceClient() { startVoice('client-search', 'client-mic', searchClients); }
+function startVoiceItem() { startVoice('item-search', 'item-mic', searchItems); }
+function startVoice(inputId, micId, callback) {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    alert('음성 인식 미지원 브라우저'); return;
+  }
+  const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new R();
+  r.lang = 'ko-KR';
+  r.interimResults = false;
+  const mic = document.getElementById(micId);
+  mic.classList.add('recording');
+  r.onresult = (e) => {
+    document.getElementById(inputId).value = e.results[0][0].transcript;
+    callback();
+  };
+  r.onend = () => mic.classList.remove('recording');
+  r.start();
+}
+
+// ===== 주문 등록 =====
+function submitOrder() {
+  if (!document.getElementById('salesperson').value) return alert('영업맨을 선택하세요');
+  if (!SELECTED_CLIENT) return alert('거래처를 선택하세요');
+  if (SELECTED_ITEMS.length === 0) return alert('품목을 1개 이상 추가하세요');
+  
+  const issuer = document.querySelector('input[name="issuer"]:checked').value;
+  const order = {
+    _id: Date.now(),
+    영업맨: document.getElementById('salesperson').value,
+    발행회사: issuer,
+    거래처코드: SELECTED_CLIENT.거래처코드 || SELECTED_CLIENT.코드 || SELECTED_CLIENT.code,
+    거래처명: SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호,
+    품목: SELECTED_ITEMS.map(i => ({
+      품목코드: i.품목코드, 품목명: i.품목명, 규격: i.규격, 단위: i.단위,
+      수량: i.수량, 단가: i.단가,
+      _fromCompany: (i._owner !== 'BOTH' && i._owner !== issuer) ? i._owner : null
+    })),
+    일자: document.getElementById('ship-date').value,
+    배송유형: document.querySelector('input[name="ship-type"]:checked').value,
+    배송방법: document.getElementById('ship-method').value,
+    박스수: Number(document.getElementById('box-count').value),
+    화물운송비: Number(document.getElementById('ship-fee').value) || 0,
+    요금: (Number(document.getElementById('ship-fee').value) > 0) ? '선불' : '착불',
+    수신: {
+      이름: document.getElementById('recv-name').value,
+      연락처: document.getElementById('recv-phone').value,
+      주소: document.getElementById('recv-addr').value || (SELECTED_CLIENT.사업장주소 || SELECTED_CLIENT.주소 || '')
+    },
+    발신: {
+      이름: document.getElementById('send-name').value,
+      주소: document.getElementById('send-addr').value
+    },
+    비고: document.getElementById('memo').value,
+    _internalTransfer: SELECTED_ITEMS.some(i => i._owner !== 'BOTH' && i._owner !== issuer) ? {
+      toCompany: issuer
+    } : null,
+    _증빙번호: Data.generateChunkNo('STX'),
+    _createdAt: new Date().toISOString()
+  };
+  
+  PENDING_ORDERS.push(order);
+  localStorage.setItem('pending_orders', JSON.stringify(PENDING_ORDERS));
+  
+  alert(`✅ 주문 등록 완료!\n증빙번호: ${order._증빙번호}\n총 ${SELECTED_ITEMS.length}개 품목\n${order.요금}\n\n거래명세표 PDF는 별도 발급 페이지에서 출력 가능합니다.`);
+  
+  updatePoolCount();
+  resetForm();
+}
+
+function resetForm() {
+  unselectClient();
+  SELECTED_ITEMS = [];
+  renderItems();
+  document.getElementById('memo').value = '';
+  document.getElementById('recv-name').value = '';
+  document.getElementById('recv-phone').value = '';
+  document.getElementById('recv-addr').value = '';
+  document.getElementById('ship-fee').value = '';
+  document.getElementById('box-count').value = '1';
+  document.querySelector('input[name="ship-type"][value="일반"]').checked = true;
+  updateShipFields();
+  updateSummary();
+  document.getElementById('internal-alert').innerHTML = '';
+  SHIP_FEE_MANUAL = false;
+  calcShipFee();
+}
+
+function updatePoolCount() {
+  document.getElementById('pool-cnt').textContent = PENDING_ORDERS.length;
+}
+
+function downloadAllExcel() {
+  if (PENDING_ORDERS.length === 0) {
+    alert('미처리 주문이 없습니다.');
+    return;
+  }
+  const res = WehagoExporter.downloadBoth(PENDING_ORDERS);
+  const total = (res.SMT || 0) + (res.GW || 0);
+  if (total > 0) {
+    if (confirm(`✅ 엑셀 ${total}개 다운로드 완료.\n위하고에 업로드 후 미처리 풀을 비우시겠습니까?`)) {
+      PENDING_ORDERS = [];
+      localStorage.setItem('pending_orders', '[]');
+      updatePoolCount();
+    }
+  }
+}
+
+
+// ===== 입력 모드 전환 =====
+function switchMode(mode) {
+  document.getElementById('katalk-input').style.display = (mode === 'katalk') ? 'block' : 'none';
+  // 라디오 활성 표시
+  document.querySelectorAll('input[name="input-mode"]').forEach(r => {
+    r.closest('label').classList.toggle('checked', r.checked);
+  });
+}
+
+// ===== 카톡 자동 파싱 =====
+function loadKatalkExample() {
+  document.getElementById('katalk-text').value = `전주 혼다대흥
+30a 8.5×50 2대
+30a 체크밸브 50개
+내일 호남 정규배송`;
+}
+
+function parseKatalk() {
+  const raw = document.getElementById('katalk-text').value.trim();
+  if (!raw) return alert('카톡 내용을 붙여넣으세요');
+  
+  const sp = document.getElementById('salesperson').value;
+  const result = KatalkParser.parse(raw, {
+    clients: CLIENTS,
+    inventory: INVENTORY,
+    salesperson: sp
+  });
+  
+  console.log('파싱 결과:', result);
+  
+  // 거래처 자동 선택
+  if (result.거래처.매칭상태 === 'matched') {
+    SELECTED_CLIENT = CLIENTS.find(c => 
+      (c.거래처코드 || c.코드 || c.code) == result.거래처.코드);
+    if (SELECTED_CLIENT) {
+      document.getElementById('client-search').value = '';
+      document.getElementById('client-suggestions').style.display = 'none';
+      const name = SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || '';
+      document.getElementById('client-selected').innerHTML = `
+        <div class="chip">✓ ${name} (자동 매칭) <span class="x" onclick="unselectClient()">×</span></div>
+      `;
+    }
+  } else {
+    document.getElementById('client-search').value = result.거래처.명;
+    searchClients();
+  }
+  
+  // 품목 자동 추가
+  SELECTED_ITEMS = [];
+  result.품목들.forEach(p => {
+    if (p.매칭상태 === 'matched') {
+      const inv = INVENTORY.find(i => i.품목코드 === p.품목코드);
+      if (inv) {
+        SELECTED_ITEMS.push({
+          품목코드: p.품목코드,
+          품목명: inv.품명 || inv.품목명,
+          규격: inv.규격 || '',
+          단위: inv.단위 || '',
+          수량: p.수량,
+          단가: p.단가 || 0,
+          _lastDate: '카톡파싱',
+          _owner: ITEM_OWNER[p.품목코드]?.owner || 'BOTH'
+        });
+      }
+    } else {
+      // 매칭 실패 — 후보 표시용 빈 슬롯
+      SELECTED_ITEMS.push({
+        품목코드: '',
+        품목명: p.품목명 + ' ⚠️ 수동 매칭 필요',
+        규격: '',
+        단위: '',
+        수량: p.수량,
+        단가: p.단가 || 0,
+        _lastDate: '카톡파싱(미매칭)',
+        _owner: 'BOTH'
+      });
+    }
+  });
+  renderItems();
+  updateSummary();
+  
+  // 배송 정보 자동 설정
+  const shipTypeRadio = document.querySelector(`input[name="ship-type"][value="${result.배송.배송유형}"]`);
+  if (shipTypeRadio) shipTypeRadio.checked = true;
+  updateShipFields();
+  
+  const methodSel = document.getElementById('ship-method');
+  for (const opt of methodSel.options) {
+    if (result.배송.배송방법 === opt.value || result.배송.배송방법 === opt.text) {
+      methodSel.value = opt.value;
+      break;
+    }
+  }
+  
+  // 배송일
+  const today = new Date();
+  if (result.배송.배송일 === '내일') today.setDate(today.getDate() + 1);
+  if (result.배송.배송일 === '모레') today.setDate(today.getDate() + 2);
+  document.getElementById('ship-date').value = today.toISOString().slice(0, 10);
+  
+  // 결제 (선불=화물비 표시, 착불=비움)
+  if (result.배송.결제 === '선불') {
+    document.getElementById('ship-fee').value = ''; // 사용자가 추가 입력
+  }
+  
+  // 연락처·주소 (직송 시)
+  if (result.배송.배송유형 !== '일반') {
+    document.getElementById('recv-name').value = result.연락.name;
+    document.getElementById('recv-phone').value = result.연락.phones[0] || '';
+    document.getElementById('recv-addr').value = result.연락.address;
+  }
+  
+  // 비고
+  document.getElementById('memo').value = result.비고;
+  
+  // 양사간 내부거래 자동 체크
+  checkInternalTransfer();
+  
+  // 경고 표시
+  const warnBox = document.getElementById('parse-warning');
+  if (result.경고.length > 0) {
+    warnBox.innerHTML = '<div style="background:#FFF7CC; padding:10px; border-radius:6px; font-size:13px; border-left:4px solid var(--c-warn);">' +
+      '⚠️ <strong>파싱 결과 확인 필요:</strong><br>' +
+      result.경고.map(w => '• ' + w).join('<br>') +
+      '</div>';
+  } else {
+    warnBox.innerHTML = '<div style="background:#E3F5EC; padding:10px; border-radius:6px; font-size:13px; border-left:4px solid var(--c-ok);">' +
+      '✅ 모든 항목 자동 파싱 완료. 폼 확인 후 등록하세요.</div>';
+  }
+}
+
+
+// ===== 운송비 자동 매칭 =====
+let SHIPPING_FEE = { default: {}, items: {} };
+let SHIP_FEE_MANUAL = false;  // 사용자가 직접 입력했는지
+
+function markShipFeeManual() {
+  SHIP_FEE_MANUAL = true;
+  document.getElementById('ship-fee-info').innerHTML = '⚠️ 사용자 직접 입력 (자동 계산 안 됨)';
+  document.getElementById('ship-fee-info').style.color = 'var(--c-warn)';
+}
+
+function calcShipFee() {
+  if (SHIP_FEE_MANUAL) return;  // 사용자가 수정했으면 자동 계산 안 함
+  
+  const method = document.getElementById('ship-method').value;
+  if (method === '고객수령') {
+    document.getElementById('ship-fee').value = '';
+    document.getElementById('ship-fee-info').innerHTML = '고객수령 - 운송비 없음';
+    document.getElementById('ship-fee-info').style.color = 'var(--c-ok)';
+    return;
+  }
+  if (method === '직송') {
+    document.getElementById('ship-fee').value = '';
+    document.getElementById('ship-fee-info').innerHTML = '직송 - 운송비 별도 협의';
+    document.getElementById('ship-fee-info').style.color = 'var(--c-warn)';
+    return;
+  }
+  
+  // 품목별 운송비 합산
+  let total = 0;
+  const detail = [];
+  SELECTED_ITEMS.forEach(it => {
+    const itemFees = SHIPPING_FEE.items?.[it.품목코드];
+    let fee = 0;
+    if (itemFees && itemFees[method] != null) {
+      fee = itemFees[method] * (it.수량 || 1);
+      detail.push(`${it.품목명} ${it.수량}개 = ${Fmt.wonFull(fee)}원`);
+    } else {
+      // 기본값 사용
+      const defaultFee = SHIPPING_FEE.default?.[method] || 0;
+      fee = defaultFee;
+      if (defaultFee > 0 && SELECTED_ITEMS.length === 1) detail.push(`기본 ${Fmt.wonFull(defaultFee)}원`);
+    }
+    total += fee;
+  });
+  
+  document.getElementById('ship-fee').value = total > 0 ? total : '';
+  if (total > 0) {
+    document.getElementById('ship-fee-info').innerHTML = `✅ ${method} 자동 계산: ${Fmt.wonFull(total)}원 (선불)`;
+    document.getElementById('ship-fee-info').style.color = 'var(--c-ok)';
+  } else {
+    document.getElementById('ship-fee-info').innerHTML = `${method} 운송비 마스터 없음 — 직접 입력 또는 착불`;
+    document.getElementById('ship-fee-info').style.color = 'var(--c-text-2)';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

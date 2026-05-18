@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>부품 관리 · SMT서울기연</title>
+<style>
+  :root { --font-sans:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --bg:#F7F6F3;--surface:#fff;--border:#E5E3DD;--border-strong:#D4D2CB;
+    --text:#1A1A1A;--text-sec:#6B6963;--text-muted:#9C9A93;
+    --accent:#1D9E75;--accent-soft:#E8F5EF;--accent-dark:#146B4F;
+    --warn:#E89B3C;--danger:#D7493A;--info:#4A78C9; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .breadcrumb{font-size:13px;color:var(--text-sec)}
+  .breadcrumb a{color:var(--accent);text-decoration:none;font-weight:500}
+  .hero{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 32px;margin-bottom:24px;border-top:4px solid #4A78C9}
+  .hero .ico{font-size:42px;margin-bottom:12px;line-height:1}
+  .hero h1{font-size:24px;margin-bottom:8px}
+  .hero p{color:var(--text-sec);font-size:14px;line-height:1.7}
+  .section-title{font-size:13px;color:var(--text-sec);margin:24px 0 12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+  .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .menu-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;transition:all .2s;cursor:pointer}
+  .menu-item:hover{border-color:var(--border-strong);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.04)}
+  .menu-item .label{font-size:15px;font-weight:600;margin-bottom:4px}
+  .menu-item .descr{color:var(--text-sec);font-size:12px;line-height:1.5}
+  .menu-item .badge{position:absolute;top:14px;right:14px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;background:#FEF5E7;color:#8B5A00}
+  .back-btn{background:transparent;border:1px solid var(--border-strong);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .back-btn:hover{background:var(--surface)}
+  .note{background:var(--accent-soft);border-left:4px solid var(--accent);padding:14px 16px;border-radius:6px;color:var(--accent-dark);font-size:13px;margin-top:20px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="breadcrumb"><a href="index.html">🏠 홈</a> &nbsp;›&nbsp; 부품 관리</div>
+    <a class="back-btn" href="index.html">← 홈으로</a>
+  </header>
+
+  <div class="hero">
+    <div class="ico">🔧</div>
+    <h1>부품 관리</h1>
+    <p>전국 대리점에서 들어오는 부품 요청을 체계적으로 접수·처리하고, 대리점별 판매가·할인율을 일관되게 관리합니다. 요청 접수부터 출하 완료까지 추적 가능한 워크플로우를 제공합니다.</p>
+  </div>
+
+  <div class="section-title">대리점 요청 처리</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">요청 접수 (신규)</div><div class="descr">전화·카톡·이메일로 들어온 부품 요청을 한 곳에 등록 (카톡 이미지 OCR 지원 검토)</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">요청 처리 현황</div><div class="descr">대기·처리중·출하완료 상태별 요청 건 조회 및 상태 변경</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">견적 발송</div><div class="descr">접수된 요청에 대한 견적서 작성 및 대리점 전송 (문서 작성 모듈 연계)</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">출하 대기</div><div class="descr">승인된 요청 건의 출하 준비 리스트 (물류팀에 전달)</div></div>
+  </div>
+
+  <div class="section-title">가격 · 할인 관리</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">판매가격표</div><div class="descr">부품별 기준 판매가 조회 및 일괄 수정</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">대리점별 할인율</div><div class="descr">거래처 등급(A/B/C)별 또는 개별 대리점별 할인율 설정</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">견적 단가 계산</div><div class="descr">기준가 × 할인율 = 견적가 자동 계산</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">판매 단가 이력</div><div class="descr">거래처별 과거 판매 단가 조회 (재견적 시 참고)</div></div>
+  </div>
+
+  <div class="section-title">재고 · 수급</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">부품 재고 즉시 조회</div><div class="descr">요청 접수 중 바로 재고 확인 (위하고 연동)</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">부족 부품 자동 알림</div><div class="descr">재고 발주점 이하 도달 시 구매팀에 자동 통보</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">수입 발주 현황</div><div class="descr">해외 공급처별 발주 진행·도착 예정일 관리</div></div>
+  </div>
+
+  <div class="section-title">대리점 관리</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">전국 대리점 목록</div><div class="descr">지역별·등급별 대리점 리스트 및 담당자 정보</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">대리점별 매출</div><div class="descr">각 대리점의 누적 매출·최근 거래 추이</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">요청 빈도 분석</div><div class="descr">자주 요청되는 부품·대리점 패턴 분석 (사전 재고 확보 판단용)</div></div>
+  </div>
+
+  <div class="note">
+    <strong>📌 예상 효과.</strong> 현재 부품 요청이 전화·카톡으로 분산되어 "어디까지 처리했더라" 추적이 어렵고, 대리점별 할인율이 담당자 머릿속에만 있어 인수인계가 어려운 구조를 개선합니다. 요청 처리 평균 시간 30% 단축 + 할인율 일관성 확보 + 대리점 재계약 시 과거 거래 이력 즉시 제공이 목표입니다.
+  </div>
+</div>
+<script>
+if (sessionStorage.getItem('smtAuth') !== '1') {
+  alert('먼저 포털에 로그인하세요.');
+  location.href = 'index.html';
+}
+</script>
+</body>
+</html>

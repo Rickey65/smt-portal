@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>위하고 문서 작성 · SMT서울기연</title>
+<style>
+  :root { --font-sans:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --bg:#F7F6F3;--surface:#fff;--border:#E5E3DD;--border-strong:#D4D2CB;
+    --text:#1A1A1A;--text-sec:#6B6963;--text-muted:#9C9A93;
+    --accent:#1D9E75;--accent-soft:#E8F5EF;--accent-dark:#146B4F;
+    --warn:#E89B3C;--danger:#D7493A;--info:#4A78C9; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .breadcrumb{font-size:13px;color:var(--text-sec)}
+  .breadcrumb a{color:var(--accent);text-decoration:none;font-weight:500}
+  .breadcrumb a:hover{text-decoration:underline}
+  .hero{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 32px;margin-bottom:24px;border-top:4px solid var(--accent)}
+  .hero .ico{font-size:42px;margin-bottom:12px;line-height:1}
+  .hero h1{font-size:24px;margin-bottom:8px}
+  .hero p{color:var(--text-sec);font-size:14px;line-height:1.7}
+  .section-title{font-size:13px;color:var(--text-sec);margin:24px 0 12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+  .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .menu-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;transition:all .2s;cursor:pointer}
+  .menu-item:hover{border-color:var(--border-strong);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.04)}
+  .menu-item .label{font-size:15px;font-weight:600;margin-bottom:4px}
+  .menu-item .descr{color:var(--text-sec);font-size:12px;line-height:1.5}
+  .menu-item .badge{position:absolute;top:14px;right:14px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;background:#FEF5E7;color:#8B5A00}
+  .back-btn{background:transparent;border:1px solid var(--border-strong);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .back-btn:hover{background:var(--surface)}
+  .note{background:var(--accent-soft);border-left:4px solid var(--accent);padding:14px 16px;border-radius:6px;color:var(--accent-dark);font-size:13px;margin-top:20px;line-height:1.7}
+  .note strong{color:var(--accent-dark)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="breadcrumb"><a href="index.html">🏠 홈</a> &nbsp;›&nbsp; 위하고 문서 작성</div>
+    <a class="back-btn" href="index.html">← 홈으로</a>
+  </header>
+
+  <div class="hero">
+    <div class="ico">📝</div>
+    <h1>위하고 문서 작성</h1>
+    <p>영업·물류·회계 업무에서 매일 반복되는 위하고 입력 작업을 반자동화합니다. 이 모듈에서 작성한 견적서·발주서·세금계산서 등은 <strong>위하고 SmartA10에 그대로 업로드 가능한 Excel 파일</strong>로 생성되어, 위하고에서 다시 입력하는 수고를 없앱니다.</p>
+  </div>
+
+  <div class="section-title">판매·영업 문서</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">견적서 작성</div><div class="descr">거래처·품목 선택 → 수량·할인율 입력 → 견적서 PDF + 위하고 업로드 파일 동시 생성</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">수주서 등록</div><div class="descr">견적이 수주로 확정될 때 한 번의 클릭으로 수주서 발행</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">출고지시서</div><div class="descr">수주 건을 물류팀에 전달할 출고지시서 자동 생성</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">거래명세서</div><div class="descr">출고 완료 시 거래처에 발송할 거래명세서 양식</div></div>
+  </div>
+
+  <div class="section-title">세금·회계 문서</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">세금계산서 초안</div><div class="descr">출고 확정건을 바탕으로 세금계산서 초안 생성 (회계팀 최종 승인 후 발행)</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">수정세금계산서</div><div class="descr">반품·금액수정 건에 대한 수정 세금계산서 작성</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">매입 발주서</div><div class="descr">부품·원재료 발주 문서 및 위하고 매입전표 초안</div></div>
+  </div>
+
+  <div class="section-title">이력 · 관리</div>
+  <div class="menu-grid">
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">작성 이력</div><div class="descr">최근 30일간 작성한 모든 문서 조회 및 재사용</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">템플릿 관리</div><div class="descr">자주 쓰는 거래처·품목 조합을 템플릿으로 저장</div></div>
+    <div class="menu-item"><span class="badge">준비중</span><div class="label">일괄 작성</div><div class="descr">엑셀 업로드로 한 번에 여러 건 문서 생성 (월초 정기 거래 등)</div></div>
+  </div>
+
+  <div class="note">
+    <strong>📌 기대 효과.</strong> 현재 세일즈·회계팀이 위하고에 매일 수십 건씩 문서를 수기 입력하시는 구조를 반자동화하여, 문서 1건당 평균 3~5분의 입력 시간을 30초 이내로 단축하는 것이 목표입니다. 정식 구축 시점은 직원회의 후 우선순위 논의를 거쳐 결정됩니다.
+  </div>
+</div>
+
+<script>
+if (sessionStorage.getItem('smtAuth') !== '1') {
+  alert('먼저 포털에 로그인하세요.');
+  location.href = 'index.html';
+}
+</script>
+</body>
+</html>
