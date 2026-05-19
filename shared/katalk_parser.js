@@ -10,7 +10,10 @@
     '혼다발전기|혼다': ['EU','EM','EG','EP','EZ','HONDA','GENERATOR'],
     '재커리|jackery': ['JACKERY','EXPLORER','솔라','파워뱅크'],
     '블루에티|bluetti': ['BLUETTI','AC','EB'],
-    '예초기': ['BCM','EBCM','SG','LS','TBC','예초'],
+    '예초기': ['BCM','EBCM','SG','LS','TBC','TB','KTB','예초'],
+    '예초기.*분리|tb.*분리|분리형': ['TB43','KTB243','분리'],
+    '예초기.*일체|tb.*일체|일체형': ['TB43','KTB243','일체'],
+    'ke435|ke43|케이이435': ['KE435','KE43'],
     '가스예초기': ['SG','SGS','SGE','가스예초'],
     '펌프|양수기|살수기': ['WP','WT','WB','펌프','양수','살수'],
     '송풍기|블로워': ['BLX','HHB','EBZ','송풍','블로워'],
@@ -70,21 +73,42 @@
     return null;
   }
 
-  // ===== 1. 거래처 매칭 =====
-  function matchClient(text, allClients) {
+  // ===== 1. 거래처 매칭 (별칭 사전 우선 + 마스터 검색) =====
+  function matchClient(text, allClients, aliases) {
     if (!allClients || allClients.length === 0) return null;
     
-    // 라인별로 후보 추출
     const lines = text.split('\n').filter(l => l.trim());
-    const candidates = [];
     
-    // 거래처 마스터 정규화 (검색용)
+    // 1차: 별칭 사전 우선 매칭 (정확)
+    if (aliases && typeof aliases === 'object') {
+      const sortedAliases = Object.entries(aliases)
+        .sort((a, b) => b[0].length - a[0].length);  // 긴 별칭 우선
+      
+      for (const line of lines.slice(0, 6)) {
+        const lowLine = line.toLowerCase();
+        for (const [alias, code] of sortedAliases) {
+          if (!alias || alias.startsWith('_')) continue;
+          if (lowLine.includes(alias.toLowerCase())) {
+            // 코드로 거래처 찾기
+            const client = allClients.find(c => 
+              (c.거래처코드 || c.코드 || c.code) == code);
+            if (client) {
+              client._matchedBy = 'alias:' + alias;
+              return client;
+            }
+          }
+        }
+      }
+    }
+    
+    // 2차: 마스터 부분 검색 (fallback)
+    const candidates = [];
     const normalized = allClients.map(c => ({
       ...c,
       _searchName: (c.거래처명 || c.상호 || '').toLowerCase().replace(/[()㈜주식회사 ]/g, '')
     }));
     
-    for (const line of lines.slice(0, 6)) {  // 상위 6줄에서 찾기
+    for (const line of lines.slice(0, 6)) {
       const cleanLine = line.toLowerCase().replace(/[()㈜주식회사 ]/g, '');
       for (const c of normalized) {
         if (!c._searchName || c._searchName.length < 3) continue;
@@ -94,9 +118,12 @@
       }
     }
     
-    // 가장 긴(가장 구체적) 매칭 선택
     candidates.sort((a, b) => b.score - a.score);
-    return candidates[0] ? candidates[0].client : null;
+    if (candidates[0]) {
+      candidates[0].client._matchedBy = 'master:partial';
+      return candidates[0].client;
+    }
+    return null;
   }
 
   // ===== 2. 품목 매칭 =====
@@ -235,8 +262,8 @@
         경고: []
       };
       
-      // 1. 거래처 매칭
-      const clientMatch = matchClient(text, clients);
+      // 1. 거래처 매칭 (별칭 사전 우선)
+      const clientMatch = matchClient(text, clients, options.aliases || {});
       result.거래처 = clientMatch ? {
         코드: clientMatch.거래처코드 || clientMatch.코드 || clientMatch.code || '',
         명: clientMatch.거래처명 || clientMatch.상호 || '',

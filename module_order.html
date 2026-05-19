@@ -90,11 +90,83 @@ body { background: var(--c-bg); }
   background: var(--c-smt); color: white; padding: 8px 16px; text-align: center;
   font-size: 13px; font-weight: 500;
 }
+
+/* === 모드 토글 === */
+.mode-bar {
+  position: sticky; top: 0; z-index: 90;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px; gap: 8px;
+}
+.mode-bar.test { background: #FFE1E1; color: #8B0000; }
+.mode-bar.live { background: #DCFCE7; color: #15803d; }
+.mode-toggle {
+  background: white; border: 2px solid currentColor; padding: 6px 14px;
+  border-radius: 18px; cursor: pointer; font-weight: 700; font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+/* === 풀 목록 모달 === */
+.pool-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.pool-modal.active { display: flex; }
+.pool-modal-content {
+  background: white; width: 100%; max-width: 700px; max-height: 80vh;
+  border-radius: 12px; padding: 20px; overflow-y: auto;
+}
+.pool-modal h3 { margin: 0 0 14px; font-size: 18px; }
+.pool-item {
+  padding: 12px; border-bottom: 1px solid #eee; display: flex; gap: 12px;
+  align-items: center;
+}
+.pool-item:last-child { border-bottom: none; }
+.pool-item .info { flex: 1; }
+.pool-item .info .name { font-weight: 600; }
+.pool-item .info .meta { font-size: 12px; color: var(--c-text-2); margin-top: 2px; }
+.pool-item .del {
+  background: var(--c-danger); color: white; border: none; padding: 6px 12px;
+  border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+.pool-modal .actions {
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid #eee;
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+.pool-modal .actions button {
+  padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;
+  font-family: var(--font-sans); font-weight: 500;
+}
+.btn-close { background: #eee; color: #333; border: 1px solid #ddd; }
+.btn-clear-all { background: var(--c-warn); color: white; border: none; }
+.btn-export { background: var(--c-ok); color: white; border: none; }
 </style>
 </head>
 <body>
 
 <div class="company-banner" id="banner">발행 회사: SMT서울기연주식회사</div>
+
+<div class="mode-bar test" id="mode-bar">
+  <div>
+    <strong id="mode-label">🧪 테스트 모드</strong>
+    <span style="font-size:11px; margin-left:8px; opacity:0.8" id="mode-desc">
+      주문 등록해도 풀에 안 쌓임 (거래명세표만 발급)
+    </span>
+  </div>
+  <button class="mode-toggle" onclick="toggleMode()">🚀 운영 모드로 전환</button>
+</div>
+
+<!-- 미처리 풀 모달 -->
+<div class="pool-modal" id="pool-modal">
+  <div class="pool-modal-content">
+    <h3>📦 오늘 미처리 주문 <span id="modal-cnt">0</span>건</h3>
+    <div id="pool-list"></div>
+    <div class="actions">
+      <button class="btn-close" onclick="closePoolModal()">닫기</button>
+      <button class="btn-clear-all" onclick="clearAllPool()">🗑️ 전체 삭제</button>
+      <button class="btn-export" onclick="downloadAllExcel()">📥 위하고 엑셀 4종 다운로드</button>
+    </div>
+  </div>
+</div>
 
 <div class="crumb">
   <a href="index.html">🏠 홈</a> › 영업 주문 처리 · <a href="module_catalog.html" target="_blank">📖 카탈로그 보기 (새 창)</a>
@@ -103,12 +175,12 @@ body { background: var(--c-bg); }
 <div class="layout">
 
   <!-- 오늘 미처리 풀 (회계 담당용) -->
-  <div class="pool-bar">
+  <div class="pool-bar" onclick="openPoolModal()" style="cursor:pointer">
     <div>
-      <div class="label">📦 오늘 미처리 주문 <strong id="pool-cnt">0</strong>건</div>
+      <div class="label">📦 오늘 미처리 주문 <strong id="pool-cnt">0</strong>건 <span style="font-size:11px; color:var(--c-smt);">(클릭하면 목록 보기)</span></div>
       <div style="font-size:12px; color:var(--c-text-2); margin-top:4px">위하고 일괄 업로드 엑셀로 다운 가능</div>
     </div>
-    <button onclick="downloadAllExcel()">📥 위하고 엑셀 4종 다운로드</button>
+    <button onclick="event.stopPropagation(); downloadAllExcel()">📥 위하고 엑셀 4종 다운로드</button>
   </div>
 
   <!-- Step 1: 영업맨 -->
@@ -267,6 +339,7 @@ let CLIENTS = [];
 let INVENTORY = [];
 let SALES = [];
 let ITEM_OWNER = {};
+let CLIENT_ALIASES = {};
 let SELECTED_CLIENT = null;
 let SELECTED_ITEMS = [];
 let SALESPERSONS = [];
@@ -281,6 +354,7 @@ async function init() {
   INVENTORY = await Data.inventory();
   SALES = await Data.sales([2025, 2026]);
   ITEM_OWNER = await Data.itemOwner();
+  CLIENT_ALIASES = await Data.clientAliases();
   
   // 입력자 드롭다운 — 부장님 단순화 결정: 회사 토글 무관 전체 표시
   // (우리 시스템은 위하고 앞단이라 양사 분리 불필요, 누구든 양사 작업 가능)
@@ -346,6 +420,7 @@ async function init() {
   CompanyToggle.render(null, () => location.reload());
   updatePoolCount();
   updateBanner();
+  updateModeUI();
   
   // 배송 유형 변경 감지
   document.querySelectorAll('input[name="ship-type"]').forEach(r => {
@@ -481,9 +556,14 @@ function unselectClient() {
 // ===== Step 3: 품목 검색 + 별칭 =====
 const ITEM_ALIASES = {
   '혼다발전기|혼다': ['EU','EM','EG','EP','GENERATOR','HONDA'],
-  '예초기': ['BCM','EBCM','SG','LS','예초'],
+  '예초기': ['BCM','EBCM','SG','LS','TBC','TB','KTB','예초'],
+  '예초기.*분리|tb.*분리': ['TB43', 'KTB243', '분리'],
+  '예초기.*일체|tb.*일체': ['TB43', 'KTB243', '일체'],
   '송풍기|블로워': ['BLX','HHB','EBZ','송풍','블로워'],
-  '재커리': ['JACKERY','EXPLORER','솔라']
+  '재커리|jackery': ['JACKERY','EXPLORER','솔라','파워뱅크'],
+  'ke435|예초기.?케이이': ['KE435','KE43'],
+  '리코일|스타팅': ['리코일','스타팅','리코일스타터'],
+  '엔진|engine': ['엔진','GX','GP','GC','EX','engine']
 };
 
 function getAliasKeys(q) {
@@ -721,12 +801,25 @@ function submitOrder() {
     _createdAt: new Date().toISOString()
   };
   
+  // 테스트 모드 — 풀에 안 쌓임, 거래명세표만 발급
+  if (TEST_MODE) {
+    localStorage.setItem('latest_invoice', JSON.stringify(order));
+    if (confirm(`🧪 테스트 모드 — 풀에 안 쌓임\n증빙번호: ${order._증빙번호}\n총 ${SELECTED_ITEMS.length}개 품목 / ${order.요금}\n\n📋 거래명세표를 지금 발급하시겠습니까?\n(확인) → 새 창에서 거래명세표 자동 표시\n(취소) → 폼 초기화만`)) {
+      window.open('module_invoice.html?auto=1&id=' + order._id, '_blank');
+    }
+    resetForm();
+    return;
+  }
+  
+  // 운영 모드 — 풀에 누적
   PENDING_ORDERS.push(order);
   localStorage.setItem('pending_orders', JSON.stringify(PENDING_ORDERS));
-  
-  alert(`✅ 주문 등록 완료!\n증빙번호: ${order._증빙번호}\n총 ${SELECTED_ITEMS.length}개 품목\n${order.요금}\n\n거래명세표 PDF는 별도 발급 페이지에서 출력 가능합니다.`);
-  
+  localStorage.setItem('latest_invoice', JSON.stringify(order));
   updatePoolCount();
+  
+  if (confirm(`✅ 주문 등록 완료 (운영 모드 — 풀에 쌓임)\n증빙번호: ${order._증빙번호}\n총 ${SELECTED_ITEMS.length}개 품목 / ${order.요금}\n현재 풀: ${PENDING_ORDERS.length}건\n\n📋 거래명세표를 지금 발급하시겠습니까?`)) {
+    window.open('module_invoice.html?auto=1&id=' + order._id, '_blank');
+  }
   resetForm();
 }
 
@@ -794,7 +887,8 @@ function parseKatalk() {
   const result = KatalkParser.parse(raw, {
     clients: CLIENTS,
     inventory: INVENTORY,
-    salesperson: sp
+    salesperson: sp,
+    aliases: CLIENT_ALIASES
   });
   
   console.log('파싱 결과:', result);
@@ -816,33 +910,55 @@ function parseKatalk() {
     searchClients();
   }
   
-  // 품목 자동 추가
+  // 품목 자동 추가 + 직전 거래 3건 검색
   SELECTED_ITEMS = [];
+  const clientName = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호) : null;
+  
   result.품목들.forEach(p => {
     if (p.매칭상태 === 'matched') {
       const inv = INVENTORY.find(i => i.품목코드 === p.품목코드);
       if (inv) {
+        // 직전 거래 3건 검색
+        let history = [];
+        if (clientName) {
+          history = SALES.filter(s => s.품목코드 === p.품목코드 && s.거래처명 === clientName)
+            .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
+            .slice(0, 3);
+        }
+        if (history.length < 3) {
+          const others = SALES.filter(s => s.품목코드 === p.품목코드 && s.거래처명 !== clientName && (s.단가||0) > 0)
+            .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
+            .slice(0, 3 - history.length);
+          history = [...history, ...others];
+        }
+        
+        // 카톡에서 단가 추출 안 됐으면 직전거래 단가 사용
+        const finalPrice = (p.단가 && p.단가 > 0) ? p.단가 : (history[0]?.단가 || 0);
+        
         SELECTED_ITEMS.push({
           품목코드: p.품목코드,
           품목명: inv.품명 || inv.품목명,
           규격: inv.규격 || '',
           단위: inv.단위 || '',
           수량: p.수량,
-          단가: p.단가 || 0,
-          _lastDate: '카톡파싱',
+          단가: finalPrice,
+          _lastDate: history[0]?.일자 || '카톡파싱',
+          _history: history.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
           _owner: ITEM_OWNER[p.품목코드]?.owner || 'BOTH'
         });
       }
     } else {
-      // 매칭 실패 — 후보 표시용 빈 슬롯
+      // 매칭 실패 — 후보 표시
+      const candidates = (p.매칭후보 || []).slice(0, 5);
       SELECTED_ITEMS.push({
         품목코드: '',
         품목명: p.품목명 + ' ⚠️ 수동 매칭 필요',
-        규격: '',
+        규격: candidates.length > 0 ? `후보: ${candidates.map(c=>c.name).join(', ')}` : '',
         단위: '',
         수량: p.수량,
         단가: p.단가 || 0,
         _lastDate: '카톡파싱(미매칭)',
+        _history: [],
         _owner: 'BOTH'
       });
     }
@@ -903,7 +1019,76 @@ function parseKatalk() {
 
 // ===== 운송비 자동 매칭 =====
 let SHIPPING_FEE = { default: {}, items: {} };
-let SHIP_FEE_MANUAL = false;  // 사용자가 직접 입력했는지
+let SHIP_FEE_MANUAL = false;
+let TEST_MODE = (localStorage.getItem('test_mode') !== 'false');  // 기본 테스트 모드
+
+function toggleMode() {
+  TEST_MODE = !TEST_MODE;
+  localStorage.setItem('test_mode', TEST_MODE ? 'true' : 'false');
+  updateModeUI();
+}
+
+function updateModeUI() {
+  const bar = document.getElementById('mode-bar');
+  const label = document.getElementById('mode-label');
+  const desc = document.getElementById('mode-desc');
+  const btn = bar.querySelector('.mode-toggle');
+  if (TEST_MODE) {
+    bar.classList.remove('live'); bar.classList.add('test');
+    label.textContent = '🧪 테스트 모드';
+    desc.textContent = '주문 등록해도 풀에 안 쌓임 (거래명세표만 발급)';
+    btn.textContent = '🚀 운영 모드로 전환';
+  } else {
+    bar.classList.remove('test'); bar.classList.add('live');
+    label.textContent = '🚀 운영 모드';
+    desc.textContent = '주문이 풀에 누적 → 엑셀 다운로드 대상';
+    btn.textContent = '🧪 테스트 모드로 전환';
+  }
+}
+
+function openPoolModal() {
+  const list = document.getElementById('pool-list');
+  document.getElementById('modal-cnt').textContent = PENDING_ORDERS.length;
+  
+  if (PENDING_ORDERS.length === 0) {
+    list.innerHTML = '<div style="text-align:center; padding:30px; color:#888;">미처리 주문이 없습니다.</div>';
+  } else {
+    list.innerHTML = PENDING_ORDERS.map((o, i) => `
+      <div class="pool-item">
+        <div class="info">
+          <div class="name">${o.거래처명 || '?'} — ${o.품목.length}품목 (${o.발행회사})</div>
+          <div class="meta">
+            ${o._증빙번호} · ${o.영업맨} · ${o.일자} · ${o.요금}
+            ${o.품목.map(p => `${p.품목명}×${p.수량}`).join(', ').slice(0, 80)}
+          </div>
+        </div>
+        <button class="del" onclick="deletePoolItem(${i})">삭제</button>
+      </div>
+    `).join('');
+  }
+  
+  document.getElementById('pool-modal').classList.add('active');
+}
+
+function closePoolModal() {
+  document.getElementById('pool-modal').classList.remove('active');
+}
+
+function deletePoolItem(i) {
+  if (!confirm(`이 주문을 풀에서 삭제하시겠습니까?\n${PENDING_ORDERS[i].거래처명}`)) return;
+  PENDING_ORDERS.splice(i, 1);
+  localStorage.setItem('pending_orders', JSON.stringify(PENDING_ORDERS));
+  updatePoolCount();
+  openPoolModal();  // 새로고침
+}
+
+function clearAllPool() {
+  if (!confirm(`미처리 ${PENDING_ORDERS.length}건을 모두 삭제하시겠습니까?\n(위하고에 안 올린 데이터)`)) return;
+  PENDING_ORDERS = [];
+  localStorage.setItem('pending_orders', '[]');
+  updatePoolCount();
+  closePoolModal();
+}
 
 function markShipFeeManual() {
   SHIP_FEE_MANUAL = true;

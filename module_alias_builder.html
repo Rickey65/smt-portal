@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>별칭 자동 학습 도구</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<script src="https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+<style>
+.layout { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.crumb { padding: 12px 4px; font-size: 13px; color: var(--c-text-2); }
+.crumb a { color: var(--c-smt); text-decoration: none; }
+h1 { margin: 0 0 6px; font-size: 22px; }
+.subtitle { color: var(--c-text-2); font-size: 13px; margin-bottom: 20px; }
+
+.input-card {
+  background: white; border-radius: var(--radius); padding: 18px;
+  box-shadow: var(--shadow-sm); margin-bottom: 16px;
+}
+.input-card h3 { margin: 0 0 12px; font-size: 16px; }
+.tab-btns { display: flex; gap: 6px; margin-bottom: 12px; }
+.tab-btn {
+  background: #eee; border: none; padding: 8px 16px; border-radius: 6px;
+  cursor: pointer; font-size: 13px; font-family: var(--font-sans);
+}
+.tab-btn.active { background: var(--c-smt); color: white; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.field-row label { display: block; font-size: 12px; color: var(--c-text-2); margin-bottom: 4px; }
+.field-row input, .field-row select {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--c-border); border-radius: 6px;
+  font-family: var(--font-sans); font-size: 14px;
+}
+
+textarea {
+  width: 100%; min-height: 140px; padding: 12px; border: 1px solid var(--c-border);
+  border-radius: 6px; font-family: var(--font-sans); font-size: 14px;
+}
+
+.image-drop {
+  border: 2px dashed var(--c-border); border-radius: 8px; padding: 30px;
+  text-align: center; cursor: pointer; transition: border 0.15s;
+}
+.image-drop:hover { border-color: var(--c-smt); }
+.image-drop.dragover { border-color: var(--c-ok); background: #E8F5E9; }
+.image-preview { max-width: 100%; max-height: 300px; margin-top: 12px; }
+
+.btn-primary { background: var(--c-smt); color: white; border: none; padding: 12px 24px;
+  border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 700; margin-top: 8px; }
+.btn-ok { background: var(--c-ok); }
+.btn-warn { background: var(--c-warn); }
+
+.results {
+  background: white; border-radius: var(--radius); padding: 18px;
+  box-shadow: var(--shadow-sm); margin-top: 16px;
+}
+.match-item {
+  background: #fafafa; border: 1px solid #eee; border-radius: 8px;
+  padding: 14px; margin-bottom: 10px;
+}
+.match-item .header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; font-weight: 600;
+}
+.match-item .score {
+  background: #E3F5EC; color: var(--c-ok); padding: 2px 8px; border-radius: 10px; font-size: 11px;
+}
+.match-item .score.low { background: #FFF1D6; color: #C47700; }
+.match-item .score.fail { background: #FFE1E1; color: var(--c-danger); }
+.match-item .info {
+  display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 13px; margin: 6px 0;
+}
+.match-item .info .label { color: var(--c-text-2); }
+.match-item .actions { margin-top: 10px; display: flex; gap: 8px; }
+.match-item .actions button {
+  padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;
+  border: none; font-family: var(--font-sans);
+}
+.btn-accept { background: var(--c-ok); color: white; }
+.btn-reject { background: #eee; color: #333; }
+.btn-edit { background: var(--c-warn); color: white; }
+
+.alias-export {
+  background: #FFF7E6; border-left: 4px solid var(--c-warn);
+  padding: 14px; margin-top: 16px; border-radius: 6px;
+}
+.alias-export pre {
+  background: white; padding: 10px; border-radius: 4px; font-size: 12px;
+  overflow-x: auto; max-height: 300px;
+}
+
+#ocr-progress { margin: 10px 0; }
+#ocr-progress .bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+#ocr-progress .bar-fill { height: 100%; background: var(--c-smt); width: 0; transition: width 0.3s; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="crumb"><a href="index.html">🏠 홈</a> › 별칭 자동 학습 도구</div>
+  <h1>🤖 거래처 별칭 자동 학습</h1>
+  <div class="subtitle">
+    카톡 텍스트 또는 이미지를 입력하면 sales 데이터와 매칭해서 거래처 정식명을 자동으로 찾아 별칭 사전에 추가합니다.
+  </div>
+
+  <!-- 입력 카드 -->
+  <div class="input-card">
+    <h3>📝 카톡 입력</h3>
+    
+    <div class="tab-btns">
+      <button class="tab-btn active" onclick="switchTab('text')">텍스트 직접 입력</button>
+      <button class="tab-btn" onclick="switchTab('image')">이미지 업로드 (OCR)</button>
+    </div>
+    
+    <!-- 추가 정보 (영업맨·날짜) -->
+    <div class="field-row">
+      <div>
+        <label>영업맨 (필수)</label>
+        <select id="salesperson">
+          <option value="">— 선택 —</option>
+        </select>
+      </div>
+      <div>
+        <label>카톡 날짜</label>
+        <input type="date" id="katalk-date">
+      </div>
+      <div>
+        <label>매칭 날짜 범위 (±일)</label>
+        <select id="date-range">
+          <option value="1">±1일</option>
+          <option value="2" selected>±2일</option>
+          <option value="3">±3일</option>
+          <option value="7">±7일</option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- 텍스트 입력 영역 -->
+    <div id="tab-text">
+      <textarea id="katalk-text" placeholder="카톡 내용 그대로 붙여넣기.
+여러 톡 한 번에 입력 가능 (각 톡은 빈 줄로 구분):
+
+전주 혼다대흥
+30a 8.5×50 2대
+30a 밸브 50개
+내일 호남 정규배송
+
+보강툴스 직송건
+MCC13×70 1대
+51만 별도
+"></textarea>
+    </div>
+    
+    <!-- 이미지 OCR 영역 -->
+    <div id="tab-image" style="display:none">
+      <div class="image-drop" id="img-drop" onclick="document.getElementById('img-input').click()">
+        <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
+        <div style="font-weight: 600;">카톡 캡처 이미지 드래그 또는 클릭</div>
+        <div style="font-size: 12px; color: var(--c-text-2); margin-top: 6px;">
+          한국어 OCR (Tesseract.js) — 첫 사용 시 한국어 모델 다운로드 약 30MB
+        </div>
+        <input type="file" id="img-input" style="display:none" accept="image/*" multiple onchange="handleImages(this.files)">
+      </div>
+      <div id="ocr-progress" style="display:none">
+        <div style="font-size: 13px; color: var(--c-text-2);" id="ocr-status">OCR 진행 중...</div>
+        <div class="bar"><div class="bar-fill" id="ocr-fill"></div></div>
+      </div>
+      <div id="img-previews"></div>
+    </div>
+    
+    <button class="btn-primary btn-ok" onclick="analyze()">🔍 분석 + sales 매칭</button>
+  </div>
+
+  <!-- 결과 카드 -->
+  <div id="results" style="display:none"></div>
+  
+  <!-- 별칭 사전 출력 -->
+  <div id="alias-export" style="display:none"></div>
+</div>
+
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
+<script src="shared/katalk_parser.js"></script>
+<script>
+let SALES = [];
+let CLIENTS = [];
+let INVENTORY = [];
+let CURRENT_ALIASES = {};
+let ACCEPTED_ALIASES = {};
+let SALESPERSONS = [];
+
+async function init() {
+  document.getElementById('katalk-date').value = new Date().toISOString().slice(0,10);
+  
+  // 데이터 로딩
+  SALES = await Data.sales([2024, 2025, 2026]);
+  CLIENTS = await Data.clients();
+  INVENTORY = await Data.inventory();
+  CURRENT_ALIASES = await Data.clientAliases();
+  
+  // 영업맨 드롭다운
+  const respAll = await fetch('data/shared/employees.json').then(r => r.json());
+  SALESPERSONS = respAll.rows.filter(e => e._role !== '대표' && e._role !== '총무_퇴사예정');
+  const sel = document.getElementById('salesperson');
+  SALESPERSONS.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.사원명;
+    o.textContent = `${e._label || e.사원명} (${e._company} ${e.사원코드}번)`;
+    sel.appendChild(o);
+  });
+  
+  // 이미지 드래그 이벤트
+  const dropZone = document.getElementById('img-drop');
+  ['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, e => { 
+    e.preventDefault(); dropZone.classList.add('dragover'); 
+  }));
+  ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { 
+    e.preventDefault(); dropZone.classList.remove('dragover'); 
+  }));
+  dropZone.addEventListener('drop', e => handleImages(e.dataTransfer.files));
+}
+
+function switchTab(tab) {
+  document.getElementById('tab-text').style.display = tab === 'text' ? 'block' : 'none';
+  document.getElementById('tab-image').style.display = tab === 'image' ? 'block' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (tab === 'text' && i === 0) || (tab === 'image' && i === 1));
+  });
+}
+
+async function handleImages(files) {
+  if (!files || files.length === 0) return;
+  document.getElementById('ocr-progress').style.display = 'block';
+  document.getElementById('ocr-status').textContent = `${files.length}개 이미지 OCR 시작...`;
+  
+  const previews = document.getElementById('img-previews');
+  previews.innerHTML = '';
+  
+  let allText = '';
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    document.getElementById('ocr-status').textContent = `OCR (${i+1}/${files.length}): ${file.name}`;
+    
+    // 이미지 미리보기
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'image-preview';
+      previews.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+    
+    // Tesseract OCR
+    const worker = await Tesseract.createWorker(['kor', 'eng'], 1, {
+      logger: m => {
+        if (m.progress) document.getElementById('ocr-fill').style.width = (m.progress * 100) + '%';
+      }
+    });
+    const { data } = await worker.recognize(file);
+    await worker.terminate();
+    
+    allText += `\n\n=== 이미지 ${i+1}: ${file.name} ===\n` + data.text;
+  }
+  
+  document.getElementById('ocr-status').textContent = 'OCR 완료. 텍스트 영역에 결과 표시됨.';
+  switchTab('text');
+  document.getElementById('katalk-text').value = allText.trim();
+}
+
+// 카톡 텍스트 → 여러 톡으로 분리 (빈 줄 또는 영업맨 이름)
+function splitKataloks(text) {
+  // === 이미지 N === 구분자로 분리, 또는 빈 줄
+  const sections = text.split(/\n\s*\n|={3,}.*?={3,}/);
+  return sections.map(s => s.trim()).filter(s => s.length > 0);
+}
+
+function analyze() {
+  const salesperson = document.getElementById('salesperson').value;
+  const katalkDate = document.getElementById('katalk-date').value;
+  const dateRange = parseInt(document.getElementById('date-range').value);
+  const text = document.getElementById('katalk-text').value.trim();
+  
+  if (!salesperson) return alert('영업맨을 선택하세요');
+  if (!text) return alert('카톡 내용을 입력하세요');
+  
+  const sections = splitKataloks(text);
+  console.log(`${sections.length}개 톡 분석`);
+  
+  const results = [];
+  for (const section of sections) {
+    // 1. 카톡 파싱
+    const parsed = KatalkParser.parse(section, {
+      clients: CLIENTS,
+      inventory: INVENTORY,
+      salesperson: salesperson,
+      aliases: CURRENT_ALIASES
+    });
+    
+    // 2. sales 매칭 — 영업맨 + 날짜 ±N일 + 품목 + 수량
+    const matches = matchSales(parsed, salesperson, katalkDate, dateRange);
+    
+    results.push({ section, parsed, matches });
+  }
+  
+  renderResults(results);
+}
+
+function matchSales(parsed, salesperson, katalkDate, dateRange) {
+  const baseDate = new Date(katalkDate);
+  const candidates = {};  // 거래처명 → 매칭 점수
+  
+  for (const item of parsed.품목들) {
+    if (!item.품목코드 && !item.품목명) continue;
+    
+    // 해당 영업맨의 ±dateRange일 sales
+    SALES.forEach(s => {
+      if (s.사원 !== salesperson) return;
+      const sDate = new Date(s.일자);
+      const diff = Math.abs((sDate - baseDate) / (1000*60*60*24));
+      if (diff > dateRange) return;
+      
+      // 품목 매칭
+      let itemScore = 0;
+      const sCode = (s.품목코드 || '').toLowerCase();
+      const sName = (s.품목명 || '').toLowerCase();
+      
+      if (item.품목코드 && sCode === item.품목코드.toLowerCase()) itemScore += 50;
+      else if (item.품목명) {
+        const itemNameLower = item.품목명.toLowerCase();
+        if (sName.includes(itemNameLower.slice(0, 5))) itemScore += 30;
+        if (sCode.includes(itemNameLower.slice(0, 5))) itemScore += 30;
+      }
+      
+      if (itemScore === 0) return;
+      
+      // 수량 매칭 (가산점)
+      if (item.수량 && Math.abs(s.수량 - item.수량) < 0.5) itemScore += 20;
+      
+      // 날짜 가까울수록 가산점
+      itemScore += (dateRange - diff) * 5;
+      
+      const clientName = s.거래처명 || '';
+      const clientCode = s.거래처코드 || '';
+      const key = clientCode || clientName;
+      if (!candidates[key]) {
+        candidates[key] = {
+          거래처명: clientName, 거래처코드: clientCode, score: 0,
+          matchedSales: [], itemsMatched: 0
+        };
+      }
+      candidates[key].score += itemScore;
+      candidates[key].itemsMatched++;
+      candidates[key].matchedSales.push({
+        일자: s.일자, 품목명: s.품목명, 수량: s.수량, 단가: s.단가
+      });
+    });
+  }
+  
+  // 점수 높은 순 정렬
+  return Object.values(candidates).sort((a, b) => b.score - a.score).slice(0, 5);
+}
+
+function renderResults(results) {
+  const container = document.getElementById('results');
+  container.style.display = 'block';
+  container.className = 'results';
+  
+  let html = `<h3>🔍 분석 결과 — ${results.length}개 톡</h3>`;
+  
+  results.forEach((r, idx) => {
+    const aliasName = r.parsed.거래처.명 || '?';
+    const top = r.matches[0];
+    
+    let badgeClass = 'fail', badgeText = '매칭 실패';
+    if (top && top.score >= 80) { badgeClass = ''; badgeText = '높은 신뢰도'; }
+    else if (top && top.score >= 40) { badgeClass = 'low'; badgeText = '중간 신뢰도'; }
+    else if (top) { badgeClass = 'fail'; badgeText = '낮은 신뢰도'; }
+    
+    html += `
+      <div class="match-item">
+        <div class="header">
+          <div>톡 ${idx+1}: <strong>"${aliasName}"</strong> → ${top ? top.거래처명 : '매칭 안 됨'}</div>
+          <div class="score ${badgeClass}">${badgeText} (${top ? top.score : 0}점)</div>
+        </div>
+        <div class="info"><span class="label">카톡 원문:</span><span style="white-space:pre-wrap; font-size:11px; color:#666;">${r.section.slice(0, 200)}</span></div>
+        <div class="info"><span class="label">파싱 품목:</span><span>${r.parsed.품목들.map(p => `${p.품목명} ×${p.수량}`).join(', ')}</span></div>
+    `;
+    
+    if (r.matches.length > 0) {
+      html += `<div class="info"><span class="label">매칭 후보:</span><div>`;
+      r.matches.forEach((m, mi) => {
+        html += `<div style="padding:4px 0;${mi===0?'font-weight:600;color:var(--c-smt);':''}">
+          ${mi+1}. ${m.거래처명} (코드 ${m.거래처코드}) · ${m.itemsMatched}개 품목 매칭 · ${m.score}점
+        </div>`;
+      });
+      html += `</div></div>`;
+      
+      html += `<div class="actions">`;
+      r.matches.slice(0, 3).forEach((m, mi) => {
+        html += `<button class="btn-${mi===0?'accept':'edit'}" onclick='acceptAlias("${aliasName}", "${m.거래처코드}", "${m.거래처명}")'>${mi+1}번 채택 (${m.거래처명.slice(0,15)})</button>`;
+      });
+      html += `<button class="btn-reject" onclick='rejectMatch(${idx})'>거부</button>`;
+      html += `</div>`;
+    }
+    
+    html += `</div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+function acceptAlias(alias, code, name) {
+  ACCEPTED_ALIASES[alias] = code;
+  alert(`✅ 별칭 등록: "${alias}" → ${name} (${code})`);
+  renderAliasExport();
+}
+
+function rejectMatch(idx) {
+  console.log('거부:', idx);
+}
+
+function renderAliasExport() {
+  const cnt = Object.keys(ACCEPTED_ALIASES).length;
+  if (cnt === 0) return;
+  
+  const merged = { ...CURRENT_ALIASES, ...ACCEPTED_ALIASES };
+  const json = {
+    "_description": "거래처 실무 호칭 → 위하고 정식 거래처코드 매핑",
+    "_lastUpdated": new Date().toISOString().slice(0,10),
+    "_source": "module_alias_builder로 자동 학습",
+    "aliases": merged
+  };
+  
+  const container = document.getElementById('alias-export');
+  container.style.display = 'block';
+  container.className = 'alias-export';
+  container.innerHTML = `
+    <strong>✅ 채택된 별칭 ${cnt}건 — client_aliases.json 갱신용</strong>
+    <p style="font-size:13px;color:#666;margin:8px 0;">아래 파일을 다운로드 → GitHub의 data/shared/client_aliases.json에 덮어쓰기</p>
+    <pre>${JSON.stringify(json, null, 2)}</pre>
+    <button class="btn-primary btn-warn" onclick='downloadAliases()'>📥 client_aliases.json 다운로드</button>
+  `;
+}
+
+function downloadAliases() {
+  const merged = { ...CURRENT_ALIASES, ...ACCEPTED_ALIASES };
+  const json = {
+    "_description": "거래처 실무 호칭 → 위하고 정식 거래처코드 매핑",
+    "_lastUpdated": new Date().toISOString().slice(0,10),
+    "_source": "module_alias_builder로 자동 학습",
+    "aliases": merged
+  };
+  const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'client_aliases.json';
+  a.click();
+}
+
+init();
+</script>
+</body>
+</html>

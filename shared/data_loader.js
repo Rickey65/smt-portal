@@ -105,6 +105,11 @@
       return d || { default: {}, items: {} };
     },
     
+    async clientAliases() {
+      const d = await fetchJson('data/shared/client_aliases.json');
+      return (d && d.aliases) ? d.aliases : {};
+    },
+    
     // 회사 정보 (거래명세표 등)
     companyInfo: {
       SMT: {

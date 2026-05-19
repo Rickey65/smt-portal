@@ -358,7 +358,26 @@ function loadSample() {
 }
 
 document.getElementById('trade-date').value = new Date().toISOString().slice(0,10);
-addItem();
+
+// 자동 발급 모드 — URL 파라미터 ?auto=1 시 localStorage에서 주문 정보 자동 로드
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('auto') === '1') {
+  const orderJson = localStorage.getItem('latest_invoice');
+  if (orderJson) {
+    try {
+      const order = JSON.parse(orderJson);
+      autoFillFromOrder(order);
+    } catch(e) {
+      console.error('주문 데이터 파싱 실패:', e);
+      addItem();
+    }
+  } else {
+    addItem();
+  }
+} else {
+  addItem();
+}
+
 render();
 CompanyToggle.render(null, (v) => {
   if (v === 'SMT' || v === 'GW') {
@@ -366,6 +385,62 @@ CompanyToggle.render(null, (v) => {
     render();
   }
 });
+
+// module_order에서 넘어온 주문 데이터 자동 채움
+async function autoFillFromOrder(order) {
+  // 발행 회사
+  document.getElementById('issuer').value = order.발행회사 || 'SMT';
+  
+  // 거래일자
+  if (order.일자) document.getElementById('trade-date').value = order.일자;
+  
+  // 거래처 정보 — clients.json에서 조회
+  try {
+    const resp = await fetch('data/shared/clients.json');
+    const cdata = await resp.json();
+    const client = cdata.rows.find(c => 
+      (c.거래처코드 || c.코드 || c.code) == order.거래처코드);
+    
+    if (client) {
+      document.getElementById('client-name').value = client.거래처명 || client.상호 || '';
+      document.getElementById('client-bizno').value = client.사업자번호 || '';
+      document.getElementById('client-rep').value = client.대표자명 || client.대표자 || '';
+      document.getElementById('client-addr').value = client.사업장주소 || client.주소 || '';
+      document.getElementById('client-up').value = client.업태 || '';
+      document.getElementById('client-jong').value = client.업종 || client.종목 || '';
+    } else {
+      document.getElementById('client-name').value = order.거래처명 || '';
+    }
+  } catch(e) {
+    document.getElementById('client-name').value = order.거래처명 || '';
+  }
+  
+  // 품목 자동 추가
+  items = [];
+  (order.품목 || []).forEach(p => {
+    items.push({
+      품명: p.품목명 || '',
+      규격: p.규격 || '',
+      단위: p.단위 || '',
+      납기일: order.일자 ? order.일자.replace(/-/g, '') : '',
+      수량: p.수량 || 0,
+      단가: p.단가 || 0
+    });
+  });
+  
+  // 비고
+  document.getElementById('memo').value = order.비고 || '';
+  
+  renderItemsForm();
+  render();
+  
+  // 자동 발급 알림
+  setTimeout(() => {
+    if (confirm('📋 거래명세표가 자동 채워졌습니다.\n바로 인쇄/PDF 저장하시겠습니까?')) {
+      exportPDF();
+    }
+  }, 800);
+}
 </script>
 </body>
 </html>
