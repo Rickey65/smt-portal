@@ -135,12 +135,7 @@
         <div class="desc">핵심 지표 5개 + 음성 조회 + 출발 전 브리핑</div>
         <span class="status">이용 가능</span>
       </a>
-      <a href="#" onclick="event.preventDefault(); alert('출장 일정은 다음 단계에서 별도 개발 예정입니다.')" class="tile blue disabled">
-        <div class="icon">🗓️</div>
-        <div class="title">출장 일정 관리</div>
-        <div class="desc">거래처 6,753곳 + 최적 경로 + 맛집·숙소</div>
-        <span class="status coming">곧 개편 예정</span>
-      </a>
+
       <a href="module_catalog.html" class="tile orange">
         <div class="icon">📖</div>
         <div class="title">전자 카탈로그</div>
@@ -213,7 +208,7 @@ const PW = 'smt2026';
 function doLogin() {
   const v = document.getElementById('pw').value;
   if (v === PW) {
-    sessionStorage.setItem('auth', '1');
+    sessionStorage.setItem('smtAuth', '1');
     showMain();
   } else {
     document.getElementById('err').textContent = '비밀번호가 틀렸습니다';
@@ -226,7 +221,7 @@ function showMain() {
   initPortal();
 }
 
-if (sessionStorage.getItem('auth') === '1') showMain();
+if (sessionStorage.getItem('smtAuth') === '1') showMain();
 
 function initPortal() {
   // 회사 토글 위젯
