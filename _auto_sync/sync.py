@@ -95,57 +95,89 @@ def num(v):
 
 
 def detect_type(aoa):
-    # 상위 30행까지 검색 (위하고 양식 헤더가 깊이 있을 수 있음)
-    flat = " ".join(s(c) for row in aoa[:30] for c in row)
-    # 미수채권상세현황: "미수채권상세현황 - 거래처" + "당기발생" + "당기수금"
+    flat_raw = " ".join(s(c) for row in aoa[:30] for c in row)
+    flat = flat_raw.replace(" ", "")  # 공백 무시 (위하고 "분 개 장" 같은 띄어쓰기 대응)
+    # 미수채권상세현황
     if "미수채권상세현황" in flat and "당기발생" in flat and "당기수금" in flat:
         return "receivable_detail"
-    # 채권채무집계: 헤더에 "채권" + "채무" + "거래처" + "잔액"
+    # 채권채무집계
     if ("채권" in flat and "채무" in flat and "거래처" in flat and "잔액" in flat
         and "미수채권상세현황" not in flat):
         return "receivable"
-    # 분개장: "분개장" + "차변" + "대변"
+    # 분개장
     if "분개장" in flat and "차변" in flat and "대변" in flat:
         return "journal"
-    # 현재고: "품목계정" + "기말재고" + "기초수량"
+    # 현재고
     if "품목계정" in flat and "기말재고" in flat and "기초수량" in flat:
         return "inventory"
-    # 판매일보: "일자" + "품목" + "거래처" + ("공급가액" 또는 "수량")
-    if ("일자" in flat and ("품목명" in flat or "품목코드" in flat)
-        and "거래처" in flat and ("공급가액" in flat or "수량" in flat)):
+    # 판매일보 (신·구 모두 — "일자" + "품목" + "공급가액")
+    if "일자" in flat and ("품목명" in flat or "품목코드" in flat) and "공급가액" in flat:
         return "sales"
     return None
 
 
 def parse_sales(aoa, company):
+    """판매일보 파서 — 신·구 양식 자동 인식. 헤더 위치 + 컬럼 인덱스 동적 추출."""
+    # 헤더 행 찾기 ("일자" 컬럼이 있는 첫 행)
     hi = -1
-    for i, row in enumerate(aoa):
-        if len(row) >= 2 and s(row[0]) == "일자" and s(row[1]) == "품목계정":
+    headers = []
+    for i, row in enumerate(aoa[:50]):
+        cells = [s(c) for c in row]
+        if "일자" in cells and ("품목명" in cells or "품목코드" in cells):
             hi = i
+            headers = cells
             break
     if hi < 0:
-        raise ValueError("판매일보 헤더(일자/품목계정)를 찾지 못함")
+        raise ValueError("판매일보 헤더(일자/품목명) 못 찾음")
+    # 동적 컬럼 인덱스
+    def col(name, alt=None):
+        if name in headers:
+            return headers.index(name)
+        if alt:
+            for a in alt if isinstance(alt, list) else [alt]:
+                if a in headers: return headers.index(a)
+        return -1
+    idx = {
+        "일자": col("일자"),
+        "품목계정": col("품목계정"),
+        "품목코드": col("품목코드"),
+        "품목명": col("품목명", "품명"),
+        "규격": col("규격"),
+        "수량": col("수량"),
+        "단가": col("단가"),
+        "공급가액": col("공급가액"),
+        "부가세": col("부가세"),
+        "합계금액": col("합계금액"),
+        "거래처명": col("거래처명", "거래처"),
+        "유형": col("유형"),
+        "사원": col("사원", "담당자"),
+        "창고명": col("창고명", "창고"),
+    }
     rows = []
     for r in aoa[hi + 1:]:
-        if not r or s(r[0]) in ("", "일자", "합계", "소계"):
-            continue
-        date = s(r[0])
-        if not re.match(r"\d{4}[-./]\d{2}[-./]\d{2}", date):
-            continue
-        date = date[:10].replace(".", "-").replace("/", "-")
+        if not r or len(r) < 3: continue
+        date_raw = s(r[idx["일자"]]) if idx["일자"] >= 0 and idx["일자"] < len(r) else ""
+        if not date_raw or date_raw in ("일자", "합계", "소계"): continue
+        if not re.match(r"\d{4}[-./]\d{2}[-./]\d{2}", date_raw): continue
+        date = date_raw[:10].replace(".", "-").replace("/", "-")
+        def get(k, default=""):
+            i_ = idx.get(k, -1)
+            return r[i_] if 0 <= i_ < len(r) else default
         rows.append({
             "일자": date, "_month": date[:7],
-            "품목계정": s(r[1]), "품목코드": s(r[2]),
-            "품목명": s(r[3]), "규격": s(r[4]),
-            "수량": num(r[7] if len(r) > 7 else 0),
-            "단가": num(r[8] if len(r) > 8 else 0),
-            "공급가액": num(r[9] if len(r) > 9 else 0),
-            "부가세": num(r[10] if len(r) > 10 else 0),
-            "합계금액": num(r[11] if len(r) > 11 else 0),
-            "거래처명": s(r[13] if len(r) > 13 else ""),
-            "유형": s(r[14] if len(r) > 14 else "판매출고"),
-            "담당자": s(r[24] if len(r) > 24 else ""),
-            "창고": s(r[27] if len(r) > 27 else ""),
+            "품목계정": s(get("품목계정")),
+            "품목코드": s(get("품목코드")),
+            "품목명": s(get("품목명")),
+            "규격": s(get("규격")),
+            "수량": num(get("수량", 0)),
+            "단가": num(get("단가", 0)),
+            "공급가액": num(get("공급가액", 0)),
+            "부가세": num(get("부가세", 0)),
+            "합계금액": num(get("합계금액", 0)),
+            "거래처명": s(get("거래처명")),
+            "유형": s(get("유형")) or "판매출고",
+            "담당자": s(get("사원")),
+            "창고": s(get("창고명")),
             "_company": company,
         })
     return rows
@@ -422,7 +454,14 @@ def main():
         if existing_path.exists():
             try:
                 with open(existing_path, encoding="utf-8") as fp:
-                    existing = json.load(fp)
+                    loaded = json.load(fp)
+                # dict wrapper 또는 list 모두 대응
+                if isinstance(loaded, dict) and "rows" in loaded:
+                    existing = loaded["rows"]
+                elif isinstance(loaded, list):
+                    existing = loaded
+                # 각 원소가 dict인 것만 필터
+                existing = [x for x in existing if isinstance(x, dict)]
             except Exception:
                 existing = []
         new_dates = {x["날짜"] for x in legacy_sales}
