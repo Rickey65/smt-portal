@@ -95,16 +95,24 @@ def num(v):
 
 
 def detect_type(aoa):
-    flat = " ".join(s(c) for row in aoa[:5] for c in row)
+    # 상위 30행까지 검색 (위하고 양식 헤더가 깊이 있을 수 있음)
+    flat = " ".join(s(c) for row in aoa[:30] for c in row)
+    # 미수채권상세현황: "미수채권상세현황 - 거래처" + "당기발생" + "당기수금"
+    if "미수채권상세현황" in flat and "당기발생" in flat and "당기수금" in flat:
+        return "receivable_detail"
     # 채권채무집계: 헤더에 "채권" + "채무" + "거래처" + "잔액"
-    if ("채권" in flat and "채무" in flat and "거래처" in flat and "잔액" in flat):
+    if ("채권" in flat and "채무" in flat and "거래처" in flat and "잔액" in flat
+        and "미수채권상세현황" not in flat):
         return "receivable"
-    # 옛 미수채권상세현황 (보존)
-    if "미수채권" in flat or re.search(r"거래처\s*:\s*\d+\s*\[", flat):
-        return "receivable_old"
+    # 분개장: "분개장" + "차변" + "대변"
+    if "분개장" in flat and "차변" in flat and "대변" in flat:
+        return "journal"
+    # 현재고: "품목계정" + "기말재고" + "기초수량"
     if "품목계정" in flat and "기말재고" in flat and "기초수량" in flat:
         return "inventory"
-    if "일자" in flat and "품목계정" in flat and "거래처명" in flat and "공급가액" in flat:
+    # 판매일보: "일자" + "품목" + "거래처" + ("공급가액" 또는 "수량")
+    if ("일자" in flat and ("품목명" in flat or "품목코드" in flat)
+        and "거래처" in flat and ("공급가액" in flat or "수량" in flat)):
         return "sales"
     return None
 
@@ -168,6 +176,94 @@ def parse_inventory(aoa, company):
             "_company": company,
         })
     return rows
+
+
+
+def parse_journal(aoa, company):
+    """분개장 양식: 6행부터 데이터 (월/일·번호·차변금액·차변계정·대변계정·대변금액)"""
+    rows = []
+    current = None
+    year = datetime.now().year
+    # 연도 자동 감지
+    for r in aoa[:10]:
+        for c in r:
+            m = re.search(r"(\d{4})년", s(c))
+            if m:
+                year = int(m.group(1)); break
+        if year != datetime.now().year: break
+    
+    for r in aoa[5:]:
+        if not r or len(r) < 6: continue
+        date_s = s(r[0])
+        no_s = s(r[1])
+        dr_amt = num(r[2])
+        dr_acct = s(r[3])
+        cr_acct = s(r[4])
+        cr_amt = num(r[5])
+        
+        if date_s and re.match(r'\d{1,2}/\d{1,2}', date_s):
+            if current:
+                rows.append(current)
+            mm, dd = date_s.split('/')
+            current = {
+                '_company': company,
+                '일자': f'{year}-{int(mm):02d}-{int(dd):02d}',
+                '번호': no_s, '차변': [], '대변': [], '적요': '', '거래처': ''
+            }
+            if dr_amt > 0: current['차변'].append({'계정': dr_acct, '금액': dr_amt})
+            if cr_amt > 0: current['대변'].append({'계정': cr_acct, '금액': cr_amt})
+        elif current is not None:
+            if dr_amt > 0 and dr_acct:
+                current['차변'].append({'계정': dr_acct, '금액': dr_amt})
+            if cr_amt > 0 and cr_acct:
+                current['대변'].append({'계정': cr_acct, '금액': cr_amt})
+            if dr_amt == 0 and cr_amt == 0:
+                if dr_acct and not current['적요']: current['적요'] = dr_acct
+                if cr_acct and not current['거래처']: current['거래처'] = cr_acct
+    if current: rows.append(current)
+    return rows
+
+
+def parse_receivable_detail(aoa, company):
+    """미수채권상세현황 양식 — 거래처 블록 반복"""
+    clients = {}
+    current = None
+    for i in range(len(aoa)):
+        row = aoa[i]
+        c0 = s(row[0]) if row else ''
+        c6 = s(row[6]) if len(row)>6 else ''
+        # 거래처 헤더 검색
+        m = re.search(r'거래처\s*:\s*(\d+)\[(.+?)$', c6)
+        if not m and c0.startswith('회사명'):
+            m = re.search(r'거래처\s*:\s*(\d+)\[(.+?)$', c6 if c6 else s(row[6] if len(row)>6 else ''))
+        if m:
+            code, name = m.group(1), m.group(2).rstrip(']').strip()
+            current = name
+            if name not in clients:
+                clients[name] = {'_company':company, '거래처코드':code, '거래처명':name,
+                                 '전기이월':0, '매출':[], '수금':[], '잔액추이':[]}
+            continue
+        if not current: continue
+        c = clients[current]
+        if c0.startswith('전기'):
+            c['전기이월'] = num(row[1] if len(row)>1 else 0)
+            continue
+        if re.match(r'\d{4}-\d{2}-\d{2}', c0):
+            date = c0[:10]
+            bal = num(row[12] if len(row)>12 else 0)
+            공급 = num(row[7] if len(row)>7 else 0)
+            부가 = num(row[8] if len(row)>8 else 0)
+            합계 = num(row[9] if len(row)>9 else 0)
+            유형 = s(row[10] if len(row)>10 else '')
+            수금금액 = num(row[11] if len(row)>11 else 0)
+            품목 = s(row[3] if len(row)>3 else '')
+            if 공급 != 0 and 품목 and '★입금계좌번호★' not in s(row[2] if len(row)>2 else ''):
+                c['매출'].append({'일자':date, '공급가액':공급, '부가세':부가, '합계':합계 or 공급+부가, '품목':품목})
+            if 유형 and 수금금액:
+                c['수금'].append({'일자':date, '유형':유형, '금액':수금금액})
+            if bal != 0:
+                c['잔액추이'].append({'일자':date, '잔액':bal})
+    return list(clients.values())
 
 
 def parse_receivable(aoa, company):
@@ -235,9 +331,11 @@ def parse_receivable_old(aoa, company):
 
 
 PARSERS = {"sales": parse_sales, "inventory": parse_inventory,
-           "receivable": parse_receivable, "receivable_old": parse_receivable_old}
+           "receivable": parse_receivable, "receivable_old": parse_receivable_old,
+           "receivable_detail": parse_receivable_detail, "journal": parse_journal}
 TYPE_NAMES = {"sales": "판매일보", "inventory": "현재고",
-              "receivable": "채권채무집계", "receivable_old": "미수채권(옛)"}
+              "receivable": "채권채무집계", "receivable_old": "미수채권(옛)",
+              "receivable_detail": "미수채권상세현황", "journal": "분개장"}
 
 
 def main():
@@ -260,8 +358,10 @@ def main():
         input("\n엔터를 누르면 종료...")
         return
 
-    parsed = {"SMT": {"sales": [], "inventory": [], "receivable": [], "receivable_old": []},
-              "GW":  {"sales": [], "inventory": [], "receivable": [], "receivable_old": []}}
+    parsed = {"SMT": {"sales": [], "inventory": [], "receivable": [], "receivable_old": [],
+                      "receivable_detail": [], "journal": []},
+              "GW":  {"sales": [], "inventory": [], "receivable": [], "receivable_old": [],
+                      "receivable_detail": [], "journal": []}}
     processed_files = []
     for company, files in by_company.items():
         for f in files:
@@ -387,6 +487,28 @@ def main():
                 with open(hpath, "w", encoding="utf-8") as fp:
                     json.dump(parsed[company]["receivable"], fp, ensure_ascii=False, separators=(",", ":"))
                 print(f"    history/{hpath.name} ({len(parsed[company]['receivable'])}거래처)")
+
+    # 미수채권상세현황 저장 (거래처별 + 일자별 history)
+    for company in ("SMT", "GW"):
+        rd = parsed[company].get("receivable_detail", [])
+        if rd:
+            out_dir = PROJECT_DIR / "data" / "receivable_analysis"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            outp = out_dir / f"detail_{company.lower()}_{TODAY}.json"
+            with open(outp, "w", encoding="utf-8") as fp:
+                json.dump(rd, fp, ensure_ascii=False, separators=(",", ":"))
+            print(f"    receivable_analysis/{outp.name} ({len(rd)}거래처)")
+
+    # 분개장 저장 (거래처별 적요·계정 패턴 학습)
+    for company in ("SMT", "GW"):
+        jr = parsed[company].get("journal", [])
+        if jr:
+            out_dir = PROJECT_DIR / "data" / "journal_patterns"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            outp = out_dir / f"journal_{company.lower()}_{TODAY}.json"
+            with open(outp, "w", encoding="utf-8") as fp:
+                json.dump(jr, fp, ensure_ascii=False, separators=(",", ":"))
+            print(f"    journal_patterns/{outp.name} ({len(jr)}분개)")
 
     print(f"\n[정리] 처리된 파일 → _처리완료/{TODAY}/")
     done_today = DONE_DIR / TODAY
