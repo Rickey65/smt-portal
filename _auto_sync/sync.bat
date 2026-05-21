@@ -1,31 +1,37 @@
 @echo off
-chcp 65001 > nul
-title 위하고 데이터 동기화
+setlocal
 cd /d "%~dp0"
+
 echo.
 echo ============================================================
-echo   SMT서울기연·건웅 위하고 데이터 자동 동기화
+echo    SMT + GW Wehago Daily Sync
 echo ============================================================
 echo.
 
-REM python launcher(py)와 python.exe 둘 다 시도
-where py >nul 2>&1
-if %errorlevel%==0 (
-    py sync.py
-) else (
-    where python >nul 2>&1
-    if %errorlevel%==0 (
-        python sync.py
-    ) else (
-        echo [오류] Python을 찾을 수 없습니다.
-        echo.
-        echo Windows 시작메뉴에서 "cmd" 검색 후 다음 명령을 입력해 보세요:
-        echo    python --version
-        echo    py --version
-        echo.
-        echo 둘 다 안 되면 Python을 재설치하고
-        echo 반드시 [Add Python to PATH] 체크박스를 선택하세요.
-    )
+set "PYCMD="
+where py >nul 2>nul && set "PYCMD=py"
+if not defined PYCMD where python >nul 2>nul && set "PYCMD=python"
+
+if not defined PYCMD (
+    echo [ERROR] Python not found in PATH.
+    echo.
+    echo Open cmd and type:  py --version
+    echo If that fails, reinstall Python with [Add to PATH] checked.
+    pause
+    exit /b 1
 )
+
+echo Using Python launcher: %PYCMD%
 echo.
+%PYCMD% sync.py
+set RC=%errorlevel%
+echo.
+echo ============================================================
+if %RC%==0 (
+    echo  DONE. Site will refresh in 1-2 minutes.
+) else (
+    echo  ERROR. Python script exited with code %RC%.
+)
+echo ============================================================
 pause
+endlocal

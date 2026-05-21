@@ -413,41 +413,86 @@ def main():
             except Exception as e:
                 print(f"오류: {e}")
 
-    print("\n[저장] 양사 분리 (dist/data/per_company/)")
+    print("\n[저장] 양사 분리 (data/per_company/) — 사이트 로더 표준 포맷")
     DATA_PC.mkdir(parents=True, exist_ok=True)
-    year = datetime.now().year
     for company in ("SMT", "GW"):
         cl = company.lower()
+        # 판매: 년도별 분리 + {rows:[...]} 래핑 + 기존 파일 일자 단위 병합
         if parsed[company]["sales"]:
-            outp = DATA_PC / f"sales_{cl}_{year}.json"
-            with open(outp, "w", encoding="utf-8") as fp:
-                json.dump(parsed[company]["sales"], fp, ensure_ascii=False, separators=(",", ":"))
-            print(f"    {outp.name} ({len(parsed[company]['sales'])}건)")
+            by_year = {}
+            for r in parsed[company]["sales"]:
+                ystr = (r.get("_month") or r.get("일자") or "")[:4]
+                if not ystr.isdigit():
+                    continue
+                by_year.setdefault(int(ystr), []).append(r)
+            for y, rows_y in by_year.items():
+                outp = DATA_PC / f"sales_{cl}_{y}.json"
+                existing_rows = []
+                if outp.exists():
+                    try:
+                        with open(outp, encoding="utf-8") as fp:
+                            ed = json.load(fp)
+                        if isinstance(ed, dict) and "rows" in ed:
+                            existing_rows = ed["rows"]
+                        elif isinstance(ed, list):
+                            existing_rows = ed
+                    except Exception:
+                        existing_rows = []
+                new_dates = {r.get("일자") for r in rows_y}
+                merged_rows = [r for r in existing_rows if r.get("일자") not in new_dates] + rows_y
+                merged_rows.sort(key=lambda x: x.get("일자", ""))
+                wrapped = {
+                    "_company": company, "_year": y, "_count": len(merged_rows),
+                    "_generated": NOW, "rows": merged_rows,
+                }
+                with open(outp, "w", encoding="utf-8") as fp:
+                    json.dump(wrapped, fp, ensure_ascii=False, separators=(",", ":"))
+                print(f"    {outp.name} (총 {len(merged_rows)}건 / 신규 {len(rows_y)}건)")
+        # 재고: {rows:[...]} 래핑
         if parsed[company]["inventory"]:
+            rows_i = parsed[company]["inventory"]
+            wrapped = {
+                "_company": company, "_count": len(rows_i),
+                "_generated": NOW, "rows": rows_i,
+            }
             outp = DATA_PC / f"inventory_{cl}.json"
             with open(outp, "w", encoding="utf-8") as fp:
-                json.dump(parsed[company]["inventory"], fp, ensure_ascii=False, separators=(",", ":"))
-            print(f"    {outp.name} ({len(parsed[company]['inventory'])}건)")
+                json.dump(wrapped, fp, ensure_ascii=False, separators=(",", ":"))
+            print(f"    {outp.name} ({len(rows_i)}건)")
+        # 미수: {clients:[...]} 래핑 (로더가 d.clients로 접근)
         if parsed[company]["receivable"]:
+            clients_r = parsed[company]["receivable"]
+            active = [c for c in clients_r if abs(c.get("채권_잔액", c.get("미수금", 0))) > 0]
+            total_chae = sum(c.get("채권_잔액", c.get("미수금", 0)) for c in clients_r)
+            total_chamu = sum(c.get("채무_잔액", 0) for c in clients_r)
+            wrapped = {
+                "_company": company, "_source": "위하고 채권채무집계",
+                "_count": len(clients_r), "_active_count": len(active),
+                "_total_chae_balance": total_chae,
+                "_total_balance": total_chae - total_chamu,
+                "_generated": NOW, "clients": clients_r,
+            }
             outp = DATA_PC / f"receivable_{cl}.json"
             with open(outp, "w", encoding="utf-8") as fp:
-                json.dump(parsed[company]["receivable"], fp, ensure_ascii=False, separators=(",", ":"))
-            print(f"    {outp.name} ({len(parsed[company]['receivable'])}건)")
+                json.dump(wrapped, fp, ensure_ascii=False, separators=(",", ":"))
+            print(f"    {outp.name} ({len(clients_r)}거래처, 활성 {len(active)})")
 
-    print("\n[저장] 양사 합산 (dist/) — 옛 dashboard.html용")
-    src = parsed["SMT"]["sales"] if parsed["SMT"]["sales"] else parsed["GW"]["sales"]
+    print("\n[저장] 양사 합산 (root sales.json) — 옛 dashboard.html용")
+    # 양사 모두 합산 (이전엔 SMT만 사용한 버그 — 2026-05-21 수정)
     legacy_sales = []
-    for r in src:
-        legacy_sales.append({
-            "날짜": r["일자"], "_month": r["_month"],
-            "품목계정": r["품목계정"], "품목코드": r["품목코드"],
-            "품목명": r["품목명"], "규격": r["규격"],
-            "수량": r["수량"], "단가": r["단가"],
-            "공급가액": r["공급가액"], "부가세": r["부가세"],
-            "합계금액": r["합계금액"], "금액": r["공급가액"],
-            "거래처명": r["거래처명"], "유형": r["유형"],
-            "상태": r["유형"], "담당자": r["담당자"], "창고": r["창고"],
-        })
+    for company in ("SMT", "GW"):
+        for r in parsed[company]["sales"]:
+            legacy_sales.append({
+                "날짜": r["일자"], "_month": r["_month"],
+                "품목계정": r["품목계정"], "품목코드": r["품목코드"],
+                "품목명": r["품목명"], "규격": r["규격"],
+                "수량": r["수량"], "단가": r["단가"],
+                "공급가액": r["공급가액"], "부가세": r["부가세"],
+                "합계금액": r["합계금액"], "금액": r["공급가액"],
+                "거래처명": r["거래처명"], "유형": r["유형"],
+                "상태": r["유형"], "담당자": r["담당자"], "창고": r["창고"],
+                "_company": company,
+            })
     if legacy_sales:
         existing_path = DIST_DIR / "sales.json"
         existing = []
@@ -455,21 +500,20 @@ def main():
             try:
                 with open(existing_path, encoding="utf-8") as fp:
                     loaded = json.load(fp)
-                # dict wrapper 또는 list 모두 대응
                 if isinstance(loaded, dict) and "rows" in loaded:
                     existing = loaded["rows"]
                 elif isinstance(loaded, list):
                     existing = loaded
-                # 각 원소가 dict인 것만 필터
                 existing = [x for x in existing if isinstance(x, dict)]
             except Exception:
                 existing = []
-        new_dates = {x["날짜"] for x in legacy_sales}
-        merged = [x for x in existing if x.get("날짜") not in new_dates] + legacy_sales
-        merged.sort(key=lambda x: x.get("날짜", ""))
+        # 같은 (일자+회사) 조합만 교체 (다른 회사의 같은 일자 데이터 보존)
+        new_keys = {(x["날짜"], x.get("_company", "")) for x in legacy_sales}
+        merged = [x for x in existing if (x.get("날짜"), x.get("_company", "")) not in new_keys] + legacy_sales
+        merged.sort(key=lambda x: (x.get("날짜", ""), x.get("_company", "")))
         with open(existing_path, "w", encoding="utf-8") as fp:
             json.dump(merged, fp, ensure_ascii=False, separators=(",", ":"))
-        print(f"    sales.json (총 {len(merged)}건, 신규 {len(legacy_sales)}건 병합)")
+        print(f"    sales.json (총 {len(merged)}건, 신규 {len(legacy_sales)}건 양사 합산)")
 
     if parsed["SMT"]["inventory"] or parsed["GW"]["inventory"]:
         inv_map = {}
@@ -509,15 +553,8 @@ def main():
             json.dump(rec_list, fp, ensure_ascii=False, separators=(",", ":"))
         print(f"    receivable.json ({len(rec_list)}거래처 양사 합산)")
 
-        # 2) 양사 분리 (현재 시점)
-        for company in ("SMT", "GW"):
-            if parsed[company]["receivable"]:
-                outp = DATA_PC / f"receivable_{company.lower()}.json"
-                with open(outp, "w", encoding="utf-8") as fp:
-                    json.dump(parsed[company]["receivable"], fp, ensure_ascii=False, separators=(",", ":"))
-                print(f"    {outp.name} ({len(parsed[company]['receivable'])}거래처)")
-
-        # 3) 일자별 history 누적 (변동 추적용)
+        # 2) 일자별 history 누적 (변동 추적용)
+        #    (per_company receivable_{}.json은 위 [저장] 양사 분리 블록에서 wrap 포맷으로 저장됨)
         history_dir = PROJECT_DIR / "data" / "receivable_history"
         history_dir.mkdir(parents=True, exist_ok=True)
         for company in ("SMT", "GW"):
