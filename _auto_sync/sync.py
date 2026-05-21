@@ -52,13 +52,33 @@ except ImportError:
 
 
 def read_xlsx(path):
-    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
-    ws = wb.active
-    aoa = []
-    for row in ws.iter_rows(values_only=True):
-        aoa.append([("" if v is None else v) for v in row])
-    wb.close()
-    return aoa
+    """xls/xlsx 양쪽 지원. xlsx는 openpyxl, xls는 xlrd."""
+    path_str = str(path).lower()
+    if path_str.endswith('.xlsx'):
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+        ws = wb.active
+        aoa = []
+        for row in ws.iter_rows(values_only=True):
+            aoa.append([("" if v is None else v) for v in row])
+        wb.close()
+        return aoa
+    elif path_str.endswith('.xls'):
+        try:
+            import xlrd
+        except ImportError:
+            import subprocess, sys
+            print("    [정보] xlrd 자동 설치 중...")
+            subprocess.run([sys.executable, '-m', 'pip', 'install', 'xlrd==1.2.0', '--quiet'], check=False)
+            import xlrd
+        wb = xlrd.open_workbook(str(path))
+        sh = wb.sheet_by_index(0)
+        aoa = []
+        for i in range(sh.nrows):
+            row = sh.row_values(i)
+            aoa.append([("" if v in (None, '') else v) for v in row])
+        return aoa
+    else:
+        raise ValueError(f"지원하지 않는 파일 형식: {path}")
 
 
 def s(v):
