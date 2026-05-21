@@ -23,7 +23,15 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
 DIST_DIR = PROJECT_DIR  # repo root
 DATA_PC = PROJECT_DIR / "data" / "per_company"
-DOWNLOAD_DIR = SCRIPT_DIR / "위하고다운로드"
+# 다운로드 폴더 자동 감지:
+# 1순위) 클로드 작업폴더 (부장님이 매일 떨구는 곳)
+# 2순위) GitHub 폴더의 _auto_sync (기본 위치)
+_CLAUDE_FOLDER = Path(r"C:\Users\lsw05\작업\클로드\01_SMT서울기연\_영업(2026)\세션 3 SMT서울기연 - 영업\_auto_sync\위하고다운로드")
+if _CLAUDE_FOLDER.exists() and any(_CLAUDE_FOLDER.glob("*/*.xls*")):
+    DOWNLOAD_DIR = _CLAUDE_FOLDER
+    print(f"[정보] 클로드 작업폴더의 자료 사용: {DOWNLOAD_DIR}")
+else:
+    DOWNLOAD_DIR = SCRIPT_DIR / "위하고다운로드"
 DONE_DIR = DOWNLOAD_DIR / "_처리완료"
 DONE_DIR.mkdir(exist_ok=True)
 
@@ -67,9 +75,13 @@ def num(v):
 
 
 def detect_type(aoa):
-    flat = " ".join(s(c) for row in aoa[:20] for c in row)
-    if "미수채권" in flat or re.search(r"거래처\s*:\s*\d+\s*\[", flat):
+    flat = " ".join(s(c) for row in aoa[:5] for c in row)
+    # 채권채무집계: 헤더에 "채권" + "채무" + "거래처" + "잔액"
+    if ("채권" in flat and "채무" in flat and "거래처" in flat and "잔액" in flat):
         return "receivable"
+    # 옛 미수채권상세현황 (보존)
+    if "미수채권" in flat or re.search(r"거래처\s*:\s*\d+\s*\[", flat):
+        return "receivable_old"
     if "품목계정" in flat and "기말재고" in flat and "기초수량" in flat:
         return "inventory"
     if "일자" in flat and "품목계정" in flat and "거래처명" in flat and "공급가액" in flat:
@@ -139,9 +151,47 @@ def parse_inventory(aoa, company):
 
 
 def parse_receivable(aoa, company):
+    """위하고 채권채무집계 양식
+    행 1: 헤더1 (No, 거래처코드, 거래처, ..., 채권, 채무)
+    행 2: 헤더2 (전기이월, 당기발생, 선수금, 당기수금, 잔액, ...)
+    행 3+: 데이터
+    열: 0=No, 1=거래처코드, 2=거래처, 5=채권전기, 6=채권당기, 7=선수금,
+        8=채권수금, 9=채권잔액(미수금), 10~=채무"""
     rows = []
-    cur = None
-    bal = 0
+    for r in aoa[2:]:
+        if not r:
+            continue
+        no = s(r[0])
+        if not no:
+            continue
+        # No가 숫자가 아니면 건너뜀 (소계/합계 행 등)
+        try:
+            int(float(no))
+        except Exception:
+            continue
+        rows.append({
+            "거래처코드": s(r[1] if len(r) > 1 else ""),
+            "거래처명": s(r[2] if len(r) > 2 else ""),
+            "관리항목": s(r[4] if len(r) > 4 else ""),
+            "채권_전기이월": num(r[5] if len(r) > 5 else 0),
+            "채권_당기발생": num(r[6] if len(r) > 6 else 0),
+            "채권_선수금": num(r[7] if len(r) > 7 else 0),
+            "채권_당기수금": num(r[8] if len(r) > 8 else 0),
+            "채권_잔액": num(r[9] if len(r) > 9 else 0),
+            "채무_전기이월": num(r[10] if len(r) > 10 else 0),
+            "채무_당기발생": num(r[11] if len(r) > 11 else 0),
+            "채무_당기수금": num(r[13] if len(r) > 13 else 0),
+            "채무_잔액": num(r[14] if len(r) > 14 else 0),
+            "미수금": num(r[9] if len(r) > 9 else 0),  # 호환성
+            "_company": company,
+        })
+    return rows
+
+
+def parse_receivable_old(aoa, company):
+    """옛 SHBM 미수채권상세현황 (호환 유지)"""
+    rows = []
+    cur, bal = None, 0
     for r in aoa:
         if not r:
             continue
@@ -164,8 +214,10 @@ def parse_receivable(aoa, company):
     return rows
 
 
-PARSERS = {"sales": parse_sales, "inventory": parse_inventory, "receivable": parse_receivable}
-TYPE_NAMES = {"sales": "판매일보", "inventory": "현재고", "receivable": "미수채권"}
+PARSERS = {"sales": parse_sales, "inventory": parse_inventory,
+           "receivable": parse_receivable, "receivable_old": parse_receivable_old}
+TYPE_NAMES = {"sales": "판매일보", "inventory": "현재고",
+              "receivable": "채권채무집계", "receivable_old": "미수채권(옛)"}
 
 
 def main():
@@ -188,8 +240,8 @@ def main():
         input("\n엔터를 누르면 종료...")
         return
 
-    parsed = {"SMT": {"sales": [], "inventory": [], "receivable": []},
-              "GW":  {"sales": [], "inventory": [], "receivable": []}}
+    parsed = {"SMT": {"sales": [], "inventory": [], "receivable": [], "receivable_old": []},
+              "GW":  {"sales": [], "inventory": [], "receivable": [], "receivable_old": []}}
     processed_files = []
     for company, files in by_company.items():
         for f in files:
@@ -201,7 +253,9 @@ def main():
                     print("양식 감지 실패 (skip)")
                     continue
                 rows = PARSERS[t](aoa, company)
-                parsed[company][t].extend(rows)
+                # receivable_old(옛 양식)는 receivable에 병합
+                key = "receivable" if t == "receivable_old" else t
+                parsed[company][key].extend(rows)
                 print(f"{TYPE_NAMES[t]} {len(rows)}건 OK")
                 processed_files.append(f)
             except Exception as e:
@@ -283,6 +337,7 @@ def main():
         print(f"    inventory.json ({len(inv_list)}건, 양사 합산)")
 
     if parsed["SMT"]["receivable"] or parsed["GW"]["receivable"]:
+        # 1) 거래처별 양사 합산 (옛 dashboard용)
         rec_map = {}
         for company in ("SMT", "GW"):
             for r in parsed[company]["receivable"]:
@@ -293,7 +348,25 @@ def main():
         rec_list = [{"거래처명": k, "미수금": v} for k, v in rec_map.items() if abs(v) > 0]
         with open(DIST_DIR / "receivable.json", "w", encoding="utf-8") as fp:
             json.dump(rec_list, fp, ensure_ascii=False, separators=(",", ":"))
-        print(f"    receivable.json ({len(rec_list)}거래처)")
+        print(f"    receivable.json ({len(rec_list)}거래처 양사 합산)")
+
+        # 2) 양사 분리 (현재 시점)
+        for company in ("SMT", "GW"):
+            if parsed[company]["receivable"]:
+                outp = DATA_PC / f"receivable_{company.lower()}.json"
+                with open(outp, "w", encoding="utf-8") as fp:
+                    json.dump(parsed[company]["receivable"], fp, ensure_ascii=False, separators=(",", ":"))
+                print(f"    {outp.name} ({len(parsed[company]['receivable'])}거래처)")
+
+        # 3) 일자별 history 누적 (변동 추적용)
+        history_dir = PROJECT_DIR / "data" / "receivable_history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        for company in ("SMT", "GW"):
+            if parsed[company]["receivable"]:
+                hpath = history_dir / f"{company}_{TODAY}.json"
+                with open(hpath, "w", encoding="utf-8") as fp:
+                    json.dump(parsed[company]["receivable"], fp, ensure_ascii=False, separators=(",", ":"))
+                print(f"    history/{hpath.name} ({len(parsed[company]['receivable'])}거래처)")
 
     print(f"\n[정리] 처리된 파일 → _처리완료/{TODAY}/")
     done_today = DONE_DIR / TODAY
