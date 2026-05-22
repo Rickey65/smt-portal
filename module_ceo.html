@@ -187,7 +187,7 @@
   </header>
 
   <div class="hero">
-    <h1>📋 경영 요약</h1>
+    <h1>📋 대표이사 요약</h1>
     <p id="dateLabel"></p>
   </div>
 
@@ -240,10 +240,34 @@
       </div>
     </div>
 
-    <!-- 매출 트렌드 -->
+    <!-- 12개월 매출 추이 차트 — 2026-05-22 부장님 지시로 삭제 -->
+
+    <!-- 2026-05-22 신규 섹션들 -->
     <div class="trend-section">
-      <h2>📈 최근 12개월 매출 추이</h2>
-      <div class="trend-wrap"><canvas id="trendChart" role="img" aria-label="매출 추이"></canvas></div>
+      <h2>💸 주요 미수 업체 (TOP 10)</h2>
+      <div id="ceoTop10Recv"></div>
+    </div>
+    <div class="trend-section">
+      <h2>📦 주요 재고 부족 (상위 판매 20개 중)</h2>
+      <div id="ceoStockShort"></div>
+    </div>
+    <div class="trend-section">
+      <h2>🗺 지역별 판매현황 (올해 누적)</h2>
+      <div id="ceoRegionSales"></div>
+    </div>
+    <div class="trend-section">
+      <h2>📊 실적비교 (분기별)</h2>
+      <div id="ceoQuarterly"></div>
+    </div>
+    <div class="trend-section">
+      <h2>📈 거래 변동 10% 이상 (상승/하락)</h2>
+      <div id="ceoBigChanges"></div>
+    </div>
+    <div class="trend-section">
+      <h2>🗓 금월 활동 및 활동 전망</h2>
+      <div id="ceoActivities" style="font-size:14px; line-height:1.7">
+        활동 데이터 별도 연동 예정 (수기 입력 또는 일정 자동)
+      </div>
     </div>
 
     <!-- 음성 명령 영역 -->
@@ -349,6 +373,19 @@ async function loadData() {
   } catch (e) {
     document.getElementById('loadingBox').innerHTML = `<div style="color:var(--danger)">❌ ${e.message}</div>`;
   }
+  
+  // 2026-05-22: 신규 섹션 렌더
+  if (typeof renderCeoSections === 'function') {
+    try { renderCeoSections(); } catch (e) { console.error('renderCeoSections error:', e); }
+  }
+  
+  // 2026-05-22: 자동 브리핑 재생 (페이지 로딩 + 데이터 준비 후 1초 뒤)
+  setTimeout(() => {
+    if (typeof startBriefing === 'function' && !window._briefingPlayed) {
+      window._briefingPlayed = true;
+      try { startBriefing(); } catch (e) { console.warn('자동 브리핑 실패:', e); }
+    }
+  }, 1500);
 }
 
 /* ==================== KPI 렌더 ==================== */
@@ -939,6 +976,162 @@ function stopBriefing() {
 document.getElementById('briefingBtn').addEventListener('click', startBriefing);
 
 loadData();
+
+
+/* ============================================================
+ * 2026-05-22 신규: 대표이사 요약 추가 섹션 렌더링
+ * ============================================================ */
+function renderCeoSections() {
+  // 데이터 가져오기 - 전역 SALES, RECEIVABLES, INVENTORY, CLIENTS 사용
+  if (typeof SALES === 'undefined') return;
+  
+  // 1) 주요 미수 업체 TOP 10
+  const recvList = (typeof RECEIVABLES !== 'undefined' && RECEIVABLES.length) ? 
+    [...RECEIVABLES].filter(r => (r.미수금 || 0) > 0).sort((a,b) => (b.미수금||0) - (a.미수금||0)).slice(0, 10) : [];
+  let h1 = '<table class="data" style="width:100%; font-size:14px; border-collapse:collapse">';
+  h1 += '<thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">거래처</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">미수금</th></tr></thead><tbody>';
+  recvList.forEach(r => {
+    h1 += `<tr><td style="padding:6px;border-bottom:1px solid #f0f0f0">${r.거래처명}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;color:#D7493A;font-weight:600">${fmtMan(r.미수금)}</td></tr>`;
+  });
+  if (recvList.length === 0) h1 += '<tr><td colspan="2" style="padding:20px;text-align:center;color:#888">데이터 없음</td></tr>';
+  h1 += '</tbody></table>';
+  document.getElementById('ceoTop10Recv').innerHTML = h1;
+
+  // 2) 주요 재고 부족 — 상위 판매 20개 중 재고 < 10
+  // 상위 판매 = 최근 1년 매출 많은 품목 TOP 20
+  const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const cutoff = oneYearAgo.toISOString().slice(0,10);
+  const itemSales = {};
+  SALES.forEach(s => {
+    if ((s.날짜||'') < cutoff) return;
+    const k = s.품목코드 || s.품목명;
+    if (!itemSales[k]) itemSales[k] = { 품목명: s.품목명, 품목코드: s.품목코드, 매출: 0 };
+    itemSales[k].매출 += (s.공급가액 || s.금액 || 0);
+  });
+  const top20Items = Object.values(itemSales).sort((a,b) => b.매출 - a.매출).slice(0, 20);
+  const invMap = {};
+  if (typeof INVENTORY !== 'undefined') INVENTORY.forEach(i => { invMap[i.품목코드] = i; });
+  const shortList = top20Items.map(it => {
+    const inv = invMap[it.품목코드];
+    return { ...it, 재고: inv ? (inv.기말재고 || 0) : null };
+  }).filter(x => x.재고 !== null && x.재고 < 10);
+  let h2 = '<table class="data" style="width:100%; font-size:14px; border-collapse:collapse">';
+  h2 += '<thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">품목</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">현재고</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">최근1년 매출</th></tr></thead><tbody>';
+  shortList.forEach(x => {
+    const stockColor = x.재고 <= 0 ? '#D7493A' : '#E89B3C';
+    h2 += `<tr><td style="padding:6px;border-bottom:1px solid #f0f0f0">${x.품목명}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;color:${stockColor};font-weight:600">${x.재고}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0">${fmtMan(x.매출)}</td></tr>`;
+  });
+  if (shortList.length === 0) h2 += '<tr><td colspan="3" style="padding:20px;text-align:center;color:#888">부족 품목 없음</td></tr>';
+  h2 += '</tbody></table>';
+  document.getElementById('ceoStockShort').innerHTML = h2;
+
+  // 3) 지역별 판매현황 (올해 누적)
+  const thisYear = new Date().getFullYear().toString();
+  const clientAddr = {};
+  if (typeof CLIENTS !== 'undefined') CLIENTS.forEach(c => { clientAddr[c.거래처명] = c.주소 || ''; });
+  const regionMap = {};
+  SALES.forEach(s => {
+    if ((s.날짜 || '').slice(0,4) !== thisYear) return;
+    const r = (typeof extractRegion === 'function') ? extractRegion(clientAddr[s.거래처명] || '') : '기타';
+    if (!regionMap[r]) regionMap[r] = 0;
+    regionMap[r] += (s.공급가액 || s.금액 || 0);
+  });
+  const regionList = Object.entries(regionMap).sort((a,b) => b[1] - a[1]);
+  let h3 = '<table class="data" style="width:100%; font-size:14px; border-collapse:collapse">';
+  h3 += '<thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">지역</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">매출</th></tr></thead><tbody>';
+  regionList.forEach(([r, v]) => {
+    h3 += `<tr><td style="padding:6px;border-bottom:1px solid #f0f0f0">${r}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;font-weight:600">${fmtMan(v)}</td></tr>`;
+  });
+  if (regionList.length === 0) h3 += '<tr><td colspan="2" style="padding:20px;text-align:center;color:#888">데이터 없음</td></tr>';
+  h3 += '</tbody></table>';
+  document.getElementById('ceoRegionSales').innerHTML = h3;
+
+  // 4) 분기별 실적비교 (올해 vs 작년)
+  const yT = thisYear, yL = String(Number(thisYear) - 1);
+  const qSum = (y) => {
+    const q = [0, 0, 0, 0];
+    SALES.forEach(s => {
+      if ((s.날짜||'').slice(0,4) !== y) return;
+      const m = Number((s.날짜||'').slice(5,7));
+      if (m >= 1 && m <= 12) q[Math.floor((m-1)/3)] += (s.공급가액 || s.금액 || 0);
+    });
+    return q;
+  };
+  const qT = qSum(yT), qL = qSum(yL);
+  let h4 = '<table class="data" style="width:100%; font-size:14px; border-collapse:collapse">';
+  h4 += `<thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">분기</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">${yT}년</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">${yL}년</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">증감률</th></tr></thead><tbody>`;
+  ['1분기','2분기','3분기','4분기'].forEach((label, i) => {
+    const rate = qL[i] > 0 ? ((qT[i] - qL[i]) / qL[i] * 100) : null;
+    const rateTxt = rate === null ? '-' : (rate >= 0 ? '▲' : '▼') + ' ' + Math.abs(rate).toFixed(1) + '%';
+    const color = rate === null ? '#888' : (rate >= 0 ? '#1D9E75' : '#D7493A');
+    h4 += `<tr><td style="padding:6px;border-bottom:1px solid #f0f0f0">${label}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0">${fmtMan(qT[i])}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;color:#888">${fmtMan(qL[i])}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;color:${color};font-weight:600">${rateTxt}</td></tr>`;
+  });
+  h4 += '</tbody></table>';
+  document.getElementById('ceoQuarterly').innerHTML = h4;
+
+  // 5) 변동 10% 이상 거래처 (올해 vs 작년 동기간)
+  const today = new Date();
+  const curMonth = today.getMonth() + 1;
+  const fromT = yT + '-01-01', toT = yT + '-' + String(curMonth).padStart(2,'0') + '-31';
+  const fromL = yL + '-01-01', toL = yL + '-' + String(curMonth).padStart(2,'0') + '-31';
+  const aggBy = (from, to) => {
+    const m = {};
+    SALES.forEach(s => {
+      const d = s.날짜 || '';
+      if (d < from || d > to) return;
+      if (!s.거래처명) return;
+      m[s.거래처명] = (m[s.거래처명] || 0) + (s.공급가액 || s.금액 || 0);
+    });
+    return m;
+  };
+  const cT = aggBy(fromT, toT), cL = aggBy(fromL, toL);
+  const allClients = new Set([...Object.keys(cT), ...Object.keys(cL)]);
+  const changes = [];
+  allClients.forEach(name => {
+    const t = cT[name] || 0, l = cL[name] || 0;
+    if (l < 100) return;  // 작년 매출 100원 미만 제외 (의미 없음)
+    const rate = (t - l) / l * 100;
+    if (Math.abs(rate) >= 10) changes.push({ 거래처: name, 금년: t, 전년: l, 증감률: rate });
+  });
+  changes.sort((a,b) => Math.abs(b.증감률) - Math.abs(a.증감률));
+  let h5 = '<table class="data" style="width:100%; font-size:13px; border-collapse:collapse">';
+  h5 += `<thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">거래처</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">${yT}</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">${yL}</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">증감률</th></tr></thead><tbody>`;
+  changes.slice(0, 30).forEach(x => {
+    const color = x.증감률 >= 0 ? '#1D9E75' : '#D7493A';
+    const arrow = x.증감률 >= 0 ? '▲' : '▼';
+    h5 += `<tr><td style="padding:6px;border-bottom:1px solid #f0f0f0">${x.거래처}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0">${fmtMan(x.금년)}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;color:#888">${fmtMan(x.전년)}</td><td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;color:${color};font-weight:600">${arrow} ${Math.abs(x.증감률).toFixed(1)}%</td></tr>`;
+  });
+  if (changes.length === 0) h5 += '<tr><td colspan="4" style="padding:20px;text-align:center;color:#888">10% 이상 변동 거래처 없음</td></tr>';
+  if (changes.length > 30) h5 += `<tr><td colspan="4" style="padding:6px;text-align:center;color:#888;font-size:12px">상위 30개 표시 (총 ${changes.length}개)</td></tr>`;
+  h5 += '</tbody></table>';
+  document.getElementById('ceoBigChanges').innerHTML = h5;
+}
+
+function fmtMan(n) {
+  if (!n) return '0원';
+  if (n >= 100000000) return (n / 100000000).toFixed(1) + '억';
+  if (n >= 10000) return (n / 10000).toFixed(0) + '만';
+  return Math.round(n).toLocaleString() + '원';
+}
+
+// 지역 추출 함수 (없으면)
+if (typeof extractRegion === 'undefined') {
+  window.extractRegion = function(addr) {
+    if (!addr) return '기타';
+    const map = {'서울':/^서울/,'부산':/^부산/,'대구':/^대구/,'인천':/^인천/,'광주':/^광주/,'대전':/^대전/,'울산':/^울산/,'세종':/^세종/,'경기':/^경기/,'강원':/^강원/,'충북':/충청\s*북|^충북/,'충남':/충청\s*남|^충남/,'전북':/전라\s*북|^전북|전북특별/,'전남':/전라\s*남|^전남/,'경북':/경상\s*북|^경북/,'경남':/경상\s*남|^경남/,'제주':/^제주/};
+    for (const [k, re] of Object.entries(map)) if (re.test(addr)) return k;
+    return '기타';
+  };
+}
+
+// startBriefing alias (기존 코드의 출발 전 브리핑 시작 함수)
+if (typeof startBriefing === 'undefined') {
+  window.startBriefing = function() {
+    const btn = document.getElementById('briefingBtn');
+    if (btn) btn.click();
+  };
+}
+
 </script>
 </body>
 </html>
