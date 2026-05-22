@@ -93,7 +93,41 @@
 <div class="login-overlay" id="login">
   <div class="login-box">
     <h2>업무 포털 접속</h2>
-    <p>사내 운영 시스템입니다. 비밀번호를 입력하세요.</p>
+    <p>사내 운영 시스템입니다.</p>
+    <label style="display:block; font-size:13px; color:#666; margin-bottom:4px">본인 선택</label>
+    <select id="userSel" style="width:100%; padding:10px; font-size:15px; border:1px solid #ddd; border-radius:6px; margin-bottom:10px">
+      <option value="">— 선택 —</option>
+      <optgroup label="대표이사">
+        <option value="임창수">임창수 (SMT 대표)</option>
+        <option value="김태종">김태종 (GW 대표)</option>
+      </optgroup>
+      <optgroup label="관리자">
+        <option value="임성우">임성우 (SMT 부장)</option>
+      </optgroup>
+      <optgroup label="업무맨 (회계·총무)">
+        <option value="염철분">염철분 (SMT 회계)</option>
+        <option value="김소희">김소희 (SMT CS·회계)</option>
+        <option value="장은영">장은영 (SMT 총무)</option>
+        <option value="전재홍">전재홍 (GW 회계)</option>
+        <option value="임민수">임민수 (GW 디지털)</option>
+      </optgroup>
+      <optgroup label="영업맨">
+        <option value="이병호">이병호 (GW)</option>
+        <option value="장건희">장건희 (SMT)</option>
+        <option value="문양수">문양수 (GW)</option>
+        <option value="김성원CS">김성원 (SMT CS)</option>
+        <option value="김성원GW">김성원 (GW 영업)</option>
+        <option value="전유영">전유영</option>
+        <option value="박병섭">박병섭 (SMT)</option>
+        <option value="안양수">안양수 (SMT)</option>
+        <option value="최현오">최현오 (SMT CS)</option>
+        <option value="이경민">이경민 (SMT CS)</option>
+        <option value="양상호">양상호 (SMT)</option>
+        <option value="황길준">황길준 (GW)</option>
+        <option value="신현철">신현철 (GW)</option>
+        <option value="김도훈">김도훈 (GW)</option>
+      </optgroup>
+    </select>
     <input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
     <button onclick="doLogin()">접속</button>
     <div class="login-err" id="err"></div>
@@ -152,6 +186,12 @@
     
     <h2 class="section-title">📝 영업·물류·회계</h2>
     <div class="tile-grid">
+      <a href="module_salesman.html" class="tile green">
+        <div class="icon">📱</div>
+        <div class="title">영업맨 주문 (모바일)</div>
+        <div class="desc">영업맨 단순 입력 — 카드 선택만으로 주문 던지기</div>
+        <span class="status">이용 가능</span>
+      </a>
       <a href="module_invoice.html" class="tile blue">
         <div class="icon">🧾</div>
         <div class="title">거래명세표 발급</div>
@@ -159,10 +199,10 @@
         <span class="status">이용 가능 (베타)</span>
       </a>
       <a href="module_order.html" class="tile purple">
-        <div class="icon">📦</div>
-        <div class="title">영업 주문 처리</div>
-        <div class="desc">모바일 폼 입력 → PDF·폼택·택배·엑셀 자동</div>
-        <span class="status coming">곧 시작 (Phase 1)</span>
+        <div class="icon">🛠</div>
+        <div class="title">업무맨 처리 (영업주문)</div>
+        <div class="desc">영업맨 주문 받아 컨펌·거래명세표·위하고 엑셀 생성</div>
+        <span class="status">이용 가능</span>
       </a>
       <a href="module_acct.html" class="tile orange">
         <div class="icon">💰</div>
@@ -206,12 +246,44 @@
 const PW = 'smt2026';
 
 function doLogin() {
+  const user = document.getElementById('userSel').value;
   const v = document.getElementById('pw').value;
+  if (!user) {
+    document.getElementById('err').textContent = '본인을 먼저 선택하세요';
+    return;
+  }
   if (v === PW) {
     sessionStorage.setItem('smtAuth', '1');
+    sessionStorage.setItem('smtUser', user);
     showMain();
   } else {
     document.getElementById('err').textContent = '비밀번호가 틀렸습니다';
+  }
+}
+
+// 대표이사 카드 권한 — 임창수·김태종·임성우만
+function applyPermissions() {
+  const user = sessionStorage.getItem('smtUser') || '';
+  const ceoAllowed = ['임창수', '김태종', '임성우'];
+  const ceoCard = document.querySelector('a[href="module_ceo.html"]');
+  if (ceoCard) {
+    if (ceoAllowed.includes(user)) {
+      ceoCard.style.opacity = '1';
+      ceoCard.style.pointerEvents = 'auto';
+      const st = ceoCard.querySelector('.status');
+      if (st) st.textContent = '이용 가능';
+    } else {
+      ceoCard.style.opacity = '0.45';
+      ceoCard.style.pointerEvents = 'none';
+      ceoCard.style.filter = 'grayscale(70%)';
+      const st = ceoCard.querySelector('.status');
+      if (st) { st.textContent = '권한 없음'; st.style.background = '#eee'; st.style.color = '#888'; }
+    }
+  }
+  // 현재 사용자 헤더에 표시
+  const sub = document.getElementById('company-sub');
+  if (sub && user && !sub.textContent.includes(user)) {
+    sub.innerHTML += ` · <strong>${user}</strong>님`;
   }
 }
 
@@ -224,18 +296,12 @@ function showMain() {
 if (sessionStorage.getItem('smtAuth') === '1') showMain();
 
 function initPortal() {
-  // 회사 토글 위젯
   CompanyToggle.render(null);
-  
-  // 오늘 날짜
   const now = new Date();
   document.getElementById('today').textContent = 
     `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  
-  // 회사 토글 라벨
   updateCompanyLabel();
-  
-  // KPI 로딩
+  applyPermissions();  // 2026-05-21: 사용자별 권한 분기 (대표이사 요약 등)
   loadKPIs();
 }
 

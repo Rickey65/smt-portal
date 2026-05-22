@@ -133,6 +133,8 @@
   table.data tr.warn td { background: var(--color-warn-soft); }
   table.data thead th { cursor: pointer; user-select: none; position: relative; transition: background 0.15s; }
   table.data thead th:hover { background: var(--color-border); }
+  /* 상위 20개 강조 (2026-05-21) */
+  table.data tr.top20 td { font-weight: 700; font-size: 14.5px; }
   .sort-ind { margin-left: 4px; font-size: 10px; color: var(--color-text-muted); display: inline-block; min-width: 10px; }
   .sort-ind.active { color: var(--color-accent); opacity: 1; }
 
@@ -329,15 +331,12 @@
   </header>
 
   <nav class="tabs" id="tabs">
-    <button data-tab="0">데이터 현황 <span class="dot" id="dot-0"></span></button>
-    <button data-tab="1">재고현황 <span class="dot" id="dot-1"></span></button>
+    <button data-tab="4" class="active">실적비교 <span class="dot" id="dot-4"></span></button>
     <button data-tab="2">일일거래현황 <span class="dot" id="dot-2"></span></button>
     <button data-tab="3">거래처현황 <span class="dot" id="dot-3"></span></button>
-    <button data-tab="4" class="active">실적비교 <span class="dot" id="dot-4"></span></button>
     <button data-tab="5">거래처분석 <span class="dot" id="dot-5"></span></button>
-    <button data-tab="6">재고 차이분석 <span class="dot" id="dot-6"></span></button>
     <button data-tab="7">거래처 조회 <span class="dot" id="dot-7"></span></button>
-    <button data-tab="8">일정 관리 <span class="dot" id="dot-8"></span></button>
+    <button data-tab="1">재고현황 <span class="dot" id="dot-1"></span></button>
   </nav>
 
   <!-- TAB 0 -->
@@ -370,19 +369,21 @@
     </div>
   </section>
 
-  <!-- TAB 1: 재고현황 -->
+  <!-- TAB 1: 재고현황 (2026-05-21 개편 v2: 발전기만 디폴트, 카테고리 dropdown으로 브라우즈) -->
   <section class="tab" id="tab-1">
     <div class="row">
-      <label>품목계정 필터
+      <label><input type="checkbox" id="invGeneratorOnly" checked> <strong>발전기만 보기</strong></label>
+      <label>품목계정
         <select id="invCategory"><option value="">전체</option></select>
       </label>
       <label>표시
         <select id="invShowMode">
-          <option value="all">전체</option>
-          <option value="issue" selected>부족·주의만</option>
+          <option value="all" selected>전체</option>
+          <option value="issue">부족·주의만</option>
         </select>
       </label>
       <button class="btn" id="btnInvRefresh">갱신</button>
+      <span style="color:var(--color-text-secondary);font-size:12px">※ 발전기 외 다른 품목은 발전기만 보기 ☐ 해제 + 품목계정에서 선택</span>
     </div>
     <div class="cards">
       <div class="card"><div class="label">총 품목수</div><div class="value" id="invTotal">0</div></div>
@@ -397,12 +398,14 @@
     </div>
   </section>
 
-  <!-- TAB 2: 일일거래현황 -->
+  <!-- TAB 2: 일일거래현황 (2026-05-21 개편: 일자 단위, 디폴트 최근 1주일) -->
   <section class="tab" id="tab-2">
     <div class="row">
-      <label>시작월 <input type="month" id="trxFrom"></label>
-      <label>종료월 <input type="month" id="trxTo"></label>
+      <label>시작일 <input type="date" id="trxFrom"></label>
+      <label>종료일 <input type="date" id="trxTo"></label>
       <button class="btn" id="btnTrxRefresh">조회</button>
+      <button class="btn" id="btnTrxThisYear" style="background:var(--color-surface-2)">올해 전체 (1/1~12/31)</button>
+      <button class="btn" id="btnTrxWeek" style="background:var(--color-surface-2)">최근 1주일</button>
     </div>
     <div class="cards">
       <div class="card"><div class="label">기간 총매출 (공급가액)</div><div class="value" id="trxTotal">0</div></div>
@@ -411,7 +414,7 @@
       <div class="card"><div class="label">평균 건당 금액</div><div class="value" id="trxAvg">0</div></div>
     </div>
     <div class="panel">
-      <h3>월별 매출/거래건수 추이</h3>
+      <h3>일별 매출/거래건수 추이</h3>
       <div class="legend">
         <span><span class="swatch" style="background:#1D9E75"></span>매출금액</span>
         <span><span class="swatch" style="background:#4A78C9"></span>거래건수</span>
@@ -586,13 +589,13 @@
         <div class="chart-wrap"><canvas id="anaChart" role="img" aria-label="거래처별 매출 기여율"></canvas></div>
       </div>
       <div class="panel">
-        <h3>거래처 등급 분포</h3>
-        <div class="chart-wrap"><canvas id="anaGradeChart" role="img" aria-label="거래처 등급 분포"></canvas></div>
+        <h3>거래처별 미수금 (Top 10)</h3>
+        <div class="chart-wrap"><canvas id="anaRecvChart" role="img" aria-label="거래처별 미수금 Top 10"></canvas></div>
       </div>
     </div>
     <div class="panel">
       <h3>거래처 성과 분석</h3>
-      <div class="panel-sub">A등급: 전월 대비 성장 AND 미수금이 기간매출의 30% 미만 · B등급: 둘 중 하나 충족 · C등급: 둘 다 미충족</div>
+      <div class="panel-sub">매출 큰 순서 정렬. <strong>상위 20개</strong>는 굵고 큰 글씨로 강조.</div>
       <div id="anaTableWrap"></div>
     </div>
   </section>
@@ -1068,13 +1071,13 @@ function updateMetaDisplay() {
 }
 
 function updateTabDots() {
-  document.getElementById('dot-0').className = 'dot on';
-  ['inventory:1','sales:2','sales:3','sales:4','sales:5','baseline:6'].forEach(s => {
+  // 탭 재편(2026-05-21): 1.재고 2.거래 3.거래처 4.실적 5.분석 7.조회 만 존재
+  ['inventory:1','sales:2','sales:3','sales:4','sales:5','sales:7'].forEach(s => {
     const [k, i] = s.split(':');
     const el = document.getElementById('dot-'+i);
     if (!el) return;
-    if (DATA_META[k].status === 'ok') el.className = 'dot on';
-    else if (DATA_META[k].status === 'err') el.className = 'dot err';
+    if (DATA_META[k] && DATA_META[k].status === 'ok') el.className = 'dot on';
+    else if (DATA_META[k] && DATA_META[k].status === 'err') el.className = 'dot err';
     else el.className = 'dot';
   });
 }
@@ -1136,15 +1139,30 @@ function populateInvCategory() {
   if (cur) sel.value = cur;
 }
 
+// 2026-05-21 추가: 발전기 식별 (혼다 EU/EM/EG/EK/EZ/E1 + SMT SG 시리즈 + "발전기" 키워드)
+function isGenerator(item) {
+  const name = (item.품목명 || '').trim();
+  if (/^(EU|EM|EG|EK|EZ|EZGP|EH\d|EW\d|EF\d|E1[ACEM]\d)/i.test(name)) return true;
+  if (/^SG[A-Z\d]/i.test(name)) return true;
+  if (/발전기/.test(name)) return true;
+  return false;
+}
+
 function renderInventory() {
   if (INVENTORY.length === 0) {
-    document.getElementById('invTableWrap').innerHTML = '<div class="empty">재고 데이터가 없습니다. "데이터 현황" 탭에서 확인하세요.</div>';
+    document.getElementById('invTableWrap').innerHTML = '<div class="empty">재고 데이터가 없습니다.</div>';
     ['invTotal','invShort','invCaution','invSum'].forEach(id => document.getElementById(id).textContent = '0');
     return;
   }
   const cat = document.getElementById('invCategory').value;
   const mode = document.getElementById('invShowMode').value;
+  const genOnly = document.getElementById('invGeneratorOnly').checked;
+
   let rows = INVENTORY.filter(x => !cat || x.품목계정 === cat);
+  // 2026-05-21 v2: 발전기만 토글 ON이면 발전기 필터 (사용자가 다른 카테고리 보려면 토글 해제)
+  if (genOnly) {
+    rows = rows.filter(isGenerator);
+  }
 
   let total = rows.length, shortCnt = 0, cautionCnt = 0, sumQty = 0;
   rows.forEach(r => {
@@ -1205,10 +1223,11 @@ function getSalesInRange(from, to) {
 }
 
 function renderTransactions() {
-  const from = document.getElementById('trxFrom').value;
+  const from = document.getElementById('trxFrom').value;  // YYYY-MM-DD
   const to = document.getElementById('trxTo').value;
   if (!from || !to) { document.getElementById('trxTableWrap').innerHTML = '<div class="empty">기간을 선택하세요.</div>'; return; }
-  const rows = getSalesInRange(from, to);
+  // 일자(YYYY-MM-DD) 기준 필터 — 2026-05-21 개편
+  const rows = SALES.filter(x => x.날짜 >= from && x.날짜 <= to);
   let total = 0, count = rows.length;
   const clients = new Set();
   rows.forEach(r => { total += r.금액; clients.add(r.거래처명); });
@@ -1217,20 +1236,34 @@ function renderTransactions() {
   document.getElementById('trxClients').textContent = fmtNum(clients.size);
   document.getElementById('trxAvg').textContent = count ? fmt(total/count) : '0원';
 
-  const byMonth = {};
+  // 기간 길이에 따라 일별/월별 결정 (60일 이내 = 일별, 초과 = 월별)
+  const fromDate = new Date(from), toDate = new Date(to);
+  const days = Math.round((toDate - fromDate) / (1000*60*60*24)) + 1;
+  const useDaily = days <= 60;
+
+  const bucket = {};
   rows.forEach(r => {
-    if (!byMonth[r._month]) byMonth[r._month] = { amount: 0, count: 0 };
-    byMonth[r._month].amount += r.금액;
-    byMonth[r._month].count += 1;
+    const k = useDaily ? r.날짜 : r._month;
+    if (!bucket[k]) bucket[k] = { amount: 0, count: 0 };
+    bucket[k].amount += r.금액;
+    bucket[k].count += 1;
   });
-  const months = Object.keys(byMonth).sort();
+  // 빈 일자도 0으로 채워서 시각적 연속성 (일별일 때만)
+  const labels = [];
+  if (useDaily) {
+    for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate()+1)) {
+      labels.push(d.toISOString().slice(0,10));
+    }
+  } else {
+    labels.push(...Object.keys(bucket).sort());
+  }
   makeChart('trxChart', {
     type: 'bar',
     data: {
-      labels: months,
+      labels: labels,
       datasets: [
-        { label: '매출금액', data: months.map(m => byMonth[m].amount), backgroundColor: '#1D9E75', yAxisID: 'y', order: 2 },
-        { label: '거래건수', data: months.map(m => byMonth[m].count), type: 'line', borderColor: '#4A78C9', backgroundColor: '#4A78C9', yAxisID: 'y1', tension: 0.3, order: 1, pointRadius: 4 }
+        { label: '매출금액', data: labels.map(k => (bucket[k]||{}).amount || 0), backgroundColor: '#1D9E75', yAxisID: 'y', order: 2 },
+        { label: '거래건수', data: labels.map(k => (bucket[k]||{}).count || 0), type: 'line', borderColor: '#4A78C9', backgroundColor: '#4A78C9', yAxisID: 'y1', tension: 0.3, order: 1, pointRadius: 3 }
       ]
     },
     options: {
@@ -1271,32 +1304,44 @@ function renderTransactions() {
 
 /* ==================== TAB 3: 거래처현황 ==================== */
 function renderClients() {
-  const from = document.getElementById('cliFrom').value;
+  const from = document.getElementById('cliFrom').value;  // YYYY-MM
   const to = document.getElementById('cliTo').value;
   if (!from || !to) { document.getElementById('cliTableWrap').innerHTML = '<div class="empty">기간을 선택하세요.</div>'; return; }
-  const salesRows = getSalesInRange(from, to);
+
+  // 2026-05-21 개편: 금년 + 전년 동기간 비교
+  const yyyyThis = from.slice(0,4);
+  const yyyyLast = String(Number(yyyyThis) - 1);
+  const monThis = from.slice(5,7), monThisTo = to.slice(5,7);
+  const fromLast = `${yyyyLast}-${monThis}`;
+  const toLast = `${yyyyLast}-${monThisTo}`;
+
+  const salesRowsThis = getSalesInRange(from, to);
+  const salesRowsLast = getSalesInRange(fromLast, toLast);
   const recvMap = {};
   RECEIVABLES.forEach(r => { recvMap[r.거래처명] = r.미수금; });
 
   const byClient = {};
-  salesRows.forEach(r => {
-    if (!r.거래처명) return;
-    if (!byClient[r.거래처명]) byClient[r.거래처명] = { sales: 0, count: 0 };
-    byClient[r.거래처명].sales += r.금액;
-    byClient[r.거래처명].count += 1;
+  const ensure = (c) => { if (!byClient[c]) byClient[c] = { salesThis: 0, cntThis: 0, salesLast: 0, cntLast: 0 }; };
+  salesRowsThis.forEach(r => { if (!r.거래처명) return; ensure(r.거래처명); byClient[r.거래처명].salesThis += r.금액; byClient[r.거래처명].cntThis += 1; });
+  salesRowsLast.forEach(r => { if (!r.거래처명) return; ensure(r.거래처명); byClient[r.거래처명].salesLast += r.금액; byClient[r.거래처명].cntLast += 1; });
+  Object.keys(recvMap).forEach(c => ensure(c));
+
+  const list = Object.keys(byClient).map(c => {
+    const b = byClient[c];
+    const delta = b.salesLast > 0 ? ((b.salesThis - b.salesLast) / b.salesLast * 100) : null;
+    return {
+      거래처명: c,
+      매출금년: b.salesThis,
+      매출전년: b.salesLast,
+      증감률: delta,
+      건수금년: b.cntThis,
+      건수전년: b.cntLast,
+      미수금: recvMap[c] || 0
+    };
   });
-  // 매출이 없어도 미수금이 있는 거래처 포함
-  Object.keys(recvMap).forEach(c => { if (!byClient[c]) byClient[c] = { sales: 0, count: 0 }; });
 
-  const list = Object.keys(byClient).map(c => ({
-    거래처명: c,
-    매출: byClient[c].sales,
-    건수: byClient[c].count,
-    미수금: recvMap[c] || 0
-  }));
-
-  const activeCount = list.filter(x => x.매출 > 0).length;
-  const totalSales = list.reduce((s,x) => s + x.매출, 0);
+  const activeCount = list.filter(x => x.매출금년 > 0).length;
+  const totalSales = list.reduce((s,x) => s + x.매출금년, 0);
   const totalRecv = list.reduce((s,x) => s + x.미수금, 0);
   const bigRecvCount = list.filter(x => x.미수금 >= 50000000).length;
 
@@ -1305,30 +1350,36 @@ function renderClients() {
   document.getElementById('cliReceivable').textContent = fmt(totalRecv);
   document.getElementById('cliBigRecv').textContent = fmtNum(bigRecvCount) + '건';
 
-  list.sort((a,b) => (b.매출 + b.미수금) - (a.매출 + a.미수금));
+  // 디폴트 정렬: 매출 큰 순서 (2026-05-21)
+  list.sort((a,b) => b.매출금년 - a.매출금년);
 
   let html = '<table class="data"><thead><tr>'
     + '<th>거래처명</th>'
-    + '<th class="num" style="width:130px">매출(공급가)</th>'
-    + '<th class="num" style="width:80px">거래건수</th>'
-    + '<th class="num" style="width:130px">미수금</th>'
-    + '<th class="num" style="width:90px">미수/매출</th>'
-    + '<th style="width:80px">상태</th>'
+    + `<th class="num" style="width:115px">${yyyyThis}년 매출</th>`
+    + `<th class="num" style="width:115px">${yyyyLast}년 매출</th>`
+    + '<th class="num" style="width:80px">증감률</th>'
+    + `<th class="num" style="width:70px">${yyyyThis} 건수</th>`
+    + `<th class="num" style="width:70px">${yyyyLast} 건수</th>`
+    + '<th class="num" style="width:115px">미수금</th>'
+    + '<th class="num" style="width:75px">미수/매출</th>'
     + '</tr></thead><tbody>';
-  if (list.length === 0) html += '<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:30px">데이터가 없습니다.</td></tr>';
+  if (list.length === 0) html += '<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:30px">데이터가 없습니다.</td></tr>';
   list.forEach(x => {
-    let st, badge, cls = '';
-    if (x.미수금 >= 50000000) { st = '위험'; badge = 'b-danger'; cls = ' class="danger"'; }
-    else if (x.미수금 >= 10000000) { st = '주의'; badge = 'b-warn'; }
-    else { st = '정상'; badge = 'b-ok'; }
-    const ratio = x.매출 > 0 ? (x.미수금 / x.매출 * 100).toFixed(0) + '%' : (x.미수금 > 0 ? '∞' : '-');
+    let cls = '';
+    if (x.미수금 >= 50000000) cls = ' class="danger"';
+    else if (x.미수금 >= 10000000) cls = ' class="warn"';
+    const ratio = x.매출금년 > 0 ? (x.미수금 / x.매출금년 * 100).toFixed(0) + '%' : (x.미수금 > 0 ? '∞' : '-');
+    const rateTxt = x.증감률 === null ? '-' : (x.증감률 >= 0 ? '▲' : '▼') + ' ' + Math.abs(x.증감률).toFixed(1) + '%';
+    const rateColor = x.증감률 === null ? 'var(--color-text-muted)' : (x.증감률 >= 0 ? 'var(--color-accent)' : 'var(--color-danger)');
     html += `<tr${cls}>
       <td title="${x.거래처명}">${x.거래처명}</td>
-      <td class="num">${fmt(x.매출)}</td>
-      <td class="num">${fmtNum(x.건수)}</td>
+      <td class="num">${fmt(x.매출금년)}</td>
+      <td class="num" style="color:var(--color-text-secondary)">${fmt(x.매출전년)}</td>
+      <td class="num" style="color:${rateColor}">${rateTxt}</td>
+      <td class="num">${fmtNum(x.건수금년)}</td>
+      <td class="num" style="color:var(--color-text-secondary)">${fmtNum(x.건수전년)}</td>
       <td class="num">${fmt(x.미수금)}</td>
       <td class="num">${ratio}</td>
-      <td><span class="badge ${badge}">${st}</span></td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1393,10 +1444,6 @@ function renderComparePeriod(mode) {
   const lastYear = String(Number(year) - 1);
   const def = CMP_PERIODS[mode];
 
-  // 카드 라벨 원복 (연도별 모드에서 변경됐을 수 있음)
-  document.querySelector('#cmpThis').parentElement.querySelector('.label').textContent = '금년 총매출 (공급가액)';
-  document.querySelector('#cmpLast').parentElement.querySelector('.label').textContent = '전년 총매출';
-
   const sumMonth = (y) => {
     const arr = new Array(12).fill(0);
     SALES.forEach(r => {
@@ -1407,14 +1454,22 @@ function renderComparePeriod(mode) {
   const thisM = sumMonth(year);
   const lastM = sumMonth(lastYear);
 
+  // 차트용: 전체 기간(전 분기·전 반기 모두)
   const thisP = def.items.map(p => p.idx.reduce((s,i) => s + thisM[i], 0));
   const lastP = def.items.map(p => p.idx.reduce((s,i) => s + lastM[i], 0));
-  const thisTotal = thisP.reduce((a,b) => a+b, 0);
-  const lastTotal = lastP.reduce((a,b) => a+b, 0);
+
+  // 카드용 (2026-05-21 수정 A안): 금년 처리된 마지막 월까지로 양년 동기간 합산
+  let maxMonthIdx = -1;
+  for (let i = 0; i < 12; i++) if (thisM[i] > 0) maxMonthIdx = i;
+  const periodLabel = maxMonthIdx >= 0 ? `(1~${maxMonthIdx+1}월 누계)` : '';
+  const thisTotal = thisM.slice(0, maxMonthIdx+1).reduce((a,b) => a+b, 0);
+  const lastTotal = lastM.slice(0, maxMonthIdx+1).reduce((a,b) => a+b, 0);
   const delta = thisTotal - lastTotal;
   const rate = lastTotal ? (delta / lastTotal) * 100 : 0;
 
-  // 요약 카드
+  // 요약 카드 — 라벨에 동기간 표기 추가
+  document.querySelector('#cmpThis').parentElement.querySelector('.label').textContent = `${year}년 매출 ${periodLabel}`;
+  document.querySelector('#cmpLast').parentElement.querySelector('.label').textContent = `${lastYear}년 매출 ${periodLabel}`;
   document.getElementById('cmpThis').textContent = fmt(thisTotal);
   document.getElementById('cmpLast').textContent = fmt(lastTotal);
   const rateEl = document.getElementById('cmpRate');
@@ -1500,14 +1555,28 @@ function renderCompareYear() {
 
   const latest = years[years.length-1];
   const prev = years.length >= 2 ? years[years.length-2] : null;
-  const thisTotal = yearTotals[latest];
-  const lastTotal = prev ? yearTotals[prev] : 0;
+
+  // 동기간 비교 (2026-05-21 수정 A안): 금년 처리된 마지막 월까지로 전년도 같은 기간만 합산
+  const monthSum = (y) => {
+    const arr = new Array(12).fill(0);
+    SALES.forEach(r => {
+      if (r._month.slice(0,4) === y) arr[Number(r._month.slice(5,7))-1] += r.금액;
+    });
+    return arr;
+  };
+  const latestM = monthSum(latest);
+  let maxIdx = -1;
+  for (let i = 0; i < 12; i++) if (latestM[i] > 0) maxIdx = i;
+  const periodLabel = maxIdx >= 0 ? `(1~${maxIdx+1}월 누계)` : '';
+  const thisTotal = latestM.slice(0, maxIdx+1).reduce((a,b) => a+b, 0);
+  const prevM = prev ? monthSum(prev) : new Array(12).fill(0);
+  const lastTotal = prev ? prevM.slice(0, maxIdx+1).reduce((a,b) => a+b, 0) : 0;
   const delta = thisTotal - lastTotal;
   const rate = lastTotal ? (delta / lastTotal) * 100 : 0;
 
-  // 요약 카드
-  document.querySelector('#cmpThis').parentElement.querySelector('.label').textContent = `최근년도 (${latest}) 매출`;
-  document.querySelector('#cmpLast').parentElement.querySelector('.label').textContent = prev ? `직전년도 (${prev}) 매출` : '직전년도 매출';
+  // 요약 카드 — 라벨에 동기간 표기 추가
+  document.querySelector('#cmpThis').parentElement.querySelector('.label').textContent = `${latest}년 매출 ${periodLabel}`;
+  document.querySelector('#cmpLast').parentElement.querySelector('.label').textContent = prev ? `${prev}년 매출 ${periodLabel}` : '직전년도 매출';
   document.getElementById('cmpThis').textContent = fmt(thisTotal);
   document.getElementById('cmpLast').textContent = prev ? fmt(lastTotal) : '-';
   const rateEl = document.getElementById('cmpRate');
@@ -1629,17 +1698,23 @@ function renderAnalysis() {
     }
   });
 
-  const grades = { A:0, B:0, C:0 };
-  list.forEach(x => grades[x.grade]++);
-  makeChart('anaGradeChart', {
-    type: 'doughnut',
+  // 2026-05-21 개편: 등급 분포(도넛) 제거 → 미수금 TOP 10 막대(좌측과 동일 형태)
+  const top10Recv = [...list].filter(x => x.recv > 0).sort((a,b) => b.recv - a.recv).slice(0, 10);
+  makeChart('anaRecvChart', {
+    type: 'bar',
     data: {
-      labels: ['A등급','B등급','C등급'],
-      datasets: [{ data: [grades.A, grades.B, grades.C], backgroundColor: ['#1D9E75','#E89B3C','#D7493A'] }]
+      labels: top10Recv.map(x => x.c.length > 20 ? x.c.slice(0,20)+'...' : x.c),
+      datasets: [{ label: '미수금', data: top10Recv.map(x => x.recv), backgroundColor: '#D7493A' }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+      scales: { x: { ticks: { callback: v => fmtM(v)+'만' } } }
+    }
   });
 
+  // 테이블 — 등급 컬럼 제거, 상위 20개 굵게
   let html = '<table class="data"><thead><tr>'
     + '<th>거래처명</th>'
     + '<th class="num" style="width:120px">이 기간</th>'
@@ -1647,19 +1722,17 @@ function renderAnalysis() {
     + '<th class="num" style="width:120px">전년동월</th>'
     + '<th class="num" style="width:70px">기여율</th>'
     + '<th class="num" style="width:120px">미수금</th>'
-    + '<th style="width:70px">등급</th>'
     + '</tr></thead><tbody>';
-  if (list.length === 0) html += '<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:30px">데이터가 없습니다.</td></tr>';
-  list.forEach(x => {
-    const badge = x.grade === 'A' ? 'b-ok' : x.grade === 'B' ? 'b-warn' : 'b-danger';
-    html += `<tr>
+  if (list.length === 0) html += '<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:30px">데이터가 없습니다.</td></tr>';
+  list.forEach((x, i) => {
+    const rowClass = i < 20 ? ' class="top20"' : '';
+    html += `<tr${rowClass}>
       <td title="${x.c}">${x.c}</td>
       <td class="num">${fmt(x.sales)}</td>
       <td class="num">${fmt(x.prev)}</td>
       <td class="num">${fmt(x.yago)}</td>
       <td class="num">${x.ratio.toFixed(1)}%</td>
       <td class="num">${fmt(x.recv)}</td>
-      <td><span class="badge ${badge}">${x.grade}</span></td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -2024,14 +2097,18 @@ function renderClientDetail(name) {
   wrap.innerHTML = html;
   attachSortable(wrap);
 
-  // 월별 차트 그리기
+  // 월별 차트 그리기 — 2026-05-21 개편: 금년 1월~현재월 전체 표시 (빈 월은 0)
   if (summary) {
-    const months = Object.keys(summary.byMonth).sort();
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const curMonth = today.getMonth() + 1;  // 1~12
+    const months = [];
+    for (let m = 1; m <= curMonth; m++) months.push(`${yyyy}-${String(m).padStart(2,'0')}`);
     makeChart('clientMonthChart', {
       type: 'bar',
       data: {
         labels: months,
-        datasets: [{ label: '매출', data: months.map(m => summary.byMonth[m]), backgroundColor: '#1D9E75' }]
+        datasets: [{ label: '매출', data: months.map(m => summary.byMonth[m] || 0), backgroundColor: '#1D9E75' }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
@@ -2225,18 +2302,38 @@ function renderTab(idx) {
 
 /* ==================== 기본 필터 ==================== */
 function setDefaultFilters() {
-  const months = [...new Set(SALES.map(x => x._month))].sort();
-  const latest = months.length ? months[months.length-1] : new Date().toISOString().slice(0,7);
-  const oldest = months.length ? months[0] : latest;
-  document.getElementById('trxFrom').value = oldest;
-  document.getElementById('trxTo').value = latest;
-  document.getElementById('cliFrom').value = oldest;
-  document.getElementById('cliTo').value = latest;
-  document.getElementById('anaFrom').value = oldest;
-  document.getElementById('anaTo').value = latest;
+  // 일일거래(tab-2): 최근 1주일 (오늘 - 6일 ~ 오늘) - 2026-05-21 개편
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const weekAgo = new Date(today.getTime() - 6*24*60*60*1000).toISOString().slice(0,10);
+  document.getElementById('trxFrom').value = weekAgo;
+  document.getElementById('trxTo').value = todayStr;
+  // 거래처현황(tab-3) / 거래처분석(tab-5): 1월~12월 (올해 전체)
+  const yyyy = today.getFullYear();
+  document.getElementById('cliFrom').value = `${yyyy}-01`;
+  document.getElementById('cliTo').value = `${yyyy}-12`;
+  document.getElementById('anaFrom').value = `${yyyy}-01`;
+  document.getElementById('anaTo').value = `${yyyy}-12`;
 }
 
 /* ==================== 이벤트 ==================== */
+// 일일거래현황 빠른 버튼 (2026-05-21 추가)
+// 재고현황 토글·dropdown 즉시 반영 (2026-05-21 v2: 검색창 제거)
+document.getElementById('invGeneratorOnly').addEventListener('change', renderInventory);
+
+document.getElementById('btnTrxThisYear').addEventListener('click', () => {
+  const yyyy = new Date().getFullYear();
+  document.getElementById('trxFrom').value = `${yyyy}-01-01`;
+  document.getElementById('trxTo').value = `${yyyy}-12-31`;
+  renderTransactions();
+});
+document.getElementById('btnTrxWeek').addEventListener('click', () => {
+  const today = new Date();
+  document.getElementById('trxFrom').value = new Date(today.getTime() - 6*24*60*60*1000).toISOString().slice(0,10);
+  document.getElementById('trxTo').value = today.toISOString().slice(0,10);
+  renderTransactions();
+});
+
 document.getElementById('btnReload').addEventListener('click', async () => {
   toast('데이터 다시 불러오는 중...');
   await loadAllData();

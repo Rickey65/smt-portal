@@ -292,17 +292,20 @@ body { background: var(--c-bg); }
       </div>
     </div>
     
-    <div id="direct-fields" style="display:none; margin-top:8px">
-      <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">수신지 정보</label>
-      <input type="text" id="recv-name" placeholder="받는 사람" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
-      <input type="tel" id="recv-phone" placeholder="연락처" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
-      <input type="text" id="recv-addr" placeholder="주소" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px">
+    <!-- 📤 발신지 (보내는 곳) — 모든 모드에서 항상 표시 -->
+    <div id="send-fields" style="margin-top:10px; padding:8px; background:#F3F8FF; border-radius:6px">
+      <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px; font-weight:600">📤 발신지 (보내는 곳) <span id="send-fields-note" style="color:var(--c-text-2); font-size:11px; font-weight:normal"></span></label>
+      <input type="text" id="send-name" placeholder="발신 거래처명/회사명" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="tel" id="send-phone" placeholder="발신 연락처" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="text" id="send-addr" placeholder="발신 주소" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px">
     </div>
     
-    <div id="direct2-fields" style="display:none; margin-top:8px">
-      <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">발신지 (거래처의 거래처)</label>
-      <input type="text" id="send-name" placeholder="발신 거래처명" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
-      <input type="text" id="send-addr" placeholder="발신 주소" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px">
+    <!-- 📥 수신지 (받는 곳) — 모든 모드에서 항상 표시 -->
+    <div id="recv-fields" style="margin-top:8px; padding:8px; background:#FFF8F0; border-radius:6px">
+      <label id="recv-fields-label" style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px; font-weight:600">📥 수신지 (받는 곳) <span id="recv-fields-note" style="color:var(--c-text-2); font-size:11px; font-weight:normal"></span></label>
+      <input type="text" id="recv-name" placeholder="받는 사람/거래처명" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="tel" id="recv-phone" placeholder="연락처" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px; margin-bottom:6px">
+      <input type="text" id="recv-addr" placeholder="주소" style="width:100%; padding:8px; border:1px solid var(--c-border); border-radius:6px">
     </div>
   </div>
 
@@ -341,6 +344,7 @@ let SALES = [];
 let ITEM_OWNER = {};
 let CLIENT_ALIASES = {};
 let SELECTED_CLIENT = null;
+    if (typeof refillRecvIfDefault === "function") refillRecvIfDefault();
 let SELECTED_ITEMS = [];
 let SALESPERSONS = [];
 let PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]');
@@ -442,14 +446,68 @@ function updateBanner() {
 }
 
 function updateIssuer() {
+  setTimeout(() => { if (typeof refillRecvIfDefault === "function") refillRecvIfDefault(); }, 0);
   updateBanner();
   checkInternalTransfer();
 }
 
 function updateShipFields() {
+  // 2026-05-21 v2 — 발신지·수신지 양쪽 모두 항상 표시, 모드별 자동 채움
   const type = document.querySelector('input[name="ship-type"]:checked').value;
-  document.getElementById('direct-fields').style.display = (type === '일반') ? 'none' : 'block';
-  document.getElementById('direct2-fields').style.display = (type === '직직배송') ? 'block' : 'none';
+  
+  const sendNote = document.getElementById('send-fields-note');
+  const sendName = document.getElementById('send-name');
+  const sendPhone = document.getElementById('send-phone');
+  const sendAddr = document.getElementById('send-addr');
+  
+  const recvNote = document.getElementById('recv-fields-note');
+  const recvName = document.getElementById('recv-name');
+  const recvPhone = document.getElementById('recv-phone');
+  const recvAddr = document.getElementById('recv-addr');
+  
+  // 발행회사 정보 (Data.companyInfo에서)
+  const issuer = (typeof getIssuer === 'function') ? getIssuer() : 'SMT';
+  const company = (typeof Data !== 'undefined' && Data.companyInfo) ? Data.companyInfo[issuer] : null;
+  
+  // 거래처 정보
+  const cname = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || '') : '';
+  const ceo = SELECTED_CLIENT ? (SELECTED_CLIENT.대표자 || '') : '';
+  const cAddr = SELECTED_CLIENT ? (SELECTED_CLIENT.사업장주소 || SELECTED_CLIENT.주소 || '') : '';
+  const cPhone = SELECTED_CLIENT ? (SELECTED_CLIENT.담당자휴대전화 || SELECTED_CLIENT.담당자전화 || SELECTED_CLIENT.대표전화 || '') : '';
+  
+  if (type === '일반') {
+    // 일반: 발신=발행회사 / 수신=거래처
+    sendNote.textContent = '(일반 — 발행회사 자동)';
+    recvNote.textContent = '(일반 — 거래처 자동, 수정 가능)';
+    if (company) {
+      if (!sendName.value) sendName.value = company.상호 || '';
+      if (!sendAddr.value) sendAddr.value = company.주소 || '';
+      if (!sendPhone.value) sendPhone.value = (issuer === 'SMT' ? '031-1644-2090' : '070-4272-5082');
+    }
+    if (SELECTED_CLIENT) {
+      if (!recvName.value) recvName.value = ceo ? `${cname} (${ceo})` : cname;
+      if (!recvPhone.value) recvPhone.value = cPhone;
+      if (!recvAddr.value) recvAddr.value = cAddr;
+    }
+  } else if (type === '직배송요청') {
+    // 직배송: 발신=거래처 자동 / 수신=직접 입력
+    sendNote.textContent = '(직배송 — 거래처 자동)';
+    recvNote.textContent = '(직배송 — 받는 곳 직접 입력)';
+    if (SELECTED_CLIENT) {
+      if (!sendName.value) sendName.value = ceo ? `${cname} (${ceo})` : cname;
+      if (!sendPhone.value) sendPhone.value = cPhone;
+      if (!sendAddr.value) sendAddr.value = cAddr;
+    }
+  } else {
+    // 직직배송: 양쪽 다 직접 입력
+    sendNote.textContent = '(직직배송 — 발신처 직접 입력)';
+    recvNote.textContent = '(직직배송 — 받는 곳 직접 입력)';
+  }
+}
+
+// 거래처/발행회사 변경 시 자동 채움 갱신 — 비어있는 박스만 채움
+function refillRecvIfDefault() {
+  updateShipFields();
 }
 
 // ===== Step 2: 거래처 검색 =====
@@ -517,6 +575,7 @@ function renderClientItem(c, isRecent, recentDate) {
 
 function selectClient(code) {
   SELECTED_CLIENT = CLIENTS.find(c => (c.거래처코드 || c.코드 || c.code) == code);
+    if (typeof refillRecvIfDefault === "function") refillRecvIfDefault();
   if (!SELECTED_CLIENT) return;
   document.getElementById('client-search').value = '';
   document.getElementById('client-suggestions').style.display = 'none';
@@ -550,6 +609,7 @@ function selectClient(code) {
 
 function unselectClient() {
   SELECTED_CLIENT = null;
+    if (typeof refillRecvIfDefault === "function") refillRecvIfDefault();
   document.getElementById('client-selected').innerHTML = '';
 }
 
@@ -897,6 +957,7 @@ function parseKatalk() {
   if (result.거래처.매칭상태 === 'matched') {
     SELECTED_CLIENT = CLIENTS.find(c => 
       (c.거래처코드 || c.코드 || c.code) == result.거래처.코드);
+    if (typeof refillRecvIfDefault === "function") refillRecvIfDefault();
     if (SELECTED_CLIENT) {
       document.getElementById('client-search').value = '';
       document.getElementById('client-suggestions').style.display = 'none';
