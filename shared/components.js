@@ -27,6 +27,30 @@
      * @param {string} containerId - 토글을 삽입할 컨테이너 ID (옵션, 없으면 자동 fixed)
      * @param {Function} onChange - 토글 변경 시 콜백 (옵션, 페이지 리로드가 기본)
      */
+    /**
+     * 페이지 H1 제목에 회사 라벨 자동 prefix
+     * 예: "경영 현황 대시보드" → "[SMT서울기연] 경영 현황 대시보드"
+     */
+    applyToTitle() {
+      const co = Company.get();
+      const lbl = co === 'ALL' ? 'SMT+건웅' : co === 'SMT' ? 'SMT서울기연' : '건웅';
+      document.querySelectorAll('h1').forEach(h => {
+        let base = h.getAttribute('data-base-title');
+        if (!base) {
+          // 원본 텍스트 저장 (기존 [회사명] prefix 제거)
+          let txt = h.textContent.trim().replace(/^\[[^\]]+\]\s*/, '');
+          base = txt;
+          h.setAttribute('data-base-title', base);
+        }
+        h.textContent = `[${lbl}] ${base}`;
+      });
+      // 페이지 브라우저 탭 제목도
+      if (document.title) {
+        let baseT = document.title.replace(/^\[[^\]]+\]\s*/, '');
+        document.title = `[${lbl}] ${baseT}`;
+      }
+    },
+
     render(containerId, onChange) {
       _injectToggleCSS();  // CSS 자동 주입
       const html = `
@@ -52,6 +76,8 @@
       
       // 활성 상태 표시
       this.updateActive();
+      // 페이지 제목에 회사 라벨 자동 prefix (2026-05-22)
+      this.applyToTitle();
       
       // 클릭 이벤트
       container.querySelectorAll('.ct-btn').forEach(btn => {
@@ -59,10 +85,10 @@
           const v = btn.dataset.company;
           Company.set(v);
           this.updateActive();
+          this.applyToTitle();  // 클릭 즉시 제목도
           if (typeof onChange === 'function') {
             onChange(v);
           } else {
-            // 기본: 페이지 새로고침
             location.reload();
           }
         });

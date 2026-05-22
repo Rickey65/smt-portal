@@ -363,6 +363,17 @@ async function loadData() {
     RECV = Array.isArray(r) ? r : (r && r.rows ? r.rows : (r && r.clients ? r.clients : []));
     INV = Array.isArray(i) ? i : (i && i.rows ? i.rows : []);
     CLIENTS = Array.isArray(c) ? c : (c && c.rows ? c.rows : []);
+    
+    // 2026-05-22: 회사 토글 필터링
+    if (typeof Company !== 'undefined') {
+      const co = Company.get();
+      if (co !== 'ALL') {
+        SALES = SALES.filter(r => !r._company || r._company === co);
+        INV = INV.filter(r => !r._company || r._company === co);
+        RECV = RECV.filter(r => !r._company || r._company === co);
+        CLIENTS = CLIENTS.filter(c => !c._companies || c._companies.includes(co));
+      }
+    }
 
     document.getElementById('loadingBox').style.display = 'none';
     document.getElementById('mainBox').style.display = 'block';

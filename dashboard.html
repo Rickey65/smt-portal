@@ -450,21 +450,22 @@
     </div>
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px">
       <div class="panel">
-        <h3>🥧 A. 품목 카테고리별 매출</h3>
+        <h3>📈 A. 월별 매출 추이 (3년 비교)</h3>
+        <div class="panel-sub">2024 · 2025 · 2026 매월 매출 동시 표시</div>
         <div class="chart-wrap" style="height:280px"><canvas id="cliCatChart"></canvas></div>
       </div>
       <div class="panel">
-        <h3>📈 B. 거래처 활성도 분포</h3>
-        <div class="panel-sub">최근 거래일 기준 (90·180·365일/그 이전)</div>
+        <h3>🛢 B. 혼다 EU 발전기 판매 (2025 vs 2026)</h3>
+        <div class="panel-sub">EU10i · EU22i · EU32i · EU30is · EU70is 5종 매출 비교</div>
         <div class="chart-wrap" style="height:280px"><canvas id="cliActiveChart"></canvas></div>
       </div>
       <div class="panel">
-        <h3>💳 C. 결제조건별 매출 비중</h3>
-        <div class="panel-sub">거래처명 패턴 자동 분류</div>
+        <h3>🌍 C. 지역별 신규업체 (2025 vs 2026)</h3>
+        <div class="panel-sub">각 지역별로 그해 첫 거래 시작한 거래처 수</div>
         <div class="chart-wrap" style="height:280px"><canvas id="cliPayChart"></canvas></div>
       </div>
       <div class="panel">
-        <h3>🌱 E. 월별 신규 거래처 추이 (금년)</h3>
+        <h3>🌱 D. 월별 신규 거래처 추이 (금년)</h3>
         <div class="panel-sub">5년치 기준 첫 거래일이 금년인 거래처</div>
         <div class="chart-wrap" style="height:280px"><canvas id="cliNewChart"></canvas></div>
       </div>
@@ -1057,6 +1058,37 @@ function parseAdjustments(aoa) {
 }
 
 /* ==================== 전체 로드 ==================== */
+
+/* ==================== 2026-05-22: 회사 토글 데이터 필터 ==================== */
+let _SALES_ALL = null, _INV_ALL = null, _RECV_ALL = null, _CLIENTS_ALL = null;
+function applyCompanyFilter() {
+  if (typeof Company === 'undefined') return;
+  const co = Company.get();
+  // 원본 백업 1회
+  if (!_SALES_ALL) {
+    _SALES_ALL = SALES.slice();
+    _INV_ALL = INVENTORY.slice();
+    _RECV_ALL = RECEIVABLES.slice();
+    _CLIENTS_ALL = CLIENTS.slice();
+  }
+  if (co === 'ALL') {
+    SALES = _SALES_ALL.slice();
+    INVENTORY = _INV_ALL.slice();
+    RECEIVABLES = _RECV_ALL.slice();
+    CLIENTS = _CLIENTS_ALL.slice();
+  } else {
+    SALES = _SALES_ALL.filter(r => !r._company || r._company === co);
+    INVENTORY = _INV_ALL.filter(r => !r._company || r._company === co);
+    RECEIVABLES = _RECV_ALL.filter(r => !r._company || r._company === co);
+    // CLIENTS는 _companies 배열에 회사 포함되면 OK (없으면 keep all)
+    CLIENTS = _CLIENTS_ALL.filter(c => !c._companies || c._companies.includes(co));
+  }
+  // 캐시 무효화
+  window._salesClientSet = null;
+  window._salesAgg = null;
+  console.log(`[Company filter ${co}] SALES=${SALES.length}, INV=${INVENTORY.length}, RECV=${RECEIVABLES.length}, CLIENTS=${CLIENTS.length}`);
+}
+
 async function loadAllData() {
   document.getElementById('loadingOverlay').style.display = 'flex';
   document.getElementById('loadingText').textContent = '데이터 불러오는 중... (5년치 판매일보 + 위하고 3종)';
@@ -1128,6 +1160,9 @@ async function loadAllData() {
   } catch (e) {
     console.warn('per_company 로드 실패 (legacy sales.json만 사용):', e);
   }
+  
+  // 2026-05-22: 회사 토글에 따른 데이터 필터링
+  if (typeof applyCompanyFilter === 'function') applyCompanyFilter();
   document.getElementById('loadingOverlay').style.display = 'none';
   updateMetaDisplay();
   updateTabDots();
@@ -1515,76 +1550,107 @@ function renderClients() {
       }
     });
 
-    // A. 품목 카테고리별 매출 (도넛)
-    const catMap = {};
-    salesRowsThis.forEach(r => {
-      const cat = (r.품목계정 || '미분류').replace(/^\d+\./, '');
-      catMap[cat] = (catMap[cat] || 0) + (r.금액 || 0);
-    });
-    const catEntries = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+    // A. 월별 매출 추이 3년 비교 (2024·2025·2026)
+    const monthYearSum = (yyyy) => {
+      const arr = new Array(12).fill(0);
+      SALES.forEach(r => {
+        if ((r.날짜||'').slice(0,4) !== yyyy) return;
+        const m = Number((r.날짜||'').slice(5,7));
+        if (m >= 1 && m <= 12) arr[m-1] += (r.금액 || 0);
+      });
+      return arr;
+    };
+    const y2024 = monthYearSum('2024');
+    const y2025 = monthYearSum('2025');
+    const y2026 = monthYearSum('2026');
     makeChart('cliCatChart', {
-      type: 'doughnut',
+      type: 'line',
       data: {
-        labels: catEntries.map(([k]) => k),
-        datasets: [{ data: catEntries.map(([,v]) => v), backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'] }]
+        labels: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+        datasets: [
+          { label: '2024년', data: y2024, borderColor: '#888780', backgroundColor: '#888780', borderDash: [4,4], borderWidth: 2, tension: 0.3, pointRadius: 3 },
+          { label: '2025년', data: y2025, borderColor: '#D7493A', backgroundColor: '#D7493A', borderWidth: 2.5, tension: 0.3, pointRadius: 3 },
+          { label: '2026년', data: y2026, borderColor: '#1D9E75', backgroundColor: '#1D9E75', borderWidth: 3, tension: 0.3, pointRadius: 4 }
+        ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.label + ': ' + fmt(c.raw) } } } }
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(c.raw) } } },
+        scales: { y: { ticks: { callback: v => fmtM(v)+'만' } } }
+      }
     });
 
-    // B. 거래처 활성도 분포
-    const lastSaleDate = {};
-    SALES.forEach(s => {
-      const n = s.거래처명;
-      if (!n) return;
-      if (!lastSaleDate[n] || (s.날짜||'') > lastSaleDate[n]) lastSaleDate[n] = s.날짜 || '';
-    });
-    const today = new Date();
-    const daysAgo = (d) => {
-      if (!d) return 99999;
-      const dt = new Date(d + 'T00:00:00');
-      if (isNaN(dt)) return 99999;
-      return Math.floor((today - dt) / (1000*60*60*24));
+    // B. 혼다 EU 발전기 5종 판매 비교 (2025 vs 2026)
+    const EU_MODELS = ['EU10i', 'EU22i', 'EU32i', 'EU30is', 'EU70is'];
+    const sumByModel = (yyyy) => {
+      const m = {};
+      EU_MODELS.forEach(model => m[model] = 0);
+      SALES.forEach(r => {
+        if ((r.날짜||'').slice(0,4) !== yyyy) return;
+        const name = (r.품목명 || '');
+        for (const model of EU_MODELS) {
+          // 모델명이 품목명에 포함되면 매칭 (대소문자 무관, 정확 매칭)
+          if (new RegExp('\\b' + model + '\\b', 'i').test(name)) {
+            m[model] += (r.금액 || 0);
+            break;
+          }
+        }
+      });
+      return EU_MODELS.map(model => m[model]);
     };
-    let a90 = 0, a180 = 0, a365 = 0, dor = 0;
-    Object.values(lastSaleDate).forEach(d => {
-      const days = daysAgo(d);
-      if (days <= 90) a90++;
-      else if (days <= 180) a180++;
-      else if (days <= 365) a365++;
-      else dor++;
-    });
+    const eu2025 = sumByModel('2025');
+    const eu2026 = sumByModel('2026');
     makeChart('cliActiveChart', {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: ['활성 (≤90일)', '둔화 (≤180일)', '휴면예정 (≤1년)', '휴면 (1년+)'],
-        datasets: [{ data: [a90, a180, a365, dor], backgroundColor: ['#1D9E75','#EF9F27','#D85A30','#888780'] }]
+        labels: EU_MODELS,
+        datasets: [
+          { label: '2025년', data: eu2025, backgroundColor: '#D7493A' },
+          { label: '2026년', data: eu2026, backgroundColor: '#1D9E75' }
+        ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.label + ': ' + c.raw + '개' } } } }
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(c.raw) } } },
+        scales: { y: { ticks: { callback: v => fmtM(v)+'만' } } }
+      }
     });
 
-    // C. 결제조건별 매출 비중
-    const payClassify = (name) => {
-      if (/현금|건별/.test(name)) return '현금/카드';
-      if (/카드/.test(name)) return '현금/카드';
-      if (/익월/.test(name)) return '익월말';
-      if (/말일/.test(name)) return '월말';
-      if (/일괄/.test(name)) return '일괄과세';
-      if (/수시/.test(name)) return '수시입금';
-      return '기타';
-    };
-    const payMap = {};
-    salesRowsThis.forEach(r => {
-      const p = payClassify(r.거래처명 || '');
-      payMap[p] = (payMap[p] || 0) + (r.금액 || 0);
+    // C. 지역별 신규업체 (2025 vs 2026)
+    // 각 거래처의 첫 거래일 → 그 년도에 신규로 발굴된 거래처. 지역별 집계.
+    const firstByClient = {};
+    SALES.forEach(r => {
+      const n = r.거래처명;
+      if (!n) return;
+      if (!firstByClient[n] || (r.날짜||'') < firstByClient[n]) firstByClient[n] = r.날짜 || '';
     });
-    const payEntries = Object.entries(payMap).sort((a,b) => b[1] - a[1]);
+    const newByRegionYear = (yyyy) => {
+      const m = {};
+      Object.entries(firstByClient).forEach(([n, d]) => {
+        if ((d||'').slice(0,4) !== yyyy) return;
+        const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[n] || '') : '기타';
+        m[region] = (m[region] || 0) + 1;
+      });
+      return m;
+    };
+    const new2025 = newByRegionYear('2025');
+    const new2026 = newByRegionYear('2026');
+    const newRegions = [...new Set([...Object.keys(new2025), ...Object.keys(new2026)])];
+    const newRegionsOrdered = regionOrder.filter(r => newRegions.includes(r));
     makeChart('cliPayChart', {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: payEntries.map(([k]) => k),
-        datasets: [{ data: payEntries.map(([,v]) => v), backgroundColor: ['#1D9E75','#EF9F27','#378ADD','#7F77DD','#D85A30','#888780'] }]
+        labels: newRegionsOrdered,
+        datasets: [
+          { label: '2025년 신규', data: newRegionsOrdered.map(r => new2025[r] || 0), backgroundColor: '#D7493A' },
+          { label: '2026년 신규', data: newRegionsOrdered.map(r => new2026[r] || 0), backgroundColor: '#1D9E75' }
+        ]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.label + ': ' + fmt(c.raw) } } } }
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw + '개' } } },
+        scales: { y: { ticks: { stepSize: 1, callback: v => v + '개' } } }
+      }
     });
 
     // E. 월별 신규 거래처 추이
