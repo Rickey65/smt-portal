@@ -2,6 +2,23 @@
 (function(global) {
   'use strict';
 
+  // ===== 회사 토글 — CSS 자동 주입 (2026-05-22) =====
+  function _injectToggleCSS() {
+    if (document.getElementById('company-toggle-css')) return;
+    const style = document.createElement('style');
+    style.id = 'company-toggle-css';
+    style.textContent = `
+      #company-toggle-fixed { position: fixed; top: 14px; right: 14px; z-index: 9999; }
+      .company-toggle { display: inline-flex; background: #f3f3f3; border: 1px solid #ddd; border-radius: 999px; padding: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+      .company-toggle .ct-btn { background: transparent; border: 0; padding: 7px 16px; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; border-radius: 999px; transition: all 0.15s; }
+      .company-toggle .ct-btn:hover { color: #1D9E75; }
+      .company-toggle .ct-btn.active[data-company="ALL"] { background: #1D9E75; color: #fff; }
+      .company-toggle .ct-btn.active[data-company="SMT"] { background: #3B7EE5; color: #fff; }
+      .company-toggle .ct-btn.active[data-company="GW"]  { background: #8845D5; color: #fff; }
+    `;
+    document.head.appendChild(style);
+  }
+
   // ===== 회사 토글 위젯 =====
   global.CompanyToggle = {
     
@@ -11,6 +28,7 @@
      * @param {Function} onChange - 토글 변경 시 콜백 (옵션, 페이지 리로드가 기본)
      */
     render(containerId, onChange) {
+      _injectToggleCSS();  // CSS 자동 주입
       const html = `
         <div class="company-toggle">
           <button data-company="ALL"  class="ct-btn">통합</button>
