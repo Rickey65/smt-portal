@@ -292,6 +292,8 @@
     .client-list-panel { max-height: 400px; }
   }
 </style>
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
 </head>
 <body>
 
@@ -372,7 +374,7 @@
   <!-- TAB 1: 재고현황 (2026-05-21 개편 v2: 발전기만 디폴트, 카테고리 dropdown으로 브라우즈) -->
   <section class="tab" id="tab-1">
     <div class="row">
-      <label><input type="checkbox" id="invGeneratorOnly" checked> <strong>발전기만 보기</strong></label>
+      <label><input type="checkbox" id="invGeneratorOnly"> <strong>발전기만 보기</strong></label>
       <label>품목계정
         <select id="invCategory"><option value="">전체</option></select>
       </label>
@@ -440,33 +442,32 @@
       <div class="card"><div class="label">총 미수금</div><div class="value danger" id="cliReceivable">0</div></div>
       <div class="card"><div class="label">미수 5천만원 이상</div><div class="value danger" id="cliBigRecv">0</div></div>
     </div>
-    <!-- 2026-05-22 v2: 4개 그래프 (분기·반기·연도·지역파이) -->
+    <!-- 2026-05-22 v3: 메인 1 + A·B·C·E (5개) — 하단 표 삭제 -->
     <div class="panel">
-      <h3>지역별 다각 비교</h3>
-      <div class="panel-sub">선택 기간 기준. 4개 관점 (분기·반기·연도·지역분포).</div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px">
-        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
-          <h4 style="margin:0 0 6px; font-size:13px">📊 분기별 지역 비교</h4>
-          <div class="chart-wrap" style="height:200px"><canvas id="cliQChart"></canvas></div>
-        </div>
-        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
-          <h4 style="margin:0 0 6px; font-size:13px">📊 반기별 지역 비교</h4>
-          <div class="chart-wrap" style="height:200px"><canvas id="cliHChart"></canvas></div>
-        </div>
-        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
-          <h4 style="margin:0 0 6px; font-size:13px">📊 연도별 지역 비교</h4>
-          <div class="chart-wrap" style="height:200px"><canvas id="cliYChart"></canvas></div>
-        </div>
-        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
-          <h4 style="margin:0 0 6px; font-size:13px">🥧 지역별 매출 분포 (파이)</h4>
-          <div class="chart-wrap" style="height:200px"><canvas id="cliPChart"></canvas></div>
-        </div>
-      </div>
+      <h3>📊 지역별 매출 (금년 vs 전년)</h3>
+      <div class="panel-sub">선택 기간 기준. 모든 지역 가로 막대 비교. 옆에 전년 같은 기간 막대.</div>
+      <div class="chart-wrap" style="height:420px"><canvas id="cliMainChart"></canvas></div>
     </div>
-    <div class="panel">
-      <h3>거래처별 실적 및 미수현황</h3>
-      <div class="panel-sub">미수금 기준: 5천만원 이상=위험 · 1천만원 이상=주의. 매출 합계는 선택한 기간 기준.</div>
-      <div id="cliTableWrap"></div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px">
+      <div class="panel">
+        <h3>🥧 A. 품목 카테고리별 매출</h3>
+        <div class="chart-wrap" style="height:280px"><canvas id="cliCatChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>📈 B. 거래처 활성도 분포</h3>
+        <div class="panel-sub">최근 거래일 기준 (90·180·365일/그 이전)</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="cliActiveChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>💳 C. 결제조건별 매출 비중</h3>
+        <div class="panel-sub">거래처명 패턴 자동 분류</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="cliPayChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>🌱 E. 월별 신규 거래처 추이 (금년)</h3>
+        <div class="panel-sub">5년치 기준 첫 거래일이 금년인 거래처</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="cliNewChart"></canvas></div>
+      </div>
     </div>
   </section>
 
@@ -618,7 +619,7 @@
     </div>
     <div class="panel">
       <h3>거래처 성과 분석</h3>
-      <div class="panel-sub">매출 큰 순서 정렬. <strong>상위 20개</strong>는 굵고 큰 글씨로 강조.</div>
+      <div class="panel-sub">매출 큰 순서 정렬. <strong>상위 20개</strong> 굵고 큰 글씨 강조. <span style="color:var(--color-text-info)">※ "전년 동기간" = 같은 시작월~종료월 기준 (예: 2026-01~05 ↔ 2025-01~05)</span></div>
       <div id="anaTableWrap"></div>
     </div>
   </section>
@@ -1260,14 +1261,8 @@ function renderInventory() {
   document.getElementById('invSum').textContent = fmtNum(sumQty);
 
   if (mode === 'issue') rows = rows.filter(r => r.기말재고 < 10);
-  // 2026-05-22: 정렬 = 품목계정 우선순위 + 같은 카테고리 내 재고 많은 순
-  const catOrder = {'1.상품':1, '4.제품':2, '5.반제품':3, '2.원재료':4, '3.부재료':5, '6.부산품':6};
-  rows.sort((a,b) => {
-    const oa = catOrder[a.품목계정] || 99;
-    const ob = catOrder[b.품목계정] || 99;
-    if (oa !== ob) return oa - ob;
-    return (b.기말재고||0) - (a.기말재고||0);  // 재고 많은 순
-  });
+  // 2026-05-22 키핑#38: 정렬 단순화 — 품목계정 무관, 재고수량 큰 순서만
+  rows.sort((a,b) => (b.기말재고||0) - (a.기말재고||0));
 
   let html = '<table class="data"><thead><tr>'
     + '<th style="width:90px">품목계정</th>'
@@ -1493,124 +1488,132 @@ function renderClients() {
   });
   const regionOrder = ['서울','경기','인천','강원','충북','충남','대전','세종','전북','전남','광주','경북','경남','대구','울산','부산','제주','기타'];
   const regionEntries = regionOrder.filter(r => regionSales[r]).map(r => [r, regionSales[r]]);
-  // 2026-05-22 v2: 4개 그래프 (분기·반기·연도·파이)
+  // 2026-05-22 v3: 5개 그래프 (메인 + A·B·C·E)
   if (typeof makeChart === 'function') {
-    // 1) 지역×분기별 매출 (스택)
-    const regionList = regionEntries.map(([r]) => r);
-    const qSales = {};
-    regionList.forEach(r => qSales[r] = [0,0,0,0]);
+    // 메인: 지역별 매출 (금년 vs 전년)
+    const regionList = regionOrder.filter(r => regionSales[r]);
+    const regionLastSales = {};
+    regionList.forEach(r => regionLastSales[r] = 0);
+    salesRowsLast.forEach(r => {
+      if (!r.거래처명) return;
+      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
+      if (regionLastSales[region] !== undefined) regionLastSales[region] += (r.금액 || 0);
+    });
+    makeChart('cliMainChart', {
+      type: 'bar',
+      data: {
+        labels: regionList,
+        datasets: [
+          { label: `${yyyyThis}년 매출`, data: regionList.map(r => regionSales[r].sales), backgroundColor: '#1D9E75' },
+          { label: `${yyyyLast}년 매출`, data: regionList.map(r => regionLastSales[r] || 0), backgroundColor: '#D7493A' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(c.raw) } } },
+        scales: { y: { ticks: { callback: v => fmtM(v)+'만' } } }
+      }
+    });
+
+    // A. 품목 카테고리별 매출 (도넛)
+    const catMap = {};
     salesRowsThis.forEach(r => {
-      if (!r.거래처명) return;
-      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
-      const m = Number((r.날짜||'').slice(5,7));
-      if (m >= 1 && m <= 12 && qSales[region]) qSales[region][Math.floor((m-1)/3)] += (r.금액||0);
+      const cat = (r.품목계정 || '미분류').replace(/^\d+\./, '');
+      catMap[cat] = (catMap[cat] || 0) + (r.금액 || 0);
     });
-    makeChart('cliQChart', {
-      type: 'bar',
+    const catEntries = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+    makeChart('cliCatChart', {
+      type: 'doughnut',
       data: {
-        labels: ['1분기','2분기','3분기','4분기'],
-        datasets: regionList.slice(0, 8).map((r, i) => ({
-          label: r,
-          data: qSales[r],
-          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'][i]
-        }))
+        labels: catEntries.map(([k]) => k),
+        datasets: [{ data: catEntries.map(([,v]) => v), backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'] }]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtM(v)+'만'}}} }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.label + ': ' + fmt(c.raw) } } } }
     });
 
-    // 2) 지역×반기별 매출
-    const hSales = {};
-    regionList.forEach(r => hSales[r] = [0,0]);
+    // B. 거래처 활성도 분포
+    const lastSaleDate = {};
+    SALES.forEach(s => {
+      const n = s.거래처명;
+      if (!n) return;
+      if (!lastSaleDate[n] || (s.날짜||'') > lastSaleDate[n]) lastSaleDate[n] = s.날짜 || '';
+    });
+    const today = new Date();
+    const daysAgo = (d) => {
+      if (!d) return 99999;
+      const dt = new Date(d + 'T00:00:00');
+      if (isNaN(dt)) return 99999;
+      return Math.floor((today - dt) / (1000*60*60*24));
+    };
+    let a90 = 0, a180 = 0, a365 = 0, dor = 0;
+    Object.values(lastSaleDate).forEach(d => {
+      const days = daysAgo(d);
+      if (days <= 90) a90++;
+      else if (days <= 180) a180++;
+      else if (days <= 365) a365++;
+      else dor++;
+    });
+    makeChart('cliActiveChart', {
+      type: 'doughnut',
+      data: {
+        labels: ['활성 (≤90일)', '둔화 (≤180일)', '휴면예정 (≤1년)', '휴면 (1년+)'],
+        datasets: [{ data: [a90, a180, a365, dor], backgroundColor: ['#1D9E75','#EF9F27','#D85A30','#888780'] }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.label + ': ' + c.raw + '개' } } } }
+    });
+
+    // C. 결제조건별 매출 비중
+    const payClassify = (name) => {
+      if (/현금|건별/.test(name)) return '현금/카드';
+      if (/카드/.test(name)) return '현금/카드';
+      if (/익월/.test(name)) return '익월말';
+      if (/말일/.test(name)) return '월말';
+      if (/일괄/.test(name)) return '일괄과세';
+      if (/수시/.test(name)) return '수시입금';
+      return '기타';
+    };
+    const payMap = {};
     salesRowsThis.forEach(r => {
-      if (!r.거래처명) return;
-      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
-      const m = Number((r.날짜||'').slice(5,7));
-      if (m >= 1 && m <= 12 && hSales[region]) hSales[region][Math.floor((m-1)/6)] += (r.금액||0);
+      const p = payClassify(r.거래처명 || '');
+      payMap[p] = (payMap[p] || 0) + (r.금액 || 0);
     });
-    makeChart('cliHChart', {
-      type: 'bar',
+    const payEntries = Object.entries(payMap).sort((a,b) => b[1] - a[1]);
+    makeChart('cliPayChart', {
+      type: 'doughnut',
       data: {
-        labels: ['상반기','하반기'],
-        datasets: regionList.slice(0, 8).map((r, i) => ({
-          label: r,
-          data: hSales[r],
-          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'][i]
-        }))
+        labels: payEntries.map(([k]) => k),
+        datasets: [{ data: payEntries.map(([,v]) => v), backgroundColor: ['#1D9E75','#EF9F27','#378ADD','#7F77DD','#D85A30','#888780'] }]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtM(v)+'만'}}} }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.label + ': ' + fmt(c.raw) } } } }
     });
 
-    // 3) 지역×연도별 매출 (선택 시작년~종료년)
-    const startY = Number(from.slice(0,4));
-    const yearList = [];
-    for (let y = startY - 2; y <= startY; y++) yearList.push(y);
-    const ySales = {};
-    regionList.forEach(r => ySales[r] = yearList.map(() => 0));
-    SALES.forEach(r => {
-      if (!r.거래처명) return;
-      const yy = Number((r.날짜||'').slice(0,4));
-      const yi = yearList.indexOf(yy);
-      if (yi < 0) return;
-      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
-      if (ySales[region]) ySales[region][yi] += (r.금액||0);
+    // E. 월별 신규 거래처 추이
+    const firstSaleDate = {};
+    SALES.forEach(s => {
+      const n = s.거래처명;
+      if (!n) return;
+      if (!firstSaleDate[n] || (s.날짜||'') < firstSaleDate[n]) firstSaleDate[n] = s.날짜 || '';
     });
-    makeChart('cliYChart', {
+    const yT = yyyyThis;
+    const monthlyNew = new Array(12).fill(0);
+    Object.entries(firstSaleDate).forEach(([n, d]) => {
+      if ((d||'').slice(0,4) !== yT) return;
+      const m = Number((d||'').slice(5,7));
+      if (m >= 1 && m <= 12) monthlyNew[m-1]++;
+    });
+    makeChart('cliNewChart', {
       type: 'bar',
       data: {
-        labels: yearList.map(y => y+'년'),
-        datasets: regionList.slice(0, 8).map((r, i) => ({
-          label: r,
-          data: ySales[r],
-          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'][i]
-        }))
+        labels: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+        datasets: [{ label: `${yT}년 신규 거래처`, data: monthlyNew, backgroundColor: '#1D9E75' }]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtM(v)+'만'}}} }
-    });
-
-    // 4) 지역별 매출 분포 파이
-    makeChart('cliPChart', {
-      type: 'pie',
-      data: {
-        labels: regionEntries.map(([r, v]) => r),
-        datasets: [{
-          data: regionEntries.map(([r, v]) => v.sales),
-          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780','#5DCAA5','#85B7EB','#F0997B','#ED93B1','#7F77DD','#C0DD97','#FAC775','#F09595','#B4B2A9','#888780']
-        }]
-      },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}, tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.raw)}}} }
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + '개 신규' } } },
+        scales: { y: { ticks: { stepSize: 1, callback: v => v + '개' } } }
+      }
     });
   }
-
-  let html = '<table class="data"><thead><tr>'
-    + '<th>거래처명</th>'
-    + `<th class="num" style="width:115px">${yyyyThis}년 매출</th>`
-    + `<th class="num" style="width:115px">${yyyyLast}년 매출</th>`
-    + '<th class="num" style="width:80px">증감률</th>'
-    + `<th class="num" style="width:70px">${yyyyThis} 건수</th>`
-    + `<th class="num" style="width:70px">${yyyyLast} 건수</th>`
-    + '<th class="num" style="width:130px">미수금</th>'
-    + '</tr></thead><tbody>';
-  if (list.length === 0) html += '<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:30px">데이터가 없습니다.</td></tr>';
-  list.forEach(x => {
-    let cls = '';
-    if (x.미수금 >= 50000000) cls = ' class="danger"';
-    else if (x.미수금 >= 10000000) cls = ' class="warn"';
-    const ratio = x.매출금년 > 0 ? (x.미수금 / x.매출금년 * 100).toFixed(0) + '%' : (x.미수금 > 0 ? '∞' : '-');
-    const rateTxt = x.증감률 === null ? '-' : (x.증감률 >= 0 ? '▲' : '▼') + ' ' + Math.abs(x.증감률).toFixed(1) + '%';
-    const rateColor = x.증감률 === null ? 'var(--color-text-muted)' : (x.증감률 >= 0 ? 'var(--color-accent)' : 'var(--color-danger)');
-    html += `<tr${cls}>
-      <td title="${x.거래처명}">${x.거래처명}</td>
-      <td class="num">${fmt(x.매출금년)}</td>
-      <td class="num" style="color:var(--color-text-secondary)">${fmt(x.매출전년)}</td>
-      <td class="num" style="color:${rateColor}">${rateTxt}</td>
-      <td class="num">${fmtNum(x.건수금년)}</td>
-      <td class="num" style="color:var(--color-text-secondary)">${fmtNum(x.건수전년)}</td>
-      <td class="num">${fmt(x.미수금)}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('cliTableWrap').innerHTML = html;
-  attachSortable(document.getElementById('cliTableWrap'));
 }
 
 /* ==================== TAB 4: 실적비교 ==================== */
@@ -2177,17 +2180,19 @@ function searchClients(query, includeClosed) {
   let pool = CLIENTS;
   if (!includeClosed) pool = pool.filter(c => !c.폐업일자);
   if (!q) {
-    // 2026-05-22 최적화: SALES.some 6759회 → 1회 Set 구축
-    if (!window._salesClientSet) {
-      window._salesClientSet = new Set(SALES.map(r => r.거래처명));
+    // 2026-05-22 키핑#33: 디폴트 = 매출 큰 거래처 상위 20개 (200 → 20)
+    if (!window._salesAgg) {
+      const agg = {};
+      SALES.forEach(r => {
+        if (!r.거래처명) return;
+        agg[r.거래처명] = (agg[r.거래처명] || 0) + (r.금액 || 0);
+      });
+      window._salesAgg = agg;
     }
-    const has = window._salesClientSet;
-    return pool.slice().sort((a,b) => {
-      const aH = has.has(a.거래처명) ? 0 : 1;
-      const bH = has.has(b.거래처명) ? 0 : 1;
-      if (aH !== bH) return aH - bH;
-      return a.거래처명.localeCompare(b.거래처명, 'ko');
-    }).slice(0, 200);
+    const agg = window._salesAgg;
+    return pool.slice().filter(c => agg[c.거래처명] > 0)
+      .sort((a,b) => (agg[b.거래처명]||0) - (agg[a.거래처명]||0))
+      .slice(0, 20);
   }
   return pool.filter(c => {
     const hay = ((c.거래처명||'') + (c.대표자||'') + (c.사업자번호||'') + (c.주소||'')).toLowerCase().replace(/\s+/g, '');
@@ -2299,13 +2304,12 @@ function renderClientDetail(name) {
 
     // 최근 거래 내역
     html += `<div class="panel">
-      <h3>최근 거래 내역 (최신 20건)</h3>
+      <h3>이 거래처 전체 거래 내역</h3>
       <table class="data"><thead><tr>
         <th style="width:100px">날짜</th>
         <th>품목</th>
         <th class="num" style="width:70px">수량</th>
         <th class="num" style="width:110px">금액</th>
-        <th style="width:90px">담당자</th>
       </tr></thead><tbody>`;
     summary.recentRows.forEach(r => {
       html += `<tr>
@@ -2313,7 +2317,6 @@ function renderClientDetail(name) {
         <td title="${r.품목명}">${r.품목명}</td>
         <td class="num">${fmtNum(r.수량)}</td>
         <td class="num">${fmt(r.금액)}</td>
-        <td>${r.담당자||'-'}</td>
       </tr>`;
     });
     html += '</tbody></table></div>';
@@ -2321,27 +2324,30 @@ function renderClientDetail(name) {
     html += `<div class="panel"><div class="empty">이 거래처와는 판매 기록이 없습니다. 미수금: ${recv > 0 ? fmt(recv) : '없음'}</div></div>`;
   }
 
-  // 일정에 추가 버튼
-  if (c.주소) {
-    html += `<div class="panel" style="background:var(--color-accent-soft)">
-      <div style="display:flex;align-items:center;gap:10px">
-        <strong>📍 이 거래처 방문하시나요?</strong>
-        <button class="btn primary" id="btnAddToTrip">일정에 추가</button>
-        <span style="color:var(--color-text-secondary);font-size:12px">선택 후 일정 관리 탭에서 경로 확인</span>
-      </div>
-    </div>`;
-  }
+  // 2026-05-22 키핑#36: "일정에 추가" 버튼 삭제 (일정 모듈 없음)
 
   wrap.innerHTML = html;
   attachSortable(wrap);
 
   // 월별 차트 그리기 — 2026-05-21 개편: 금년 1월~현재월 전체 표시 (빈 월은 0)
   if (summary) {
+    // 2026-05-22 키핑#32: 거래 있는 가장 이른 월부터 ~ 현재월
     const today = new Date();
     const yyyy = today.getFullYear();
-    const curMonth = today.getMonth() + 1;  // 1~12
+    const curMonth = today.getMonth() + 1;
+    const byMonthKeys = Object.keys(summary.byMonth || {}).sort();
+    let startYM;
+    if (byMonthKeys.length > 0) {
+      startYM = byMonthKeys[0];
+    } else {
+      startYM = `${yyyy}-01`;
+    }
     const months = [];
-    for (let m = 1; m <= curMonth; m++) months.push(`${yyyy}-${String(m).padStart(2,'0')}`);
+    const startDate = new Date(startYM + '-01');
+    const endDate = new Date(`${yyyy}-${String(curMonth).padStart(2,'0')}-01`);
+    for (let d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
+      months.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+    }
     makeChart('clientMonthChart', {
       type: 'bar',
       data: {
@@ -2551,7 +2557,9 @@ function setDefaultFilters() {
   document.getElementById('cliFrom').value = `${yyyy}-01`;
   document.getElementById('cliTo').value = `${yyyy}-12`;
   document.getElementById('anaFrom').value = `${yyyy}-01`;
-  document.getElementById('anaTo').value = `${yyyy}-12`;
+  // 2026-05-22 키핑#29: 종료월 디폴트 = 현재월
+  const curMonth = String(today.getMonth()+1).padStart(2,'0');
+  document.getElementById('anaTo').value = `${yyyy}-${curMonth}`;
 }
 
 /* ==================== 이벤트 ==================== */
@@ -3164,5 +3172,6 @@ if (sessionStorage.getItem('smtAuth') === '1') {
   window.addEventListener('DOMContentLoaded', initDashboard);
 }
 </script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(typeof CompanyToggle!=="undefined"){try{CompanyToggle.render(null);}catch(e){}}});</script>
 </body>
 </html>
