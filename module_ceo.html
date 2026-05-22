@@ -360,16 +360,20 @@ async function loadData() {
       fetch('inventory.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
       fetch('clients.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
     ]);
-    SALES = (s && s.rows) ? s.rows : [];
-    RECV = (r && r.rows) ? r.rows : [];
-    INV = (i && i.rows) ? i.rows : [];
-    CLIENTS = (c && c.rows) ? c.rows : [];
+    // 2026-05-22 fix: list / {rows} / {clients} 모두 호환
+    SALES = Array.isArray(s) ? s : (s && s.rows ? s.rows : []);
+    RECV = Array.isArray(r) ? r : (r && r.rows ? r.rows : (r && r.clients ? r.clients : []));
+    INV = Array.isArray(i) ? i : (i && i.rows ? i.rows : []);
+    CLIENTS = Array.isArray(c) ? c : (c && c.rows ? c.rows : []);
 
     document.getElementById('loadingBox').style.display = 'none';
     document.getElementById('mainBox').style.display = 'block';
 
     renderKPIs();
-    renderTrendChart();
+    // 2026-05-22 fix: trendChart canvas 삭제됨, 안전 가드
+    if (document.getElementById('trendChart')) {
+      try { renderTrendChart(); } catch (e) { console.warn('renderTrendChart skip:', e); }
+    }
   } catch (e) {
     document.getElementById('loadingBox').innerHTML = `<div style="color:var(--danger)">❌ ${e.message}</div>`;
   }
