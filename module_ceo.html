@@ -178,6 +178,8 @@
     .kpi-grid,.kpi-grid.row2{grid-template-columns:1fr}
   }
 </style>
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -263,12 +265,7 @@
       <h2>📈 거래 변동 10% 이상 (상승/하락)</h2>
       <div id="ceoBigChanges"></div>
     </div>
-    <div class="trend-section">
-      <h2>🗓 금월 활동 및 활동 전망</h2>
-      <div id="ceoActivities" style="font-size:14px; line-height:1.7">
-        활동 데이터 별도 연동 예정 (수기 입력 또는 일정 자동)
-      </div>
-    </div>
+    <!-- 2026-05-22: 금월 활동·전망 섹션 삭제 (경제뉴스·환율전망은 API 필요로 추후) -->
 
     <!-- 음성 명령 영역 -->
     <div class="voice-section">
@@ -298,7 +295,7 @@
       </a>
       <a href="dashboard.html#client"><div class="ico">🔍</div><div class="info"><div class="name">거래처 조회</div><div class="descr">6,732개 통합</div></div></a>
       <a href="module_trip.html"><div class="ico">🗓️</div><div class="info"><div class="name">출장 일정</div><div class="descr">최적 경로</div></div></a>
-      <a href="dashboard.html#recon"><div class="ico">📦</div><div class="info"><div class="name">재고 차이</div><div class="descr">실재고 분석</div></div></a>
+      
     </div>
   </div>
 </div>
@@ -354,6 +351,7 @@ document.getElementById('dateLabel').textContent =
 /* ==================== 데이터 로드 ==================== */
 async function loadData() {
   try {
+    if (typeof CompanyToggle !== "undefined") { try { CompanyToggle.render(null); } catch(e){} }
     const [s, r, i, c] = await Promise.all([
       fetch('sales.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),
       fetch('receivable.json?t='+Date.now()).then(r => r.ok ? r.json() : null).catch(()=>null),

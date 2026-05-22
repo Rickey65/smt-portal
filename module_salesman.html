@@ -50,6 +50,8 @@
   .empty{padding:20px;text-align:center;color:var(--c-text-2);font-size:13px}
   .clear-btn{background:none;border:none;color:var(--c-text-2);font-size:12px;text-decoration:underline;cursor:pointer;padding:0;margin-left:8px}
 </style>
+<script src="shared/data_loader.js"></script>
+<script src="shared/components.js"></script>
 </head>
 <body>
 <header>
@@ -360,5 +362,6 @@ function fmt(n){if(!n)return'0원';return Math.round(n).toLocaleString()+'원';}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 init();
 </script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(typeof CompanyToggle!=="undefined"){try{CompanyToggle.render(null);}catch(e){}}});</script>
 </body>
 </html>

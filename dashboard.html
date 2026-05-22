@@ -333,7 +333,7 @@
   <nav class="tabs" id="tabs">
     <button data-tab="4" class="active">실적비교 <span class="dot" id="dot-4"></span></button>
     <button data-tab="2">일일거래현황 <span class="dot" id="dot-2"></span></button>
-    <button data-tab="3">거래처현황 <span class="dot" id="dot-3"></span></button>
+    <button data-tab="3">영업리포트 <span class="dot" id="dot-3"></span></button>
     <button data-tab="5">거래처분석 <span class="dot" id="dot-5"></span></button>
     <button data-tab="7">거래처 조회 <span class="dot" id="dot-7"></span></button>
     <button data-tab="1">재고현황 <span class="dot" id="dot-1"></span></button>
@@ -440,14 +440,31 @@
       <div class="card"><div class="label">총 미수금</div><div class="value danger" id="cliReceivable">0</div></div>
       <div class="card"><div class="label">미수 5천만원 이상</div><div class="value danger" id="cliBigRecv">0</div></div>
     </div>
-    <!-- 2026-05-22: 지역별 매출 그래프 -->
+    <!-- 2026-05-22 v2: 4개 그래프 (분기·반기·연도·지역파이) -->
     <div class="panel">
-      <h3>지역별 매출 분포</h3>
-      <div class="panel-sub">선택 기간 기준. 거래처 주소(시·도) 기준 자동 분류.</div>
-      <div class="chart-wrap"><canvas id="cliRegionChart" role="img" aria-label="지역별 매출"></canvas></div>
+      <h3>지역별 다각 비교</h3>
+      <div class="panel-sub">선택 기간 기준. 4개 관점 (분기·반기·연도·지역분포).</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px">
+        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
+          <h4 style="margin:0 0 6px; font-size:13px">📊 분기별 지역 비교</h4>
+          <div class="chart-wrap" style="height:200px"><canvas id="cliQChart"></canvas></div>
+        </div>
+        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
+          <h4 style="margin:0 0 6px; font-size:13px">📊 반기별 지역 비교</h4>
+          <div class="chart-wrap" style="height:200px"><canvas id="cliHChart"></canvas></div>
+        </div>
+        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
+          <h4 style="margin:0 0 6px; font-size:13px">📊 연도별 지역 비교</h4>
+          <div class="chart-wrap" style="height:200px"><canvas id="cliYChart"></canvas></div>
+        </div>
+        <div style="background:var(--color-background-secondary); padding:10px; border-radius:6px">
+          <h4 style="margin:0 0 6px; font-size:13px">🥧 지역별 매출 분포 (파이)</h4>
+          <div class="chart-wrap" style="height:200px"><canvas id="cliPChart"></canvas></div>
+        </div>
+      </div>
     </div>
     <div class="panel">
-      <h3>거래처별 거래·미수 현황</h3>
+      <h3>거래처별 실적 및 미수현황</h3>
       <div class="panel-sub">미수금 기준: 5천만원 이상=위험 · 1천만원 이상=주의. 매출 합계는 선택한 기간 기준.</div>
       <div id="cliTableWrap"></div>
     </div>
@@ -1106,6 +1123,7 @@ async function loadAllData() {
       });
     });
     console.log(`[per_company] 추가 병합: ${added}건 (총 ${SALES.length}건)`);
+    window._salesClientSet = null;  // 캐시 무효화
   } catch (e) {
     console.warn('per_company 로드 실패 (legacy sales.json만 사용):', e);
   }
@@ -1373,20 +1391,20 @@ function renderTransactions() {
   let html = '<table class="data"><thead><tr>'
     + '<th style="width:120px">날짜(요일)</th>'
     + '<th style="width:22%">거래처</th>'
-    + '<th>품목</th>'
+    + '<th>품목 (계정 / 품목명)</th>'
     + '<th class="num" style="width:70px">수량</th>'
     + '<th class="num" style="width:120px">금액(공급가)</th>'
-    + '<th style="width:90px">담당자</th>'
     + '</tr></thead><tbody>';
-  if (pageRows.length === 0) html += '<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:30px">해당 기간 거래 데이터가 없습니다.</td></tr>';
+  if (pageRows.length === 0) html += '<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:30px">해당 기간 거래 데이터가 없습니다.</td></tr>';
   pageRows.forEach(r => {
+    const cat = (r.품목계정||'').replace(/^\d+\./, '');
+    const itemTxt = cat ? `<span style="color:var(--color-text-secondary);font-size:11px;background:var(--color-background-secondary);padding:1px 6px;border-radius:3px;margin-right:4px">${cat}</span>${r.품목명}` : r.품목명;
     html += `<tr>
       <td>${dayWith(r.날짜)}</td>
       <td title="${r.거래처명}">${r.거래처명}</td>
-      <td title="${r.품목명}">${r.품목명}</td>
+      <td title="${r.품목명}">${itemTxt}</td>
       <td class="num">${fmtNum(r.수량)}</td>
       <td class="num">${fmt(r.금액)}</td>
-      <td>${r.담당자||'-'}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1475,18 +1493,91 @@ function renderClients() {
   });
   const regionOrder = ['서울','경기','인천','강원','충북','충남','대전','세종','전북','전남','광주','경북','경남','대구','울산','부산','제주','기타'];
   const regionEntries = regionOrder.filter(r => regionSales[r]).map(r => [r, regionSales[r]]);
+  // 2026-05-22 v2: 4개 그래프 (분기·반기·연도·파이)
   if (typeof makeChart === 'function') {
-    makeChart('cliRegionChart', {
+    // 1) 지역×분기별 매출 (스택)
+    const regionList = regionEntries.map(([r]) => r);
+    const qSales = {};
+    regionList.forEach(r => qSales[r] = [0,0,0,0]);
+    salesRowsThis.forEach(r => {
+      if (!r.거래처명) return;
+      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
+      const m = Number((r.날짜||'').slice(5,7));
+      if (m >= 1 && m <= 12 && qSales[region]) qSales[region][Math.floor((m-1)/3)] += (r.금액||0);
+    });
+    makeChart('cliQChart', {
       type: 'bar',
       data: {
-        labels: regionEntries.map(([r, v]) => `${r} (${v.count})`),
-        datasets: [{ label: `${yyyyThis}년 매출`, data: regionEntries.map(([r, v]) => v.sales), backgroundColor: '#1D9E75' }]
+        labels: ['1분기','2분기','3분기','4분기'],
+        datasets: regionList.slice(0, 8).map((r, i) => ({
+          label: r,
+          data: qSales[r],
+          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'][i]
+        }))
       },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
-        scales: { y: { ticks: { callback: v => fmtM(v)+'만' } } }
-      }
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtM(v)+'만'}}} }
+    });
+
+    // 2) 지역×반기별 매출
+    const hSales = {};
+    regionList.forEach(r => hSales[r] = [0,0]);
+    salesRowsThis.forEach(r => {
+      if (!r.거래처명) return;
+      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
+      const m = Number((r.날짜||'').slice(5,7));
+      if (m >= 1 && m <= 12 && hSales[region]) hSales[region][Math.floor((m-1)/6)] += (r.금액||0);
+    });
+    makeChart('cliHChart', {
+      type: 'bar',
+      data: {
+        labels: ['상반기','하반기'],
+        datasets: regionList.slice(0, 8).map((r, i) => ({
+          label: r,
+          data: hSales[r],
+          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'][i]
+        }))
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtM(v)+'만'}}} }
+    });
+
+    // 3) 지역×연도별 매출 (선택 시작년~종료년)
+    const startY = Number(from.slice(0,4));
+    const yearList = [];
+    for (let y = startY - 2; y <= startY; y++) yearList.push(y);
+    const ySales = {};
+    regionList.forEach(r => ySales[r] = yearList.map(() => 0));
+    SALES.forEach(r => {
+      if (!r.거래처명) return;
+      const yy = Number((r.날짜||'').slice(0,4));
+      const yi = yearList.indexOf(yy);
+      if (yi < 0) return;
+      const region = (typeof extractRegion === 'function') ? extractRegion(clientAddr[r.거래처명] || '') : '기타';
+      if (ySales[region]) ySales[region][yi] += (r.금액||0);
+    });
+    makeChart('cliYChart', {
+      type: 'bar',
+      data: {
+        labels: yearList.map(y => y+'년'),
+        datasets: regionList.slice(0, 8).map((r, i) => ({
+          label: r,
+          data: ySales[r],
+          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780'][i]
+        }))
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}}, scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtM(v)+'만'}}} }
+    });
+
+    // 4) 지역별 매출 분포 파이
+    makeChart('cliPChart', {
+      type: 'pie',
+      data: {
+        labels: regionEntries.map(([r, v]) => r),
+        datasets: [{
+          data: regionEntries.map(([r, v]) => v.sales),
+          backgroundColor: ['#1D9E75','#378ADD','#EF9F27','#D85A30','#D4537E','#7F77DD','#97C459','#888780','#5DCAA5','#85B7EB','#F0997B','#ED93B1','#7F77DD','#C0DD97','#FAC775','#F09595','#B4B2A9','#888780']
+        }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10}}}, tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.raw)}}} }
     });
   }
 
@@ -1497,8 +1588,7 @@ function renderClients() {
     + '<th class="num" style="width:80px">증감률</th>'
     + `<th class="num" style="width:70px">${yyyyThis} 건수</th>`
     + `<th class="num" style="width:70px">${yyyyLast} 건수</th>`
-    + '<th class="num" style="width:115px">미수금</th>'
-    + '<th class="num" style="width:100px">미수/매출 비율</th>'
+    + '<th class="num" style="width:130px">미수금</th>'
     + '</tr></thead><tbody>';
   if (list.length === 0) html += '<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:30px">데이터가 없습니다.</td></tr>';
   list.forEach(x => {
@@ -1516,7 +1606,6 @@ function renderClients() {
       <td class="num">${fmtNum(x.건수금년)}</td>
       <td class="num" style="color:var(--color-text-secondary)">${fmtNum(x.건수전년)}</td>
       <td class="num">${fmt(x.미수금)}</td>
-      <td class="num">${ratio}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1616,10 +1705,11 @@ function renderComparePeriod(mode) {
   deltaEl.textContent = (delta >= 0 ? '+' : '-') + fmt(Math.abs(delta));
   deltaEl.className = 'value ' + (delta >= 0 ? 'ok' : 'danger');
 
-  // 차트 제목 동적 (2026-05-22)
+  // 차트 제목 동적 + 회사 토글 라벨 반영 (2026-05-22)
   const modeLabel = {month:'월별', quarter:'분기별', half:'반기별'};
+  const cLabel = (typeof Company !== 'undefined' && Company.label) ? Company.label().replace('주식회사건웅','건웅').replace('SMT서울기연','SMT').replace('양사 통합','SMT+건웅') : '';
   const titleEl = document.getElementById('cmpChartTitle');
-  if (titleEl) titleEl.textContent = `${modeLabel[mode]||'기간별'} 실적 비교 (${year}년 vs ${lastYear}년)`;
+  if (titleEl) titleEl.textContent = `${cLabel ? '['+cLabel+'] ' : ''}${modeLabel[mode]||'기간별'} 실적 비교 (${year}년 vs ${lastYear}년)`;
   
   // 차트: 월별=line, 나머지=grouped bar
   const chartType = (mode === 'month') ? 'line' : 'bar';
@@ -1728,9 +1818,10 @@ function renderCompareYear() {
   deltaEl.textContent = prev ? (delta >= 0 ? '+' : '-') + fmt(Math.abs(delta)) : '-';
   deltaEl.className = 'value ' + (delta >= 0 ? 'ok' : 'danger');
 
-  // 차트 제목 동적 (연도별)
+  // 차트 제목 동적 (연도별) + 회사 라벨
+  const cLabelY = (typeof Company !== 'undefined' && Company.label) ? Company.label().replace('주식회사건웅','건웅').replace('SMT서울기연','SMT').replace('양사 통합','SMT+건웅') : '';
   const titleEl = document.getElementById('cmpChartTitle');
-  if (titleEl) titleEl.textContent = `연도별 매출 추이 (${years[0]}년 ~ ${latest}년)`;
+  if (titleEl) titleEl.textContent = `${cLabelY ? '['+cLabelY+'] ' : ''}연도별 매출 추이 (${years[0]}년 ~ ${latest}년)`;
   
   // 차트: 막대, 전년대비 성장=초록 / 감소=빨강 / 첫년도=회색
   const barColors = years.map((y, i) => {
@@ -2086,11 +2177,15 @@ function searchClients(query, includeClosed) {
   let pool = CLIENTS;
   if (!includeClosed) pool = pool.filter(c => !c.폐업일자);
   if (!q) {
-    // 쿼리 없으면 매출 있는 거래처 우선, 이름 순
+    // 2026-05-22 최적화: SALES.some 6759회 → 1회 Set 구축
+    if (!window._salesClientSet) {
+      window._salesClientSet = new Set(SALES.map(r => r.거래처명));
+    }
+    const has = window._salesClientSet;
     return pool.slice().sort((a,b) => {
-      const aHas = SALES.some(r => r.거래처명 === a.거래처명) ? 0 : 1;
-      const bHas = SALES.some(r => r.거래처명 === b.거래처명) ? 0 : 1;
-      if (aHas !== bHas) return aHas - bHas;
+      const aH = has.has(a.거래처명) ? 0 : 1;
+      const bH = has.has(b.거래처명) ? 0 : 1;
+      if (aH !== bH) return aH - bH;
       return a.거래처명.localeCompare(b.거래처명, 'ko');
     }).slice(0, 200);
   }
