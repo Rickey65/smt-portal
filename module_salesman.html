@@ -243,17 +243,12 @@ function _extractRegion(addr) {
 }
 
 function renderClients(){
+  // 2026-05-26 수정: 매출 큰 거래처는 무조건 표시. 영업맨 지역·이력은 우선 정렬만.
   const regions = SALESPERSON_REGIONS[SELECTED_SALESPERSON] || ['전국'];
   const isAll = regions.includes('전국');
-  // 거래처 마스터에서 폐업 제외 + 영업맨 지역에 속하는 것
   const my = SALESPERSONS[SELECTED_SALESPERSON] || {};
-  let pool = CLIENTS.filter(c => {
-    if (c.폐업일자 && c.폐업일자.trim()) return false;
-    if (isAll) return true;
-    const region = _extractRegion(c.주소 || '');
-    return regions.includes(region);
-  });
-  // 매출 빈도 점수 (salesperson_clients에 있으면 +) + 전체 거래 빈도
+  
+  // 거래처 매출 집계 (1회 캐시)
   if (!window._allClientSales) {
     const agg = {};
     SALES.forEach(s => {
@@ -263,26 +258,45 @@ function renderClients(){
     window._allClientSales = agg;
   }
   const agg = window._allClientSales;
+  
+  // 폐업 제외 + 매출 있는 거래처만 (활성)
+  let pool = CLIENTS.filter(c => {
+    if (c.폐업일자 && c.폐업일자.trim()) return false;
+    return (agg[c.거래처명] || 0) > 0;
+  });
+  
   pool.sort((a, b) => {
     const an = a.거래처명, bn = b.거래처명;
-    // 영업맨 담당 거래처 우선
+    // 1순위: 영업맨 직접 거래 이력 (카톡 매핑)
     const aMine = my[an] ? 1 : 0;
     const bMine = my[bn] ? 1 : 0;
     if (aMine !== bMine) return bMine - aMine;
-    // 다음은 매출 큰 순
+    // 2순위: 영업맨 지역 매치
+    if (!isAll) {
+      const aReg = regions.includes(_extractRegion(a.주소 || '')) ? 1 : 0;
+      const bReg = regions.includes(_extractRegion(b.주소 || '')) ? 1 : 0;
+      if (aReg !== bReg) return bReg - aReg;
+    }
+    // 3순위: 매출 큰 순
     return (agg[bn] || 0) - (agg[an] || 0);
   });
+  
   const top = pool.slice(0, 12);
   const wrap = document.getElementById('client-cards'); wrap.innerHTML = '';
   if (top.length === 0) {
-    wrap.innerHTML = '<div class="empty">담당 지역 활성 거래처 없음. 검색하세요.</div>';
+    wrap.innerHTML = '<div class="empty">활성 거래처 없음.</div>';
   }
   top.forEach(c => {
     const name = c.거래처명;
     const freq = my[name];
     const region = _extractRegion(c.주소 || '');
+    const inMyRegion = !isAll && regions.includes(region);
     const card = document.createElement('div'); card.className = 'card';
-    const subtxt = freq ? `${freq}건 · ${region||''}` : (region ? region : '신규');
+    // 라벨: 영업맨 거래이력 있으면 그 빈도, 없으면 지역
+    let subtxt;
+    if (freq) subtxt = `${freq}건${region ? ' · '+region : ''}`;
+    else if (region) subtxt = inMyRegion ? `📍${region}` : region;
+    else subtxt = '';
     card.innerHTML = `<div style="font-size:13px">${tr(name, 14)}</div><div class="sub">${subtxt}</div>`;
     card.title = name + (region ? ' ('+region+')' : '');
     card.onclick = () => selectClient(name, card);
