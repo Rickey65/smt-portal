@@ -400,7 +400,7 @@ function selectClient(name,el){
   const mc = document.getElementById('manual-code'); if (mc) mc.value = '';
   renderItemsForClient();
   // 카탈로그 드릴다운 초기 렌더 (대분류 칩만 표시)
-  CAT_STATE = {big:null,sub:null};
+  CAT_STATE = {big:null,mid:null}; window._catItemsShown = 30;
   renderCatChips(); renderCatItems();
   document.getElementById('step-item').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -484,82 +484,121 @@ function selectItem(item,el){
   document.getElementById('qty').value=1;document.getElementById('price').value=item.lastPrice||'';
   document.getElementById('item-input-box').scrollIntoView({behavior:'smooth',block:'center'});
 }
-// ===== 카탈로그 드릴다운 (대분류 → 중분류 → 품목) =====
-let CAT_STATE = { big: null, sub: null };  // 현재 선택 단계
+// ===== 카탈로그 드릴다운 (위하고 대분류→중분류→소분류 직접 사용) =====
+let CAT_STATE = { big: null, mid: null };  // 현재 선택 단계
+
+function _buildCatTree(){
+  // INVENTORY에서 대→중→소 트리 + 코드별 인덱스 구축 (1회 캐시)
+  if (window._catTree) return window._catTree;
+  const tree = {};   // big → mid → Set(소분류)
+  const cnt = {};    // big → count, big|mid → count
+  INVENTORY.forEach(r => {
+    if (isNonProduct(r.품목명)) return;
+    const big = (r.대분류 || '').trim();
+    const mid = (r.중분류 || '').trim();
+    if (!big) return;
+    if (!tree[big]) tree[big] = {};
+    if (!tree[big][mid]) tree[big][mid] = true;
+    cnt[big] = (cnt[big] || 0) + 1;
+    cnt[big+'|'+mid] = (cnt[big+'|'+mid] || 0) + 1;
+  });
+  window._catTree = { tree, cnt };
+  return window._catTree;
+}
 
 function renderCatChips(){
-  const tree = (window.ItemSearch ? ItemSearch.getTree() : []);
+  const { tree, cnt } = _buildCatTree();
   const chips = document.getElementById('cat-chips');
   const crumb = document.getElementById('cat-breadcrumb');
   chips.innerHTML = '';
   if (!CAT_STATE.big) {
     crumb.textContent = '대분류 선택 ↓';
-    tree.forEach(big => {
+    // 대분류 정렬 — 발전기·엔진·파워뱅크·고압세척기 우선, 나머지 매출 큰 순
+    const PRIO = ['발전기','엔진','파워뱅크','고압세척기','분무기','예초기','양수기','다짐기·콤팩터·롤러','바이브레타','폴딩카트','전정기','엔진톱','블로워','모터','보조연료탱크','커버','케이스','가방','발전기부품','부품','온열매트','선풍기','도로커터','전지가위','유압기','컴팩타','패킹','중고','기타'];
+    const bigs = Object.keys(tree).sort((a,b)=>{
+      const ai = PRIO.indexOf(a), bi = PRIO.indexOf(b);
+      if (ai !== -1 || bi !== -1) return (ai===-1?99:ai) - (bi===-1?99:bi);
+      return (cnt[b]||0) - (cnt[a]||0);
+    });
+    bigs.forEach(big => {
       const c = document.createElement('div'); c.className = 'card';
       c.style.background = '#F0F8F4'; c.style.padding = '10px 6px';
-      c.innerHTML = `<div style="font-size:13px;font-weight:600">${big.cat}</div>`;
-      c.onclick = () => { CAT_STATE = {big: big.cat, sub: null}; renderCatChips(); renderCatItems(); };
+      c.innerHTML = `<div style="font-size:13px;font-weight:600">${big}</div><div class="sub">${cnt[big]||0}건</div>`;
+      c.onclick = () => { CAT_STATE = {big: big, mid: null}; renderCatChips(); renderCatItems(); };
       chips.appendChild(c);
     });
   } else {
-    const big = tree.find(t => t.cat === CAT_STATE.big);
-    crumb.innerHTML = `<span style="cursor:pointer;color:var(--c-accent);font-weight:600" onclick="resetCat()">↩ 전체 대분류</span> › <b>${CAT_STATE.big}</b>${CAT_STATE.sub ? ' › <b>' + CAT_STATE.sub + '</b>' : ''}`;
-    if (big && big.sub) {
-      big.sub.forEach(sub => {
-        const c = document.createElement('div'); c.className = 'card';
-        c.style.background = (CAT_STATE.sub === sub.cat) ? 'var(--c-accent)' : '#FFF';
-        c.style.color = (CAT_STATE.sub === sub.cat) ? '#fff' : 'var(--c-text)';
-        c.style.padding = '8px 6px'; c.style.minHeight = '40px';
-        c.innerHTML = `<div style="font-size:12px">${sub.cat}</div>`;
-        c.onclick = () => { CAT_STATE.sub = sub.cat; renderCatChips(); renderCatItems(); };
-        chips.appendChild(c);
-      });
-    }
+    crumb.innerHTML = `<span style="cursor:pointer;color:var(--c-accent);font-weight:600" onclick="resetCat()">↩ 전체 대분류</span> › <b>${CAT_STATE.big}</b>${CAT_STATE.mid ? ' › <b>' + CAT_STATE.mid + '</b>' : ''}`;
+    const mids = Object.keys(tree[CAT_STATE.big] || {}).sort((a,b)=>(cnt[CAT_STATE.big+'|'+b]||0)-(cnt[CAT_STATE.big+'|'+a]||0));
+    mids.forEach(mid => {
+      const c = document.createElement('div'); c.className = 'card';
+      const isSel = CAT_STATE.mid === mid;
+      c.style.background = isSel ? 'var(--c-accent)' : '#FFF';
+      c.style.color = isSel ? '#fff' : 'var(--c-text)';
+      c.style.padding = '8px 6px'; c.style.minHeight = '40px';
+      c.innerHTML = `<div style="font-size:12px">${mid || '(미지정)'}</div><div class="sub" style="${isSel?'color:#fff':''}">${cnt[CAT_STATE.big+'|'+mid]||0}건</div>`;
+      c.onclick = () => { CAT_STATE.mid = mid; renderCatChips(); renderCatItems(); };
+      chips.appendChild(c);
+    });
   }
 }
 
-function resetCat(){ CAT_STATE = {big:null,sub:null}; renderCatChips(); renderCatItems(); }
+function resetCat(){ CAT_STATE = {big:null,mid:null}; renderCatChips(); renderCatItems(); }
 
 function renderCatItems(){
   const wrap = document.getElementById('cat-items'); wrap.innerHTML = '';
   if (!CAT_STATE.big) return;
-  const tree = (window.ItemSearch ? ItemSearch.getTree() : []);
-  const big = tree.find(t => t.cat === CAT_STATE.big);
-  if (!big) return;
-  const targets = CAT_STATE.sub ? big.sub.filter(s => s.cat === CAT_STATE.sub) : (big.sub || []);
-  // 매칭 함수 — prefix·name_kw 둘 다 체크
-  const matchSub = (item, sub) => {
-    const name = (item.품목명 || ''); const upper = name.toUpperCase();
-    if (sub.prefix) for (const p of sub.prefix) if (upper.startsWith(p.toUpperCase())) return true;
-    if (sub.name_kw) for (const k of sub.name_kw) if (name.includes(k) || upper.includes(k.toUpperCase())) return true;
-    return false;
-  };
-  // SALES 빈도 + INVENTORY 통합
+  // SALES 빈도 캐시 — 거래처 무관 전체 빈도 (이번 거래처 빈도는 selectItem에서 5건 표시)
+  if (!window._allSalesFreq){
+    const f = {};
+    SALES.forEach(r => {
+      const k = (r.품목코드||'')+'|'+(r.품목명||'');
+      if (!f[k]) f[k] = {count:0, lastDate:'', lastPrice:0};
+      f[k].count++;
+      if ((r.일자||'') > f[k].lastDate){ f[k].lastDate = r.일자||''; f[k].lastPrice = r.단가||0; }
+    });
+    window._allSalesFreq = f;
+  }
+  const freq = window._allSalesFreq;
+  // INVENTORY에서 분류 매칭
   const seen = {};
-  SALES.forEach(r => {
-    if (isNonProduct(r.품목명)) return;
-    if (!targets.some(s => matchSub(r, s))) return;
-    const k = (r.품목코드||'')+'|'+(r.품목명||'');
-    if (!seen[k]) seen[k] = {품목코드:r.품목코드,품목명:r.품목명,규격:r.규격,count:0,lastDate:'',lastPrice:0};
-    seen[k].count += 1;
-    if ((r.일자||'') > seen[k].lastDate){ seen[k].lastDate = r.일자||''; seen[k].lastPrice = r.단가||0; }
-  });
   INVENTORY.forEach(r => {
     if (isNonProduct(r.품목명)) return;
-    if (!targets.some(s => matchSub(r, s))) return;
+    const big = (r.대분류||'').trim();
+    const mid = (r.중분류||'').trim();
+    if (big !== CAT_STATE.big) return;
+    if (CAT_STATE.mid !== null && CAT_STATE.mid !== undefined && mid !== CAT_STATE.mid) return;
     const k = (r.품목코드||'')+'|'+(r.품목명||'');
-    if (!seen[k]) seen[k] = {품목코드:r.품목코드,품목명:r.품목명,규격:r.규격,count:0,lastDate:'',lastPrice:0,inv:true};
+    if (seen[k]) return;
+    seen[k] = {
+      품목코드: r.품목코드, 품목명: r.품목명, 규격: r.규격||'',
+      소분류: (r.소분류||'').trim(),
+      count: (freq[k]||{}).count || 0,
+      lastDate: (freq[k]||{}).lastDate || '',
+      lastPrice: (freq[k]||{}).lastPrice || 0
+    };
   });
-  const items = Object.values(seen).sort((a,b)=>(b.count||0)-(a.count||0)).slice(0, 40);
-  if (items.length === 0) { wrap.innerHTML = '<div class="empty">이 분류에 매칭된 품목 없음 — 직접 입력하세요</div>'; return; }
-  items.forEach(it => {
+  const items = Object.values(seen).sort((a,b)=>(b.count-a.count) || (a.품목명||'').localeCompare(b.품목명||''));
+  if (items.length === 0){ wrap.innerHTML = '<div class="empty">이 분류에 품목 없음 — 직접 입력하세요</div>'; return; }
+  // 페이지네이션
+  const shown = window._catItemsShown || 30;
+  items.slice(0, shown).forEach(it => {
     const card = document.createElement('div'); card.className = 'card';
     const meta = it.count > 0 ? `${it.count}회 · ${fmt(it.lastPrice)}` : `<span style="color:#B26A00">재고품</span>`;
-    card.innerHTML = `<div style="font-size:13px">${tr(it.품목명||it.품목코드,14)}</div><div class="sub">${meta}</div>`;
+    const subTag = it.소분류 ? `<span style="font-size:10px;background:#E8F2EC;color:var(--c-accent);padding:1px 6px;border-radius:8px;margin-left:4px">${it.소분류}</span>` : '';
+    card.innerHTML = `<div style="font-size:13px">${tr(it.품목명||it.품목코드,14)}${subTag}</div><div class="sub">${meta}</div>`;
     card.title = `${it.품목명} (${it.품목코드})`;
     card.onclick = () => selectItem(it, card);
     wrap.appendChild(card);
   });
+  if (items.length > shown){
+    const more = document.createElement('div'); more.className = 'card';
+    more.style.background = '#FFF4E5'; more.style.borderColor = '#FFD699'; more.style.color = '#B26A00';
+    more.style.gridColumn = '1 / -1';
+    more.innerHTML = `<div>+ 더보기</div><div class="sub">${items.length - shown}개 더</div>`;
+    more.onclick = () => { window._catItemsShown = (window._catItemsShown||30) + 30; renderCatItems(); };
+    wrap.appendChild(more);
+  }
 }
 
 // ③ 직접 입력 — 영업맨이 위에 없는 품목 수동 입력

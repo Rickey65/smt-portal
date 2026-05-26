@@ -448,9 +448,50 @@ def main():
                 with open(outp, "w", encoding="utf-8") as fp:
                     json.dump(wrapped, fp, ensure_ascii=False, separators=(",", ":"))
                 print(f"    {outp.name} (총 {len(merged_rows)}건 / 신규 {len(rows_y)}건)")
-        # 재고: {rows:[...]} 래핑
+        # 재고: {rows:[...]} 래핑 + 분류 머지
         if parsed[company]["inventory"]:
             rows_i = parsed[company]["inventory"]
+            # 분류 사전 로드 (위하고에 분류 없으면 보강 + 위하고에 분류 있으면 학습)
+            cls_path = ROOT / "data" / "shared" / "item_classification.json"
+            cls_map = {}
+            cls_doc = {"_generated": NOW, "_note": "", "_count": 0, "items": []}
+            if cls_path.exists():
+                try:
+                    with open(cls_path, encoding="utf-8") as fp:
+                        cls_doc = json.load(fp)
+                    for it in cls_doc.get("items", []):
+                        if it.get("품목코드"):
+                            cls_map[it["품목코드"]] = it
+                except Exception:
+                    pass
+            changed = 0; learned = 0
+            for r in rows_i:
+                code = (r.get("품목코드") or "").strip()
+                if not code: continue
+                wh_big = (r.get("대분류") or "").strip()
+                wh_mid = (r.get("중분류") or "").strip()
+                wh_sub = (r.get("소분류") or "").strip()
+                cls_entry = cls_map.get(code)
+                if wh_big:  # 위하고가 진실 — 사전에 학습
+                    if not cls_entry or cls_entry.get("대분류") != wh_big or cls_entry.get("중분류") != wh_mid or cls_entry.get("소분류") != wh_sub:
+                        cls_map[code] = {
+                            "_company": company, "품목계정": r.get("품목계정",""),
+                            "품목코드": code, "품목명": r.get("품목명",""), "규격": r.get("규격",""),
+                            "대분류": wh_big, "중분류": wh_mid, "소분류": wh_sub
+                        }
+                        learned += 1
+                elif cls_entry:  # 위하고 빈값 → 사전으로 보강
+                    r["대분류"] = cls_entry.get("대분류","")
+                    r["중분류"] = cls_entry.get("중분류","")
+                    r["소분류"] = cls_entry.get("소분류","")
+                    changed += 1
+            if changed or learned:
+                cls_doc["items"] = list(cls_map.values())
+                cls_doc["_count"] = len(cls_doc["items"])
+                cls_doc["_generated"] = NOW
+                with open(cls_path, "w", encoding="utf-8") as fp:
+                    json.dump(cls_doc, fp, ensure_ascii=False, indent=2)
+                print(f"    분류 머지: 보강 {changed}건 / 학습 {learned}건 (item_classification.json 갱신)")
             wrapped = {
                 "_company": company, "_count": len(rows_i),
                 "_generated": NOW, "rows": rows_i,
