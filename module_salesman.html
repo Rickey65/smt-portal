@@ -660,6 +660,22 @@ function updateSummary(){
     <div class="row"><span class="label">운송비</span><span class="value">${document.getElementById('ship-fee').value||'착불 자동'}</span></div>`;
 }
 function submitOrder(){
+  // E. 직직배송 발신처 저장 (업무맨 화면에서 다음번 자동 추천)
+  if (SHIP_TYPE === '직직배송' && SELECTED_CLIENT) {
+    const cname = (typeof SELECTED_CLIENT === 'string' ? SELECTED_CLIENT : (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || ''));
+    const sName = (document.getElementById('send-name') || {}).value || '';
+    const sPhone = (document.getElementById('send-phone') || {}).value || '';
+    const sAddr = (document.getElementById('send-addr') || {}).value || '';
+    if (cname && (sName || sAddr)) {
+      try {
+        const key = 'direct2_history_' + cname;
+        const hist = JSON.parse(localStorage.getItem(key) || '[]');
+        const filtered = hist.filter(h => h.name !== sName || h.addr !== sAddr);
+        filtered.unshift({name: sName.trim(), phone: sPhone.trim(), addr: sAddr.trim(), _ts: Date.now()});
+        localStorage.setItem(key, JSON.stringify(filtered.slice(0, 10)));
+      } catch(e) {}
+    }
+  }
   if(!SELECTED_SALESPERSON||!SELECTED_CLIENT||ORDER_ITEMS.length===0)return toast('필수 정보 비어있음');
   // 2026-05-22 #58: 업무맨이 받을 때 undefined 방지 — 필수 필드 자동 채움
   const today = new Date();

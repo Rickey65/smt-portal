@@ -520,6 +520,8 @@ function updateShipFields() {
       if (hist.length) {
         direct2HistoryHtml = '<div style="margin-top:6px;padding:8px;background:#FFF8E1;border-radius:6px;font-size:12px"><b>📌 이 거래처가 과거 보냈던 발신처:</b><br>' +
           hist.slice(0,5).map(h => `<a href="#" onclick="event.preventDefault();document.getElementById('send-name').value='${(h.name||'').replace(/'/g,"")}'; document.getElementById('send-phone').value='${(h.phone||'').replace(/'/g,"")}'; document.getElementById('send-addr').value='${(h.addr||'').replace(/'/g,"")}'; return false;" style="display:block;padding:4px;color:var(--c-accent);text-decoration:none">↳ ${h.name} · ${h.phone||''} · ${h.addr||''}</a>`).join('') + '</div>';
+      } else {
+        direct2HistoryHtml = '<div style="margin-top:6px;padding:8px;background:#FFF8E1;border-radius:6px;font-size:11px;color:#B26A00">📌 이 거래처의 직직배송 이력 아직 없음 — 첫 입력 후 다음부터 자동 추천됩니다</div>';
       }
     } catch(e){}
   }
@@ -1268,16 +1270,32 @@ function loadFromPending(i) {
       }
     }
     
-    // 품목들
+    // 품목들 — 거래처+품목 최근 5건 (다른 날짜) history 자동 채움
     if (o.품목 && o.품목.length > 0) {
       SELECTED_ITEMS = [];
+      const cname = o.거래처명 || '';
       o.품목.forEach(p => {
+        // 거래처+품목 매칭 (다른 날짜 5건)
+        let history = [];
+        if (cname && typeof SALES !== 'undefined') {
+          const all = SALES.filter(s => s.품목코드 === p.품목코드 && s.거래처명 === cname)
+                           .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
+          const seenDates = new Set();
+          for (const r of all) {
+            const d = r.일자 || '';
+            if (seenDates.has(d)) continue;
+            seenDates.add(d); history.push(r);
+            if (history.length >= 5) break;
+          }
+        }
         SELECTED_ITEMS.push({
           품목코드: p.품목코드 || '',
           품목명: p.품목명 || '',
           규격: p.규격 || '',
           수량: p.수량 || 1,
-          단가: p.단가 || 0
+          단가: p.단가 || 0,
+          _history: history.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
+          _lastDate: history.length ? history[0].일자 : ''
         });
       });
       if (typeof renderItems === 'function') renderItems();
