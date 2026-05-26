@@ -732,21 +732,31 @@ function addItem(code) {
   const inv = INVENTORY.find(i => i.품목코드 === code);
   if (!inv) return;
 
-  // 2026-05-26: 거래처+품목 최근 5건 (다른 날짜만) — 부장님 지시
+  // 2026-05-26: 거래처+품목 최근 5건 (다른 날짜만) + fallback (같은 품목 다른 거래처)
   const clientName = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호) : null;
-  let history = [];
+  let history = []; let historyOther = [];
   if (clientName) {
-    const all = SALES.filter(s => s.품목코드 === code && s.거래처명 === clientName)
+    const allSame = SALES.filter(s => s.품목코드 === code && s.거래처명 === clientName)
                      .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
     const seenDates = new Set();
-    for (const r of all) {
+    for (const r of allSame) {
       const d = r.일자 || '';
       if (seenDates.has(d)) continue;
       seenDates.add(d); history.push(r);
       if (history.length >= 5) break;
     }
   }
-  const defaultPrice = history.length > 0 ? (history[0].단가 || 0) : 0;
+  // fallback: 같은 품목 다른 거래처 최근 5건
+  const allItem = SALES.filter(s => s.품목코드 === code && (!clientName || s.거래처명 !== clientName))
+                       .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
+  const seenDates2 = new Set();
+  for (const r of allItem) {
+    const d = r.일자 || '';
+    if (seenDates2.has(d)) continue;
+    seenDates2.add(d); historyOther.push(r);
+    if (historyOther.length >= 5) break;
+  }
+  const defaultPrice = history.length > 0 ? (history[0].단가 || 0) : (historyOther.length > 0 ? historyOther[0].단가 || 0 : 0);
   const defaultDate = history.length > 0 ? (history[0].일자 || '') : '';
   
   SELECTED_ITEMS.push({
@@ -757,9 +767,8 @@ function addItem(code) {
     수량: 1,
     단가: defaultPrice,
     _lastDate: defaultDate,
-    _history: history.map(h => ({
-      일자: h.일자, 단가: h.단가, 거래처: h.거래처명
-    })),
+    _history: history.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
+    _historyOther: historyOther.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
     _owner: ITEM_OWNER[code]?.owner || 'BOTH'
   });
   document.getElementById('item-search').value = '';
@@ -774,20 +783,33 @@ function renderItems() {
   const list = document.getElementById('item-list');
   if (SELECTED_ITEMS.length === 0) { list.innerHTML = ''; return; }
   list.innerHTML = SELECTED_ITEMS.map((it, i) => {
+    // 2026-05-26: 거래 이력 박스 — 매칭 0건이어도 항상 표시 + fallback
     let historyHtml = '';
-    if (it._history && it._history.length > 0) {
-      historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#f5f9ff; border-left:3px solid var(--c-smt); border-radius:4px; font-size:12px;">
-        <div style="color:#666; margin-bottom:4px;">💡 직전거래 ${it._history.length}건 (클릭하면 단가 자동 입력)</div>
-        ${it._history.map((h, hi) => `
-          <div style="padding:3px 0; display:flex; gap:6px; cursor:pointer; ${hi===0?'font-weight:600':''}" 
-               onclick="setPrice(${i}, ${h.단가}); event.stopPropagation();"
-               onmouseover="this.style.background='#e6f0fb'" onmouseout="this.style.background='transparent'">
-            <span style="color:#999; min-width:80px;">${h.일자||''}</span>
-            <span style="flex:1; color:#555;">${(h.거래처||'').slice(0,15)}</span>
-            <span style="color:var(--c-smt); font-weight:600;">${Fmt.wonFull(h.단가||0)}원</span>
-          </div>
-        `).join('')}
-      </div>`;
+    const hasSame = it._history && it._history.length > 0;
+    const hasOther = it._historyOther && it._historyOther.length > 0;
+    if (hasSame || hasOther) {
+      const renderRow = (h, hi, isOther) => `
+        <div style="padding:3px 0; display:flex; gap:6px; cursor:pointer; ${(hi===0 && !isOther)?'font-weight:600':''}"
+             onclick="setPrice(${i}, ${h.단가}); event.stopPropagation();"
+             onmouseover="this.style.background='#e6f0fb'" onmouseout="this.style.background='transparent'">
+          <span style="color:#999; min-width:80px;">${h.일자||''}</span>
+          <span style="flex:1; color:${isOther?'#888':'#555'};">${(h.거래처||'').slice(0,15)}</span>
+          <span style="color:var(--c-smt); font-weight:600;">${Fmt.wonFull(h.단가||0)}원</span>
+        </div>`;
+      historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#FFF8E1; border-left:3px solid #FFB300; border-radius:4px; font-size:12px;">`;
+      if (hasSame) {
+        historyHtml += `<div style="color:#B26A00; margin-bottom:4px; font-weight:600;">💡 이 거래처+품목 직전거래 ${it._history.length}건 (클릭=단가 적용)</div>`;
+        historyHtml += it._history.map((h, hi) => renderRow(h, hi, false)).join('');
+      } else {
+        historyHtml += `<div style="color:#B26A00; margin-bottom:4px; font-weight:600;">⚠ 이 거래처에 같은 품목 거래 없음 — 신규 단가</div>`;
+      }
+      if (hasOther) {
+        historyHtml += `<div style="color:#888; margin-top:6px; padding-top:4px; border-top:1px dashed #ccc; font-size:11px;">참고: 같은 품목 다른 거래처 ${it._historyOther.length}건</div>`;
+        historyHtml += it._historyOther.map((h, hi) => renderRow(h, hi, true)).join('');
+      }
+      historyHtml += `</div>`;
+    } else {
+      historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#FFF8E1; border-left:3px solid #FFB300; border-radius:4px; font-size:12px; color:#B26A00;">⚠ 이 품목 거래 이력 전혀 없음 — 신규 단가 직접 확인</div>`;
     }
     return `
     <div class="item-card">
@@ -1275,18 +1297,18 @@ function loadFromPending(i) {
       SELECTED_ITEMS = [];
       const cname = o.거래처명 || '';
       o.품목.forEach(p => {
-        // 거래처+품목 매칭 (다른 날짜 5건)
-        let history = [];
-        if (cname && typeof SALES !== 'undefined') {
-          const all = SALES.filter(s => s.품목코드 === p.품목코드 && s.거래처명 === cname)
-                           .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
-          const seenDates = new Set();
-          for (const r of all) {
-            const d = r.일자 || '';
-            if (seenDates.has(d)) continue;
-            seenDates.add(d); history.push(r);
-            if (history.length >= 5) break;
+        let history = []; let historyOther = [];
+        if (typeof SALES !== 'undefined' && p.품목코드) {
+          if (cname) {
+            const allSame = SALES.filter(s => s.품목코드 === p.품목코드 && s.거래처명 === cname)
+                                 .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
+            const seen1 = new Set();
+            for (const r of allSame) { const d=r.일자||''; if (seen1.has(d)) continue; seen1.add(d); history.push(r); if (history.length>=5) break; }
           }
+          const allItem = SALES.filter(s => s.품목코드 === p.품목코드 && (!cname || s.거래처명 !== cname))
+                               .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
+          const seen2 = new Set();
+          for (const r of allItem) { const d=r.일자||''; if (seen2.has(d)) continue; seen2.add(d); historyOther.push(r); if (historyOther.length>=5) break; }
         }
         SELECTED_ITEMS.push({
           품목코드: p.품목코드 || '',
@@ -1295,6 +1317,7 @@ function loadFromPending(i) {
           수량: p.수량 || 1,
           단가: p.단가 || 0,
           _history: history.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
+          _historyOther: historyOther.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
           _lastDate: history.length ? history[0].일자 : ''
         });
       });
