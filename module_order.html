@@ -241,19 +241,34 @@ body { background: var(--c-bg); }
     <h3><span class="step-num">3</span> 품목 (여러 개 가능) 
       <a href="module_catalog.html" target="_blank" style="margin-left:auto; font-size:13px; background:var(--c-warn); color:white; padding:4px 10px; border-radius:6px; text-decoration:none; font-weight:500;">📖 카탈로그</a>
     </h3>
+
+    <!-- ① 텍스트 검색 (보조) -->
     <div class="search-box">
       <input type="text" id="item-search" placeholder="품목명·코드 검색 (예: 혼다발전기, GW4000)" oninput="searchItems()" autocomplete="off">
       <button class="mic-btn" id="item-mic" onclick="startVoiceItem()">🎤</button>
     </div>
     <div class="suggestions" id="item-suggestions" style="display:none"></div>
-    
-    <div class="item-list" id="item-list"></div>
 
-    <!-- B. 거래처+품목 최신 거래 5건 — 업무맨이 단가 검증용 -->
-    <div id="item-history-check" style="display:none; margin-top:12px; padding:10px; background:#FFF8E1; border-left:4px solid #FFB300; border-radius:6px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:6px">💡 이 거래처+품목 최근 거래 (단가 검증)</div>
-      <div id="item-history-list" style="font-size:12px"></div>
+    <!-- ② 카탈로그 드릴다운 (위하고 대→중→소분류) -->
+    <div style="margin-top:12px; padding:10px; background:#F8FBFF; border:1px solid #C7DEEF; border-radius:6px;">
+      <div style="font-size:13px; color:#666; margin-bottom:6px">📂 카탈로그에서 찾기 — 분류 누르면 품목이 바로 나옴</div>
+      <div id="op-cat-breadcrumb" style="font-size:12px; color:#888"></div>
+      <div id="op-cat-chips" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; margin-top:6px"></div>
+      <div id="op-cat-items" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:6px; margin-top:8px"></div>
     </div>
+
+    <!-- ③ 직접 입력 -->
+    <div style="margin-top:12px; padding:10px; background:#FFF7E0; border:1px solid #F0C870; border-radius:6px;">
+      <div style="font-size:13px; color:#B26A00; margin-bottom:6px">✏️ 위에 없는 품목 — 직접 입력</div>
+      <div style="display:flex; gap:6px">
+        <input type="text" id="op-manual-name" placeholder="품목명 (예: GX390 카뷰레터)" style="flex:2; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px">
+        <input type="text" id="op-manual-code" placeholder="코드(선택)" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px">
+        <button onclick="opAddManual()" style="background:var(--c-accent); color:#fff; border:0; padding:8px 14px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600">+ 추가</button>
+      </div>
+    </div>
+
+    <!-- 선택된 품목 카드 -->
+    <div class="item-list" id="item-list" style="margin-top:12px"></div>
   </div>
 
   <!-- Step 4: 발행 회사 -->
@@ -474,6 +489,135 @@ async function init() {
   // 운송비 마스터 로딩
   SHIPPING_FEE = await Data.shippingFee();
   calcShipFee();
+
+  // 업무맨 카탈로그 드릴다운 초기 렌더 (대분류 칩)
+  setTimeout(opRenderCatChips, 100);
+}
+
+// ===== 업무맨 카탈로그 드릴다운 (위하고 대→중→소분류) =====
+let OP_CAT_STATE = { big: null, mid: null };
+let OP_CAT_ITEMS_SHOWN = 30;
+
+function _opBuildCatTree(){
+  if (window._opCatTree) return window._opCatTree;
+  const tree = {}; const cnt = {};
+  (INVENTORY || []).forEach(r => {
+    const big = (r.대분류 || '').trim();
+    const mid = (r.중분류 || '').trim();
+    if (!big) return;
+    if (!tree[big]) tree[big] = {};
+    if (!tree[big][mid]) tree[big][mid] = true;
+    cnt[big] = (cnt[big] || 0) + 1;
+    cnt[big+'|'+mid] = (cnt[big+'|'+mid] || 0) + 1;
+  });
+  window._opCatTree = { tree, cnt };
+  return window._opCatTree;
+}
+
+function opRenderCatChips(){
+  const { tree, cnt } = _opBuildCatTree();
+  const chips = document.getElementById('op-cat-chips');
+  const crumb = document.getElementById('op-cat-breadcrumb');
+  if (!chips) return;
+  chips.innerHTML = '';
+  if (!OP_CAT_STATE.big) {
+    crumb.textContent = '대분류 선택 ↓';
+    const PRIO = ['발전기','엔진','파워뱅크','고압세척기','분무기','예초기','양수기','다짐기·콤팩터·롤러','바이브레타','폴딩카트','전정기','엔진톱','블로워','모터','보조연료탱크','커버','케이스','가방','발전기부품','부품','온열매트','선풍기','도로커터','전지가위','유압기','컴팩타','패킹','중고','기타'];
+    const bigs = Object.keys(tree).sort((a,b)=>{
+      const ai=PRIO.indexOf(a), bi=PRIO.indexOf(b);
+      if (ai!==-1 || bi!==-1) return (ai===-1?99:ai)-(bi===-1?99:bi);
+      return (cnt[b]||0)-(cnt[a]||0);
+    });
+    bigs.forEach(big => {
+      const c = document.createElement('div');
+      c.style.cssText = 'background:#F0F8F4;padding:10px 6px;border-radius:6px;text-align:center;cursor:pointer;border:1px solid #C7DEEF';
+      c.innerHTML = `<div style="font-size:13px;font-weight:600">${big}</div><div style="font-size:11px;color:#888">${cnt[big]||0}건</div>`;
+      c.onclick = () => { OP_CAT_STATE = {big: big, mid: null}; OP_CAT_ITEMS_SHOWN = 30; opRenderCatChips(); opRenderCatItems(); };
+      chips.appendChild(c);
+    });
+  } else {
+    crumb.innerHTML = `<span style="cursor:pointer;color:var(--c-accent);font-weight:600" onclick="opResetCat()">↩ 전체 대분류</span> › <b>${OP_CAT_STATE.big}</b>${OP_CAT_STATE.mid ? ' › <b>' + OP_CAT_STATE.mid + '</b>' : ''}`;
+    const mids = Object.keys(tree[OP_CAT_STATE.big] || {}).sort((a,b)=>(cnt[OP_CAT_STATE.big+'|'+b]||0)-(cnt[OP_CAT_STATE.big+'|'+a]||0));
+    mids.forEach(mid => {
+      const c = document.createElement('div');
+      const isSel = OP_CAT_STATE.mid === mid;
+      c.style.cssText = `background:${isSel?'var(--c-accent)':'#FFF'};color:${isSel?'#fff':'#333'};padding:8px 6px;border-radius:6px;text-align:center;cursor:pointer;border:1px solid #C7DEEF;min-height:40px`;
+      c.innerHTML = `<div style="font-size:12px">${mid || '(미지정)'}</div><div style="font-size:10px;${isSel?'color:#fff':'color:#888'}">${cnt[OP_CAT_STATE.big+'|'+mid]||0}건</div>`;
+      c.onclick = () => { OP_CAT_STATE.mid = mid; OP_CAT_ITEMS_SHOWN = 30; opRenderCatChips(); opRenderCatItems(); };
+      chips.appendChild(c);
+    });
+  }
+}
+
+function opResetCat(){ OP_CAT_STATE = {big:null,mid:null}; OP_CAT_ITEMS_SHOWN = 30; opRenderCatChips(); opRenderCatItems(); }
+
+function opRenderCatItems(){
+  const wrap = document.getElementById('op-cat-items'); if (!wrap) return;
+  wrap.innerHTML = '';
+  if (!OP_CAT_STATE.big) return;
+  // 전체 빈도
+  if (!window._opSalesFreq){
+    const f = {};
+    (SALES||[]).forEach(r => {
+      const k = (r.품목코드||'')+'|'+(r.품목명||'');
+      if (!f[k]) f[k] = {count:0, lastDate:'', lastPrice:0};
+      f[k].count++;
+      if ((r.일자||'') > f[k].lastDate){ f[k].lastDate = r.일자||''; f[k].lastPrice = r.단가||0; }
+    });
+    window._opSalesFreq = f;
+  }
+  const freq = window._opSalesFreq;
+  const seen = {};
+  (INVENTORY||[]).forEach(r => {
+    const big = (r.대분류||'').trim(); const mid = (r.중분류||'').trim();
+    if (big !== OP_CAT_STATE.big) return;
+    if (OP_CAT_STATE.mid !== null && OP_CAT_STATE.mid !== undefined && mid !== OP_CAT_STATE.mid) return;
+    const k = (r.품목코드||'')+'|'+(r.품목명||'');
+    if (seen[k]) return;
+    seen[k] = {
+      품목코드: r.품목코드, 품목명: r.품목명, 규격: r.규격||'', 소분류: (r.소분류||'').trim(),
+      count: (freq[k]||{}).count || 0,
+      lastDate: (freq[k]||{}).lastDate || '',
+      lastPrice: (freq[k]||{}).lastPrice || 0
+    };
+  });
+  const items = Object.values(seen).sort((a,b)=>(b.count-a.count)||((a.품목명||'').localeCompare(b.품목명||'')));
+  if (items.length === 0){ wrap.innerHTML = '<div style="color:#999;text-align:center;padding:10px">이 분류에 품목 없음 — 직접 입력하세요</div>'; return; }
+  items.slice(0, OP_CAT_ITEMS_SHOWN).forEach(it => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#FFF;padding:8px;border-radius:6px;cursor:pointer;border:1px solid #ddd;text-align:center';
+    const meta = it.count > 0 ? `${it.count}회 · ${Fmt.wonFull(it.lastPrice)}원` : '<span style="color:#B26A00">재고품</span>';
+    const subTag = it.소분류 ? `<span style="font-size:10px;background:#E8F2EC;color:var(--c-accent);padding:1px 5px;border-radius:6px;margin-left:3px">${it.소분류}</span>` : '';
+    card.innerHTML = `<div style="font-size:12px;font-weight:600">${(it.품목명||'').slice(0,18)}${subTag}</div><div style="font-size:10px;color:#666;margin-top:2px">${meta}</div>`;
+    card.title = `${it.품목명} (${it.품목코드})`;
+    card.onmouseover = ()=>{card.style.background='#E8F2EC';};
+    card.onmouseout = ()=>{card.style.background='#FFF';};
+    card.onclick = () => { if (typeof addItem === 'function') addItem(it.품목코드); };
+    wrap.appendChild(card);
+  });
+  if (items.length > OP_CAT_ITEMS_SHOWN){
+    const more = document.createElement('div');
+    more.style.cssText = 'background:#FFF4E5;padding:10px;border-radius:6px;cursor:pointer;border:1px solid #FFD699;text-align:center;color:#B26A00;grid-column:1/-1';
+    more.innerHTML = `<div>+ 더보기</div><div style="font-size:11px">${items.length - OP_CAT_ITEMS_SHOWN}개 더</div>`;
+    more.onclick = ()=>{ OP_CAT_ITEMS_SHOWN += 30; opRenderCatItems(); };
+    wrap.appendChild(more);
+  }
+}
+
+// 업무맨 직접 입력 — 위 카탈로그에 없는 신규 품목
+function opAddManual(){
+  const name = (document.getElementById('op-manual-name').value || '').trim();
+  const code = (document.getElementById('op-manual-code').value || '').trim();
+  if (!name) return alert('품목명을 입력하세요');
+  // 가짜 inv 임시 등록 후 addItem 호출
+  const fakeCode = code || ('MANUAL-' + Date.now());
+  // INVENTORY에 임시 푸시 (재선택 가능하게)
+  if (typeof INVENTORY !== 'undefined' && !INVENTORY.find(i => i.품목코드 === fakeCode)) {
+    INVENTORY.push({품목코드: fakeCode, 품목명: name, 품명: name, 규격: '', 단위: '', _manual: true});
+  }
+  if (typeof addItem === 'function') addItem(fakeCode);
+  document.getElementById('op-manual-name').value = '';
+  document.getElementById('op-manual-code').value = '';
 }
 
 function updateBanner() {
