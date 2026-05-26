@@ -783,25 +783,39 @@ function renderItems() {
   const list = document.getElementById('item-list');
   if (SELECTED_ITEMS.length === 0) { list.innerHTML = ''; return; }
   list.innerHTML = SELECTED_ITEMS.map((it, i) => {
-    // 2026-05-26: 거래 이력 박스 — 매칭 0건이어도 항상 표시 + fallback
+    // 2026-05-26 v2: 영업맨 단가 있으면 직전거래는 참고용 (클릭 비활성)
     let historyHtml = '';
     const hasSame = it._history && it._history.length > 0;
     const hasOther = it._historyOther && it._historyOther.length > 0;
+    const salesmanPrice = it._salesmanPrice || 0;
+    const hasSalesman = salesmanPrice > 0;
+    const clickEnabled = !hasSalesman;  // 영업맨 단가 있으면 클릭으로 안 바뀜
+
+    // 영업맨 단가 배지
+    let salesmanBadge = '';
+    if (hasSalesman) {
+      salesmanBadge = `<div style="margin-top:6px; padding:4px 8px; background:#E8F2EC; border-left:3px solid var(--c-accent); border-radius:4px; font-size:11px; color:var(--c-accent); font-weight:600;">✓ 영업맨이 보낸 단가: ${Fmt.wonFull(salesmanPrice)}원 (직전거래는 참고용)</div>`;
+    }
+
     if (hasSame || hasOther) {
-      const renderRow = (h, hi, isOther) => `
-        <div style="padding:3px 0; display:flex; gap:6px; cursor:pointer; ${(hi===0 && !isOther)?'font-weight:600':''}"
-             onclick="setPrice(${i}, ${h.단가}); event.stopPropagation();"
-             onmouseover="this.style.background='#e6f0fb'" onmouseout="this.style.background='transparent'">
+      const renderRow = (h, hi, isOther) => {
+        const diff = hasSalesman && h.단가 ? ((h.단가 - salesmanPrice) / salesmanPrice * 100) : 0;
+        const diffTxt = (hasSalesman && Math.abs(diff) >= 0.5) ? ` <span style="font-size:10px;color:${diff>0?'#D7493A':'#1D9E75'};">(영업맨대비 ${diff>0?'+':''}${diff.toFixed(0)}%)</span>` : '';
+        return `<div style="padding:3px 0; display:flex; gap:6px; ${clickEnabled ? 'cursor:pointer;' : 'cursor:default;'} ${(hi===0 && !isOther)?'font-weight:600':''}"
+             ${clickEnabled ? `onclick="setPrice(${i}, ${h.단가}); event.stopPropagation();"` : ''}
+             ${clickEnabled ? `onmouseover="this.style.background='#e6f0fb'" onmouseout="this.style.background='transparent'"` : ''}>
           <span style="color:#999; min-width:80px;">${h.일자||''}</span>
           <span style="flex:1; color:${isOther?'#888':'#555'};">${(h.거래처||'').slice(0,15)}</span>
-          <span style="color:var(--c-smt); font-weight:600;">${Fmt.wonFull(h.단가||0)}원</span>
+          <span style="color:var(--c-smt); font-weight:600;">${Fmt.wonFull(h.단가||0)}원${diffTxt}</span>
         </div>`;
+      };
       historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#FFF8E1; border-left:3px solid #FFB300; border-radius:4px; font-size:12px;">`;
       if (hasSame) {
-        historyHtml += `<div style="color:#B26A00; margin-bottom:4px; font-weight:600;">💡 이 거래처+품목 직전거래 ${it._history.length}건 (클릭=단가 적용)</div>`;
+        const headerTxt = hasSalesman ? `💡 이 거래처+품목 직전거래 ${it._history.length}건 (참고용 — 단가 검증)` : `💡 이 거래처+품목 직전거래 ${it._history.length}건 (클릭=단가 적용)`;
+        historyHtml += `<div style="color:#B26A00; margin-bottom:4px; font-weight:600;">${headerTxt}</div>`;
         historyHtml += it._history.map((h, hi) => renderRow(h, hi, false)).join('');
       } else {
-        historyHtml += `<div style="color:#B26A00; margin-bottom:4px; font-weight:600;">⚠ 이 거래처에 같은 품목 거래 없음 — 신규 단가</div>`;
+        historyHtml += `<div style="color:#B26A00; margin-bottom:4px; font-weight:600;">⚠ 이 거래처에 같은 품목 거래 없음${hasSalesman?' — 영업맨 단가 검증 필요':' — 신규 단가'}</div>`;
       }
       if (hasOther) {
         historyHtml += `<div style="color:#888; margin-top:6px; padding-top:4px; border-top:1px dashed #ccc; font-size:11px;">참고: 같은 품목 다른 거래처 ${it._historyOther.length}건</div>`;
@@ -809,8 +823,9 @@ function renderItems() {
       }
       historyHtml += `</div>`;
     } else {
-      historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#FFF8E1; border-left:3px solid #FFB300; border-radius:4px; font-size:12px; color:#B26A00;">⚠ 이 품목 거래 이력 전혀 없음 — 신규 단가 직접 확인</div>`;
+      historyHtml = `<div style="margin-top:6px; padding:6px 8px; background:#FFF8E1; border-left:3px solid #FFB300; border-radius:4px; font-size:12px; color:#B26A00;">⚠ 이 품목 거래 이력 전혀 없음${hasSalesman?' — 영업맨 단가 단독 검증':' — 신규 단가 직접 확인'}</div>`;
     }
+    historyHtml = salesmanBadge + historyHtml;
     return `
     <div class="item-card">
       <div>
@@ -1316,6 +1331,7 @@ function loadFromPending(i) {
           규격: p.규격 || '',
           수량: p.수량 || 1,
           단가: p.단가 || 0,
+          _salesmanPrice: p.단가 || 0,  // 영업맨이 찍어 보낸 단가 (검증·표시용)
           _history: history.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
           _historyOther: historyOther.map(h => ({ 일자: h.일자, 단가: h.단가, 거래처: h.거래처명 })),
           _lastDate: history.length ? history[0].일자 : ''
