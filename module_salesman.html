@@ -52,6 +52,7 @@
 </style>
 <script src="shared/data_loader.js"></script>
 <script src="shared/components.js"></script>
+<script src="shared/item_search.js"></script>
 </head>
 <body>
 <header style="position:relative;padding-left:90px">
@@ -170,15 +171,20 @@
 </div>
 <div class="toast" id="toast"></div>
 <script>
-let CLIENTS=[],SALESPERSONS={},SALES=[],SELECTED_SALESPERSON=null,SELECTED_CLIENT=null,SELECTED_ITEM=null,ORDER_ITEMS=[],SHIP_TYPE='일반';
+let CLIENTS=[],SALESPERSONS={},SALES=[],INVENTORY=[],SELECTED_SALESPERSON=null,SELECTED_CLIENT=null,SELECTED_ITEM=null,ORDER_ITEMS=[],SHIP_TYPE='일반';
 async function init(){
   try{
+    // 카테고리 사전 + 한·영 검색 (item_search.js) 로딩
+    if (window.ItemSearch) await ItemSearch.load();
     const sp=await fJ('data/shared/salesperson_clients.json');
     if(sp&&sp.salespersons)SALESPERSONS=sp.salespersons;
     const cs=await fJ('clients.json');
     if(cs)CLIENTS=Array.isArray(cs)?cs:(cs.rows||[]);
-    const urls=['data/per_company/sales_smt_2026.json','data/per_company/sales_smt_2025.json','data/per_company/sales_gw_2026.json','data/per_company/sales_gw_2025.json'];
+    const urls=['data/per_company/sales_smt_2026.json','data/per_company/sales_smt_2025.json','data/per_company/sales_smt_2024.json','data/per_company/sales_gw_2026.json','data/per_company/sales_gw_2025.json','data/per_company/sales_gw_2024.json'];
     for(const u of urls){const d=await fJ(u);if(d&&d.rows)SALES.push(...d.rows);}
+    // 재고 양사 — 신규 품목 검색 시 사용
+    const invs=['data/per_company/inventory_smt.json','data/per_company/inventory_gw.json'];
+    for(const u of invs){const d=await fJ(u);if(d&&d.rows)INVENTORY.push(...d.rows);}
     renderSalespersons();
   }catch(e){console.error(e);document.getElementById('salesperson-cards').innerHTML='<div class="empty" style="color:var(--c-danger)">데이터 로딩 실패: '+e.message+'</div>';}
 }
@@ -437,24 +443,47 @@ function selectItem(item,el){
   document.getElementById('item-input-box').scrollIntoView({behavior:'smooth',block:'center'});
 }
 document.getElementById('item-search').addEventListener('input',e=>{
-  const q=e.target.value.trim().toLowerCase();if(!q){renderItemsForClient();return;}
-  const freq={};
+  const q=e.target.value.trim();if(!q){renderItemsForClient();return;}
+  // 한·영 검색어 확장 (item_search.js synonyms 사전)
+  const tokens = (window.ItemSearch ? ItemSearch.expandQuery(q) : [q.toLowerCase()]);
+  // 1) SALES 기반 빈도 사전 (이전 거래 우선)
+  const freq = {};
   SALES.forEach(r=>{
     if(isNonProduct(r.품목명))return;
-    const n=(r.품목명||'').toLowerCase(),c=(r.품목코드||'').toLowerCase();
-    if(!n.includes(q)&&!c.includes(q))return;
-    const k=(r.품목코드||'')+'|'+(r.품목명||'');
-    if(!freq[k])freq[k]={품목코드:r.품목코드,품목명:r.품목명,규격:r.규격,count:0,lastDate:'',lastPrice:0};
+    if(window.ItemSearch && !ItemSearch.matchItem(r, tokens)) return;
+    if(!window.ItemSearch){
+      const lq = q.toLowerCase();
+      if(!(r.품목명||'').toLowerCase().includes(lq) && !(r.품목코드||'').toLowerCase().includes(lq)) return;
+    }
+    const k = (r.품목코드||'')+'|'+(r.품목명||'');
+    if(!freq[k])freq[k]={품목코드:r.품목코드,품목명:r.품목명,규격:r.규격,count:0,lastDate:'',lastPrice:0,inv:false};
     freq[k].count+=1;
     if((r.일자||'')>freq[k].lastDate){freq[k].lastDate=r.일자||'';freq[k].lastPrice=r.단가||0;}
   });
-  const items=Object.values(freq).sort((a,b)=>b.count-a.count).slice(0,12);
+  // 2) INVENTORY 매치 — SALES에 없는 신규 품목도 보임
+  INVENTORY.forEach(r=>{
+    if(isNonProduct(r.품목명))return;
+    if(window.ItemSearch && !ItemSearch.matchItem(r, tokens)) return;
+    if(!window.ItemSearch){
+      const lq = q.toLowerCase();
+      if(!(r.품목명||'').toLowerCase().includes(lq) && !(r.품목코드||'').toLowerCase().includes(lq)) return;
+    }
+    const k = (r.품목코드||'')+'|'+(r.품목명||'');
+    if(!freq[k])freq[k]={품목코드:r.품목코드,품목명:r.품목명,규격:r.규격,count:0,lastDate:'',lastPrice:0,inv:true};
+  });
+  const items = Object.values(freq).sort((a,b)=>b.count-a.count).slice(0,20);
   const wrap=document.getElementById('recent-items');wrap.innerHTML='';
-  if(items.length===0){wrap.innerHTML='<div class="empty">검색 결과 없음</div>';return;}
+  if(items.length===0){wrap.innerHTML='<div class="empty">검색 결과 없음 — 카탈로그 보기로 확인</div>';return;}
   items.forEach(it=>{
+    const cls = (window.ItemSearch ? ItemSearch.classify(it.품목명||'') : null);
+    const tag = cls ? `<span style="font-size:10px;background:#E8F2EC;color:var(--c-accent);padding:1px 6px;border-radius:8px;margin-left:4px">${cls.sub.split(' ')[0]}</span>` : '';
+    const meta = it.count > 0
+      ? `${it.count}회 · ${fmt(it.lastPrice)}`
+      : `<span style="color:#B26A00">신규 · 재고품</span>`;
     const card=document.createElement('div');card.className='card';
-    card.innerHTML=`<div style="font-size:13px">${tr(it.품목명||it.품목코드,14)}</div><div class="sub">${fmt(it.lastPrice)}</div>`;
-    card.title=`${it.품목명} (${it.품목코드})`;card.onclick=()=>selectItem(it,card);
+    card.innerHTML=`<div style="font-size:13px">${tr(it.품목명||it.품목코드,14)}${tag}</div><div class="sub">${meta}</div>`;
+    card.title=`${it.품목명} (${it.품목코드})${cls?' · '+cls.cat+' › '+cls.sub:''}`;
+    card.onclick=()=>selectItem(it,card);
     wrap.appendChild(card);
   });
 });
