@@ -373,6 +373,7 @@ body { background: var(--c-bg); }
 <script src="shared/components.js"></script>
 <script src="shared/wehago_exporter.js"></script>
 <script src="shared/katalk_parser.js"></script>
+<script src="shared/katalk_parser_v2.js"></script>
 <script>
 // ===== 전역 상태 =====
 let CLIENTS = [];
@@ -1223,7 +1224,99 @@ function loadKatalkExample() {
 function parseKatalk() {
   const raw = document.getElementById('katalk-text').value.trim();
   if (!raw) return alert('카톡 내용을 붙여넣으세요');
-  
+
+  // 2026-05-26: 카톡 [이름] [시간] 헤더 있으면 v2 파서 사용 (다건 자동 분리)
+  const hasV2Format = /\[[^\]]+\]\s*\[(오전|오후)\s*\d{1,2}:\d{2}\]/.test(raw);
+  if (hasV2Format && window.KatalkParserV2) {
+    try {
+      const ordersV2 = KatalkParserV2.parseAll(raw, CLIENTS, CLIENT_ALIASES || {});
+      console.log('카톡 파서 v2 결과 (' + ordersV2.length + '건):', ordersV2);
+      if (ordersV2.length === 0) {
+        alert('파싱 결과 없음 — 카톡 형식 확인');
+        return;
+      }
+      // 사용자에게 결과 미리보기
+      const summary = ordersV2.map((o,i) => {
+        const items = (o.품목||[]).map(it => `${it.모델}×${it.수량}${it.단가?'@'+it.단가.toLocaleString()+'원':''}`).join(', ');
+        return `[${i+1}] ${o.영업맨} ${o.시간}\n   거래처: ${o.거래처 || '?'} (${o._거래처매칭||'?'})\n   품목: ${items || '(없음)'}\n   배송: ${o.배송유형}${o.화물운송비 ? ' '+o.화물운송비:''}${o._수정여부?' ⚠수정':''}`;
+      }).join('\n──────\n');
+      const proceed = confirm(`🔍 카톡 파서 v2 — ${ordersV2.length}건 인식\n──────\n${summary}\n──────\n첫 번째 주문을 폼에 자동 채울까요?\n(나머지 ${ordersV2.length-1}건은 콘솔에서 확인)`);
+      if (!proceed) return;
+      // 첫 번째 주문만 폼에 자동 채움 (테스트용)
+      const o = ordersV2[0];
+      // 영업맨
+      if (o.영업맨) {
+        const sel = document.getElementById('salesperson');
+        const target = o.영업맨.replace(/부장|과장|차장|대리|이사/g,'').trim();
+        for (const opt of sel.options) {
+          if (opt.text.includes(target) || opt.text.includes(o.영업맨)) { sel.value = opt.value; break; }
+        }
+      }
+      // 거래처
+      if (o.거래처) {
+        const c = CLIENTS.find(x => (x.거래처명||x.상호) === o.거래처) ||
+                  CLIENTS.find(x => (x.거래처명||x.상호||'').includes(o.거래처));
+        if (c) {
+          SELECTED_CLIENT = c;
+          const nm = c.거래처명 || c.상호;
+          document.getElementById('client-search').value = '';
+          document.getElementById('client-suggestions').style.display = 'none';
+          document.getElementById('client-selected').innerHTML = `<div class="chip">✓ ${nm} (카톡 v2) <span class="x" onclick="unselectClient()">×</span></div>`;
+        } else {
+          document.getElementById('client-search').value = o.거래처;
+          if (typeof searchClients === 'function') searchClients();
+        }
+      }
+      // 배송유형
+      if (o.배송유형) {
+        const r = document.querySelector(`input[name="ship-type"][value="${o.배송유형}"]`);
+        if (r) { r.checked = true; if (typeof updateShipFields === 'function') updateShipFields(); }
+      }
+      // 발신·수신
+      if (o.발신 && o.발신.name) document.getElementById('send-name').value = o.발신.name;
+      if (o.발신 && o.발신.phone) document.getElementById('send-phone').value = o.발신.phone;
+      if (o.수신 && o.수신.name) document.getElementById('recv-name').value = o.수신.name;
+      if (o.수신 && o.수신.phone) document.getElementById('recv-phone').value = o.수신.phone;
+      if (o.수신 && o.수신.addr) document.getElementById('recv-addr').value = o.수신.addr;
+      // 비고
+      if (o.수신 && o.수신.memo) document.getElementById('memo').value = o.수신.memo;
+      // 품목
+      SELECTED_ITEMS = [];
+      (o.품목 || []).forEach(p => {
+        const inv = INVENTORY.find(i => (i.품목코드||'').toUpperCase() === p.모델);
+        if (inv) {
+          SELECTED_ITEMS.push({
+            품목코드: inv.품목코드, 품목명: inv.품명 || inv.품목명,
+            규격: inv.규격 || '', 단위: inv.단위 || '',
+            수량: p.수량, 단가: p.단가 || 0,
+            _salesmanPrice: p.단가 || 0,
+            _history: [], _historyOther: [],
+            _owner: ITEM_OWNER[inv.품목코드]?.owner || 'BOTH'
+          });
+        } else {
+          SELECTED_ITEMS.push({
+            품목코드: '', 품목명: p.모델 + ' ⚠️ 재고 미매칭', 규격: '',
+            수량: p.수량, 단가: p.단가 || 0,
+            _salesmanPrice: p.단가 || 0, _history: [], _historyOther: [],
+            _owner: 'BOTH'
+          });
+        }
+      });
+      if (typeof renderItems === 'function') renderItems();
+      if (typeof updateSummary === 'function') updateSummary();
+      // 화물운송비 = 착불/선불
+      if (o.화물운송비 === '착불') {
+        const sf = document.getElementById('ship-fee'); if (sf) sf.value = '';
+      }
+      window.scrollTo({top: 0, behavior: 'smooth'});
+      if (typeof toast === 'function') toast(`✅ 카톡 v2 — 1/${ordersV2.length}건 폼에 채움. 검토 후 등록.`);
+      return;
+    } catch(err) {
+      console.error('v2 파서 오류, v1으로 폴백:', err);
+      // 폴백 — v1 계속 진행
+    }
+  }
+
   const sp = document.getElementById('salesperson').value;
   const result = KatalkParser.parse(raw, {
     clients: CLIENTS,
