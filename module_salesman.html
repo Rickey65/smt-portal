@@ -183,24 +183,38 @@ async function init(){
   }catch(e){console.error(e);document.getElementById('salesperson-cards').innerHTML='<div class="empty" style="color:var(--c-danger)">데이터 로딩 실패: '+e.message+'</div>';}
 }
 async function fJ(p){try{const r=await fetch(p+'?t='+Date.now());if(!r.ok)return null;return await r.json();}catch(e){return null;}}
+// 2026-05-26 #61: 영업맨별 담당 지역 매핑 (지역 기반 거래처 필터)
+const SALESPERSON_REGIONS = {
+  '임창수':         ['전국'],
+  '이병호부장':     ['경남','경북','부산','대구'],
+  '장건희':         ['서울','경기','강원'],
+  '문양수':         ['전남','전북','광주'],
+  '건웅 김성원부장': ['충남','충북','대전'],
+  '안양수':         ['전국'],
+};
+
 function renderSalespersons(){
-  // 2026-05-22 #41: 6명 + 기타만 표시
   const PRIORITY=['임창수','이병호부장','장건희','문양수','건웅 김성원부장','안양수'];
   const wrap=document.getElementById('salesperson-cards');wrap.innerHTML='';
   PRIORITY.forEach(name=>{
-    const cnt=Object.keys(SALESPERSONS[name]||{}).length;
+    const regions = SALESPERSON_REGIONS[name] || [];
+    const regionTxt = regions.includes('전국') ? '전국' : regions.join('·');
     const card=document.createElement('div');card.className='card';
-    card.innerHTML=`<div>${name.replace('부장','').replace('건웅 ','건웅 ')}</div><div class="sub">담당 ${cnt}개</div>`;
+    card.innerHTML=`<div>${name.replace('부장','').replace('건웅 ','건웅 ')}</div><div class="sub">${regionTxt}</div>`;
     card.onclick=()=>selectSalesperson(name,card);
     wrap.appendChild(card);
   });
-  // 기타 카드 (직접 입력 영업맨)
+  // 기타 카드 — 입력 + 전국 자동 매핑
   const otherCard=document.createElement('div');otherCard.className='card';
   otherCard.style.background='#FFF4E5';otherCard.style.borderColor='#FFD699';otherCard.style.color='#B26A00';
-  otherCard.innerHTML=`<div>+ 기타</div><div class="sub">직접 입력</div>`;
+  otherCard.innerHTML=`<div>+ 기타</div><div class="sub">직접 입력 (전국)</div>`;
   otherCard.onclick=()=>{
-    const n=prompt('영업맨 이름을 입력하세요:');
-    if(n && n.trim()) selectSalesperson(n.trim(), otherCard);
+    const n=prompt('영업맨 이름을 입력하세요 (담당 = 전국):');
+    if(n && n.trim()) {
+      const tname = n.trim();
+      SALESPERSON_REGIONS[tname] = ['전국'];  // 입력자 = 전국 자동
+      selectSalesperson(tname, otherCard);
+    }
   };
   wrap.appendChild(otherCard);
 }
@@ -212,15 +226,66 @@ function selectSalesperson(name,el){
   renderClients();
   document.getElementById('step-client').scrollIntoView({behavior:'smooth',block:'start'});
 }
+// 2026-05-26 #63: 거래처 마스터 → 지역별 필터 + 폐업 제외 + 매출 큰 순
+function _extractRegion(addr) {
+  if (!addr) return '';
+  const m = {
+    '서울':/^서울/,'부산':/^부산/,'대구':/^대구/,'인천':/^인천/,
+    '광주':/^광주/,'대전':/^대전/,'울산':/^울산/,'세종':/^세종/,
+    '경기':/^경기/,'강원':/^강원/,
+    '충북':/충청\s*북|^충북/,'충남':/충청\s*남|^충남/,
+    '전북':/전라\s*북|^전북|전북특별/,'전남':/전라\s*남|^전남/,
+    '경북':/경상\s*북|^경북/,'경남':/경상\s*남|^경남/,
+    '제주':/^제주/
+  };
+  for (const [k, re] of Object.entries(m)) if (re.test(addr)) return k;
+  return '';
+}
+
 function renderClients(){
-  const my=SALESPERSONS[SELECTED_SALESPERSON]||{};
-  const sorted=Object.entries(my).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  const wrap=document.getElementById('client-cards');wrap.innerHTML='';
-  if(sorted.length===0){wrap.innerHTML='<div class="empty">담당 거래처 없음. 검색하세요.</div>';}
-  sorted.forEach(([name,freq])=>{
-    const card=document.createElement('div');card.className='card';
-    card.innerHTML=`<div style="font-size:13px">${tr(name,14)}</div><div class="sub">${freq}건</div>`;
-    card.title=name;card.onclick=()=>selectClient(name,card);
+  const regions = SALESPERSON_REGIONS[SELECTED_SALESPERSON] || ['전국'];
+  const isAll = regions.includes('전국');
+  // 거래처 마스터에서 폐업 제외 + 영업맨 지역에 속하는 것
+  const my = SALESPERSONS[SELECTED_SALESPERSON] || {};
+  let pool = CLIENTS.filter(c => {
+    if (c.폐업일자 && c.폐업일자.trim()) return false;
+    if (isAll) return true;
+    const region = _extractRegion(c.주소 || '');
+    return regions.includes(region);
+  });
+  // 매출 빈도 점수 (salesperson_clients에 있으면 +) + 전체 거래 빈도
+  if (!window._allClientSales) {
+    const agg = {};
+    SALES.forEach(s => {
+      if (!s.거래처명) return;
+      agg[s.거래처명] = (agg[s.거래처명] || 0) + (s.금액 || 0);
+    });
+    window._allClientSales = agg;
+  }
+  const agg = window._allClientSales;
+  pool.sort((a, b) => {
+    const an = a.거래처명, bn = b.거래처명;
+    // 영업맨 담당 거래처 우선
+    const aMine = my[an] ? 1 : 0;
+    const bMine = my[bn] ? 1 : 0;
+    if (aMine !== bMine) return bMine - aMine;
+    // 다음은 매출 큰 순
+    return (agg[bn] || 0) - (agg[an] || 0);
+  });
+  const top = pool.slice(0, 12);
+  const wrap = document.getElementById('client-cards'); wrap.innerHTML = '';
+  if (top.length === 0) {
+    wrap.innerHTML = '<div class="empty">담당 지역 활성 거래처 없음. 검색하세요.</div>';
+  }
+  top.forEach(c => {
+    const name = c.거래처명;
+    const freq = my[name];
+    const region = _extractRegion(c.주소 || '');
+    const card = document.createElement('div'); card.className = 'card';
+    const subtxt = freq ? `${freq}건 · ${region||''}` : (region ? region : '신규');
+    card.innerHTML = `<div style="font-size:13px">${tr(name, 14)}</div><div class="sub">${subtxt}</div>`;
+    card.title = name + (region ? ' ('+region+')' : '');
+    card.onclick = () => selectClient(name, card);
     wrap.appendChild(card);
   });
 }
@@ -244,7 +309,10 @@ function resetFromClient(){
 }
 document.getElementById('client-search').addEventListener('input',e=>{
   const q=e.target.value.trim().toLowerCase();if(!q){renderClients();return;}
-  const m=CLIENTS.filter(c=>((c.거래처명||'').toLowerCase().includes(q)||(c.주소||'').toLowerCase().includes(q)||(c.대표자||'').toLowerCase().includes(q))).slice(0,16);
+  const m=CLIENTS.filter(c=>{
+    if(c.폐업일자 && c.폐업일자.trim())return false;  // 폐업 제외
+    return ((c.거래처명||'').toLowerCase().includes(q)||(c.주소||'').toLowerCase().includes(q)||(c.대표자||'').toLowerCase().includes(q));
+  }).slice(0,16);
   const wrap=document.getElementById('client-cards');wrap.innerHTML='';
   if(m.length===0){wrap.innerHTML='<div class="empty">검색 결과 없음</div>';return;}
   m.forEach(c=>{
