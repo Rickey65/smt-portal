@@ -200,6 +200,17 @@ async function init(){
     if (window.ItemSearch) await ItemSearch.load();
     const sp=await fJ('data/shared/salesperson_clients.json');
     if(sp&&sp.salespersons)SALESPERSONS=sp.salespersons;
+    // K5: localStorage 학습본 머지
+    try {
+      const learned = JSON.parse(localStorage.getItem('salesperson_clients_learned') || '{}');
+      Object.keys(learned).forEach(sp => {
+        if (!SALESPERSONS[sp]) SALESPERSONS[sp] = {};
+        Object.keys(learned[sp]).forEach(client => {
+          if (client === '_lastTs') return;
+          SALESPERSONS[sp][client] = (SALESPERSONS[sp][client] || 0) + (learned[sp][client] || 1);
+        });
+      });
+    } catch(e){}
     const cs=await fJ('clients.json');
     if(cs)CLIENTS=Array.isArray(cs)?cs:(cs.rows||[]);
     const urls=['data/per_company/sales_smt_2026.json','data/per_company/sales_smt_2025.json','data/per_company/sales_smt_2024.json','data/per_company/sales_gw_2026.json','data/per_company/sales_gw_2025.json','data/per_company/sales_gw_2024.json'];
@@ -384,6 +395,20 @@ function _renderClientCards(){
 }
 function selectClient(name,el){
   SELECTED_CLIENT=name;
+  // K5: 영업맨 신규 거래처 학습 — localStorage에 영업맨별 거래처 매핑 누적
+  if (SELECTED_SALESPERSON) {
+    try {
+      const key = 'salesperson_clients_learned';
+      const learned = JSON.parse(localStorage.getItem(key) || '{}');
+      if (!learned[SELECTED_SALESPERSON]) learned[SELECTED_SALESPERSON] = {};
+      learned[SELECTED_SALESPERSON][name] = (learned[SELECTED_SALESPERSON][name] || 0) + 1;
+      learned[SELECTED_SALESPERSON]._lastTs = Date.now();
+      localStorage.setItem(key, JSON.stringify(learned));
+      // SALESPERSONS 사전에 즉시 반영 (다음 거래처 선택 시 정렬에 사용)
+      if (SALESPERSONS[SELECTED_SALESPERSON] === undefined) SALESPERSONS[SELECTED_SALESPERSON] = {};
+      SALESPERSONS[SELECTED_SALESPERSON][name] = (SALESPERSONS[SELECTED_SALESPERSON][name] || 0) + 1;
+    } catch(e){}
+  }
   const btn=document.getElementById('btnResetClient');if(btn)btn.style.display='inline-block';
   document.querySelectorAll('#client-cards .card').forEach(c=>c.classList.remove('selected'));if(el)el.classList.add('selected');
   document.getElementById('selected-client-display').style.display='block';
@@ -639,10 +664,45 @@ function selectShipType(type){
   document.querySelectorAll('[data-ship]').forEach(c=>c.classList.toggle('selected',c.dataset.ship===type));
   document.getElementById('direct-recv-box').style.display=(type==='직배송'||type==='직직배송')?'block':'none';
   document.getElementById('direct2-send-box').style.display=(type==='직직배송')?'block':'none';
+
+  // K2 — 직배송: 발신=거래처 자동 / 수신=직접 입력 (영업맨이 받는 사람만)
+  // 직직배송: 발신·수신 모두 영업맨 직접 입력
+  const cobj = CLIENTS.find(c => c.거래처명 === SELECTED_CLIENT) || {};
+  const cname = cobj.거래처명 || SELECTED_CLIENT || '';
+  const cAddr = cobj.사업장주소 || cobj.주소 || '';
+  const cPhone = cobj.담당자휴대전화 || cobj.담당자전화 || cobj.대표전화 || '';
+  const sendNameEl = document.getElementById('send-name');
+  const sendAddrEl = document.getElementById('send-addr');
+  // 직직배송 → 발신 비움 (영업맨이 직접 입력)
+  if (type === '직직배송') {
+    if (sendNameEl) sendNameEl.value = '';
+    if (sendAddrEl) sendAddrEl.value = '';
+  }
+  // 직배송 → 보내는 곳에 거래처 자동 (직직배송 박스만 보이므로 send-name·send-addr이 화면 안 보일 수 있음 — 데이터만 채움)
+  // 그래도 receipt에 발신=거래처 박힘
+  if (type === '직배송') {
+    // 발신 = 주문 거래처 (별도 박스 없음 — 내부 데이터로만 보유)
+    window._directSenderName = cname;
+    window._directSenderAddr = cAddr;
+    window._directSenderPhone = cPhone;
+  } else {
+    window._directSenderName = '';
+    window._directSenderAddr = '';
+    window._directSenderPhone = '';
+  }
   updateSummary();
 }
-['payment','ship-method','box-count','ship-fee','memo','recv-name','recv-phone','recv-addr','send-name','send-addr'].forEach(id=>{
-  document.addEventListener('input',e=>{if(e.target.id===id)updateSummary();});
+// 2026-05-26 K1: 모든 4번 폼 필드 input/change 시 updateSummary 자동 갱신
+['payment','ship-method','box-count','ship-fee','memo','recv-name','recv-phone','recv-addr','send-name','send-addr','send-phone'].forEach(id=>{
+  ['input','change'].forEach(ev => {
+    document.addEventListener(ev, e => {
+      if (e.target && e.target.id === id) updateSummary();
+    });
+  });
+});
+// 라디오 그룹 ship-pay
+document.addEventListener('change', e => {
+  if (e.target && e.target.name === 'ship-pay') updateSummary();
 });
 function updateSummary(){
   const box=document.getElementById('order-summary');
@@ -656,8 +716,12 @@ function updateSummary(){
     <div class="row"><span class="label">부가세</span><span class="value">${fmt(v)}</span></div>
     <div class="row" style="border-top:1px solid #BFE0CE;margin-top:6px;padding-top:6px"><span class="label">총액</span><span class="value" style="font-size:16px">${fmt(t+v)}</span></div>
     <div class="row"><span class="label">결제</span><span class="value">${document.getElementById('payment').value}</span></div>
-    <div class="row"><span class="label">배송</span><span class="value">${SHIP_TYPE} · ${document.getElementById('ship-method').value}</span></div>
-    <div class="row"><span class="label">운송비</span><span class="value">${document.getElementById('ship-fee').value||'착불 자동'}</span></div>`;
+    <div class="row"><span class="label">배송</span><span class="value">${SHIP_TYPE} · ${document.getElementById('ship-method').value} · ${(document.querySelector('input[name=ship-pay]:checked')||{}).value||'착불'}</span></div>
+    ${SHIP_TYPE === '일반' ? `<div class="row"><span class="label">발신</span><span class="value">${Data?.companyInfo?.[window.Company?.get()==='GW'?'GW':'SMT']?.상호 || '발행회사 자동'}</span></div>` : ''}
+    ${(SHIP_TYPE === '직배송' || SHIP_TYPE === '직직배송') && SHIP_TYPE === '직배송' ? `<div class="row"><span class="label">발신</span><span class="value">${window._directSenderName || SELECTED_CLIENT} (거래처 자동)</span></div>` : ''}
+    ${SHIP_TYPE === '직직배송' ? `<div class="row"><span class="label">발신</span><span class="value">${document.getElementById('send-name').value || '⚠ 입력 필요'}</span></div>` : ''}
+    ${(SHIP_TYPE === '직배송' || SHIP_TYPE === '직직배송') ? `<div class="row"><span class="label">수신</span><span class="value">${document.getElementById('recv-name').value || '⚠ 입력 필요'}</span></div>` : `<div class="row"><span class="label">수신</span><span class="value">${SELECTED_CLIENT} (거래처 자동)</span></div>`}
+    ${document.getElementById('memo').value ? `<div class="row"><span class="label">비고</span><span class="value">${document.getElementById('memo').value}</span></div>` : ''}`;
 }
 function submitOrder(){
   // E. 직직배송 발신처 저장 (업무맨 화면에서 다음번 자동 추천)
@@ -690,6 +754,17 @@ function submitOrder(){
   const shipPayEl = document.querySelector('input[name="ship-pay"]:checked');
   const shipPay = shipPayEl ? shipPayEl.value : '착불';
   
+  // K2: 직배송 발신 = 거래처 자동 (영업맨이 입력 안 함). 직직배송만 영업맨이 직접 입력
+  let sendInfo;
+  if (SHIP_TYPE === '직배송') {
+    const cobj = CLIENTS.find(c => c.거래처명 === SELECTED_CLIENT) || {};
+    sendInfo = { 이름: cobj.거래처명 || SELECTED_CLIENT, 주소: cobj.사업장주소 || cobj.주소 || '', 연락처: cobj.담당자휴대전화 || cobj.담당자전화 || cobj.대표전화 || '' };
+  } else if (SHIP_TYPE === '직직배송') {
+    sendInfo = { 이름: document.getElementById('send-name').value, 주소: document.getElementById('send-addr').value, 연락처: (document.getElementById('send-phone')||{}).value||'' };
+  } else {
+    // 일반 — 발행회사 자동 (업무맨 화면에서 채움)
+    sendInfo = { 이름: '발행회사 자동', 주소: '', 연락처: '' };
+  }
   const order={
     _from:'salesman',
     _ts:new Date().toISOString(),
@@ -706,9 +781,9 @@ function submitOrder(){
     배송유형: SHIP_TYPE,
     배송방법: document.getElementById('ship-method').value,
     박스수: parseInt(document.getElementById('box-count').value)||1,
-    화물운송비: shipPay,  // 착불 또는 선불 (금액은 업무맨이 산정)
+    화물운송비: shipPay,
     수신지:{이름:document.getElementById('recv-name').value,연락처:document.getElementById('recv-phone').value,주소:document.getElementById('recv-addr').value},
-    발신지:{이름:document.getElementById('send-name').value,주소:document.getElementById('send-addr').value},
+    발신지: sendInfo,
     비고:document.getElementById('memo').value
   };
   let p=[];try{p=JSON.parse(localStorage.getItem('pending_orders')||'[]');}catch(e){}
