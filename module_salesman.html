@@ -455,7 +455,16 @@ function renderItemsForClient(){
 function selectItem(item,el){
   SELECTED_ITEM=item;
   document.querySelectorAll('#recent-items .card').forEach(c=>c.classList.remove('selected'));if(el)el.classList.add('selected');
-  const sales=SALES.filter(r=>r.거래처명===SELECTED_CLIENT&&(r.품목코드===item.품목코드||r.품목명===item.품목명)).sort((a,b)=>(b.일자||'').localeCompare(a.일자||'')).slice(0,3);
+  // 2026-05-26 부장님 지시: 최근 거래 5건 표시 (서로 다른 날짜). 평균·범위 등 추가 표기 없음. 클릭 = 그 단가 자동 채움.
+  const all = SALES.filter(r=>r.거래처명===SELECTED_CLIENT&&(r.품목코드===item.품목코드||r.품목명===item.품목명))
+                   .sort((a,b)=>(b.일자||'').localeCompare(a.일자||''));
+  const seenDates = new Set(); const sales = [];
+  for (const r of all) {
+    const d = r.일자 || '';
+    if (seenDates.has(d)) continue;
+    seenDates.add(d); sales.push(r);
+    if (sales.length >= 5) break;
+  }
   const box=document.getElementById('item-history-box'),list=document.getElementById('item-history-list');
   if(sales.length>0){
     box.style.display='block';list.innerHTML='';
