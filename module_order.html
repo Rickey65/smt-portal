@@ -163,7 +163,7 @@ body { background: var(--c-bg); }
     <div class="actions">
       <button class="btn-close" onclick="closePoolModal()">닫기</button>
       <button class="btn-clear-all" onclick="clearAllPool()">🗑️ 전체 삭제</button>
-      <button class="btn-export" onclick="downloadAllExcel()">📥 위하고 엑셀 4종 다운로드</button>
+      <!-- 2026-05-22 #60: 펜딩 모달에서 위하고 엑셀 버튼 삭제. 폼 하단에서만 가능 -->
     </div>
   </div>
 </div>
@@ -180,7 +180,7 @@ body { background: var(--c-bg); }
       <div class="label">📦 오늘 미처리 주문 <strong id="pool-cnt">0</strong>건 <span style="font-size:11px; color:var(--c-smt);">(클릭하면 목록 보기)</span></div>
       <div style="font-size:12px; color:var(--c-text-2); margin-top:4px">위하고 일괄 업로드 엑셀로 다운 가능</div>
     </div>
-    <button onclick="event.stopPropagation(); downloadAllExcel()">📥 위하고 엑셀 4종 다운로드</button>
+    <span style="color:#888; font-size:12px">검토 후 폼 하단에서 다운로드</span>
   </div>
 
   <!-- Step 1: 영업맨 -->
@@ -1114,21 +1114,132 @@ function openPoolModal() {
   if (PENDING_ORDERS.length === 0) {
     list.innerHTML = '<div style="text-align:center; padding:30px; color:#888;">미처리 주문이 없습니다.</div>';
   } else {
-    list.innerHTML = PENDING_ORDERS.map((o, i) => `
-      <div class="pool-item">
-        <div class="info">
-          <div class="name">${o.거래처명 || '?'} — ${o.품목.length}품목 (${o.발행회사})</div>
-          <div class="meta">
-            ${o._증빙번호} · ${o.영업맨} · ${o.일자} · ${o.요금}
-            ${o.품목.map(p => `${p.품목명}×${p.수량}`).join(', ').slice(0, 80)}
+    list.innerHTML = PENDING_ORDERS.map((o, i) => {
+      // 2026-05-22 #58: 영업맨이 던진 주문 (필드 누락 방지)
+      const isSalesman = o._from === 'salesman';
+      const total = (o.품목 || []).reduce((s,p) => s + (p.수량||0)*(p.단가||0), 0);
+      const totalWithVat = Math.round(total * 1.1);
+      const company = o.발행회사 || 'SMT';
+      const docNo = o._증빙번호 || (isSalesman ? '(영업맨 던짐)' : '?');
+      const date = o.일자 || (o._ts || '').slice(0,10) || '?';
+      const fee = o.요금 || (totalWithVat ? Math.round(totalWithVat).toLocaleString() + '원' : '?');
+      const itemCnt = (o.품목 || []).length;
+      const itemSummary = (o.품목 || []).map(p => `${p.품목명}×${p.수량}`).join(', ').slice(0, 80);
+      const sourceLabel = isSalesman ? `<span style="background:#1D9E75;color:#fff;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:6px">영업맨 던짐</span>` : '';
+      return `
+      <div class="pool-item" style="display:flex; align-items:center; justify-content:space-between; padding:10px; border:1px solid #eee; border-radius:6px; margin-bottom:8px">
+        <div class="info" style="flex:1">
+          <div class="name" style="font-weight:600; margin-bottom:4px">${o.거래처명 || '?'} — ${itemCnt}품목 (${company}) ${sourceLabel}</div>
+          <div class="meta" style="font-size:12px; color:#666">
+            ${docNo} · ${o.영업맨 || '?'} · ${date} · ${fee}<br>
+            ${itemSummary}
           </div>
         </div>
-        <button class="del" onclick="deletePoolItem(${i})">삭제</button>
-      </div>
-    `).join('');
+        <div style="display:flex; flex-direction:column; gap:4px">
+          <button class="btn primary" style="background:#1D9E75; color:#fff; padding:6px 14px; border:0; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer" onclick="loadFromPending(${i})">📥 불러오기</button>
+          <button class="del" style="background:none; border:1px solid #ddd; padding:4px 10px; font-size:11px; color:#888; cursor:pointer" onclick="deletePoolItem(${i})">✕ 삭제</button>
+        </div>
+      </div>`;
+    }).join('');
   }
   
   document.getElementById('pool-modal').classList.add('active');
+}
+
+// 2026-05-22 #57: 펜딩 주문 → 폼 자동 채움
+function loadFromPending(i) {
+  const o = PENDING_ORDERS[i];
+  if (!o) return;
+  
+  try {
+    // 영업맨
+    const spSelect = document.getElementById('salesperson');
+    if (spSelect && o.영업맨) {
+      // 영업맨 이름이 옵션에 있으면 선택
+      for (const opt of spSelect.options) {
+        if (opt.text.includes(o.영업맨) || opt.value === o.영업맨) {
+          spSelect.value = opt.value;
+          break;
+        }
+      }
+    }
+    
+    // 발행회사
+    if (o.발행회사) {
+      const radio = document.querySelector(`input[name="issuer"][value="${o.발행회사}"]`);
+      if (radio) { radio.checked = true; if (typeof updateIssuer === 'function') updateIssuer(); }
+    }
+    
+    // 거래처 (이름으로 매칭)
+    if (o.거래처명 && typeof CLIENTS !== 'undefined') {
+      const c = CLIENTS.find(x => (x.거래처명 || x.상호) === o.거래처명);
+      if (c) {
+        SELECTED_CLIENT = c;
+        document.getElementById('client-search').value = '';
+        document.getElementById('client-suggestions').style.display = 'none';
+        document.getElementById('client-selected').innerHTML = `<div class="chip">✓ ${o.거래처명} (영업맨 던짐) <span class="x" onclick="unselectClient()">×</span></div>`;
+        if (typeof refillRecvIfDefault === 'function') refillRecvIfDefault();
+      }
+    }
+    
+    // 품목들
+    if (o.품목 && o.품목.length > 0) {
+      SELECTED_ITEMS = [];
+      o.품목.forEach(p => {
+        SELECTED_ITEMS.push({
+          품목코드: p.품목코드 || '',
+          품목명: p.품목명 || '',
+          규격: p.규격 || '',
+          수량: p.수량 || 1,
+          단가: p.단가 || 0
+        });
+      });
+      if (typeof renderSelectedItems === 'function') renderSelectedItems();
+    }
+    
+    // 결제·배송
+    if (o.결제조건) {
+      const payInput = document.querySelector('input[name="payment"]') || document.getElementById('payment');
+      if (payInput) payInput.value = o.결제조건;
+    }
+    if (o.배송유형) {
+      const stRadio = document.querySelector(`input[name="ship-type"][value="${o.배송유형}"]`);
+      if (stRadio) { stRadio.checked = true; if (typeof updateShipFields === 'function') updateShipFields(); }
+    }
+    if (o.배송방법) {
+      const sm = document.getElementById('ship-method');
+      if (sm) sm.value = o.배송방법;
+    }
+    if (o.박스수) {
+      const bc = document.getElementById('box-count');
+      if (bc) bc.value = o.박스수;
+    }
+    if (o.화물운송비) {
+      const sf = document.getElementById('ship-fee');
+      if (sf) sf.value = (o.화물운송비 === '착불' || o.화물운송비 === '선불') ? '' : o.화물운송비;
+    }
+    if (o.수신지) {
+      const rn = document.getElementById('recv-name'); if (rn && o.수신지.이름) rn.value = o.수신지.이름;
+      const rp = document.getElementById('recv-phone'); if (rp && o.수신지.연락처) rp.value = o.수신지.연락처;
+      const ra = document.getElementById('recv-addr'); if (ra && o.수신지.주소) ra.value = o.수신지.주소;
+    }
+    if (o.발신지 && o.배송유형 === '직직배송') {
+      const sn = document.getElementById('send-name'); if (sn && o.발신지.이름) sn.value = o.발신지.이름;
+      const sa = document.getElementById('send-addr'); if (sa && o.발신지.주소) sa.value = o.발신지.주소;
+    }
+    if (o.비고) {
+      const m = document.getElementById('memo'); if (m) m.value = o.비고;
+    }
+    
+    // 모달 닫기 + 위로 스크롤
+    closePoolModal();
+    window.scrollTo({top:0, behavior:'smooth'});
+    if (typeof toast === 'function') toast('✅ 영업맨 주문 불러옴 — 검토 후 [주문 등록 + 거래명세표] 누르세요');
+    else alert('✅ 영업맨 주문 불러옴 — 검토 후 등록·발급하세요');
+  } catch (e) {
+    console.error('loadFromPending error:', e);
+    alert('불러오기 실패: ' + e.message);
+  }
 }
 
 function closePoolModal() {

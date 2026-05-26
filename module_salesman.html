@@ -54,7 +54,8 @@
 <script src="shared/components.js"></script>
 </head>
 <body>
-<header>
+<header style="position:relative">
+  <a href="index.html" style="position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.2); color:#fff; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:600">← 홈으로</a>
   <h1>📋 영업맨 주문 입력</h1>
   <div class="sub" id="header-sub">단계별로 선택해서 업무맨에게 던지기</div>
 </header>
@@ -66,7 +67,7 @@
   </section>
 
   <section class="step hidden" id="step-client">
-    <h2><span class="step-num">2</span> 거래처 <button class="clear-btn" onclick="resetFromClient()">변경</button></h2>
+    <h2><span class="step-num">2</span> 거래처 <button class="clear-btn" id="btnResetClient" onclick="resetFromClient()" style="display:none">✕ 선택 취소</button></h2>
     <div id="selected-client-display" style="display:none;padding:10px;background:var(--c-accent);color:#fff;border-radius:8px;margin-bottom:8px;font-weight:600"></div>
     <div class="card-grid" id="client-cards"><div class="empty">영업맨을 먼저 선택하세요.</div></div>
     <input type="text" class="search-input" id="client-search" placeholder="🔎 거래처 검색 (이름·지역·대표)">
@@ -120,7 +121,14 @@
       <div><label>박스 수</label><input type="number" id="box-count" value="1" min="1"></div>
     </div>
     <div class="field-row">
-      <div><label>화물운송비 (비우면 자동 착불)</label><input type="text" id="ship-fee" placeholder="비워두면 착불"></div>
+      <div>
+        <label>화물운송비 결제</label>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <label style="font-weight:normal;cursor:pointer"><input type="radio" name="ship-pay" value="착불" checked> 착불</label>
+          <label style="font-weight:normal;cursor:pointer"><input type="radio" name="ship-pay" value="선불"> 선불</label>
+        </div>
+        <div class="help-text" style="margin-top:4px">※ 운송비 금액은 업무맨이 산정합니다</div>
+      </div>
     </div>
     <div id="direct-recv-box" style="display:none;margin-top:12px;padding:10px;background:#FFF8F0;border-radius:6px">
       <label style="font-size:13px;font-weight:600;color:var(--c-text-2)">받는 곳 정보</label>
@@ -134,7 +142,20 @@
       <input type="text" id="send-addr" placeholder="보내는 주소" class="search-input" style="margin-top:6px">
     </div>
     <label style="font-size:13px;color:var(--c-text-2);margin-top:14px;display:block">비고 (선택)</label>
-    <input type="text" id="memo" placeholder="예: 오늘 발송 부탁, 호스 빼고 등" class="search-input" style="margin-top:4px">
+    <select id="memo-preset" class="search-input" style="margin-top:4px" onchange="if(this.value){document.getElementById('memo').value=this.value;}">
+      <option value="">— 자주 쓰는 비고 선택 —</option>
+      <option value="오늘 발송 부탁">오늘 발송 부탁</option>
+      <option value="내일 발송">내일 발송</option>
+      <option value="금요 배송">금요 배송</option>
+      <option value="다음주 배송">다음주 배송</option>
+      <option value="호스 빼고 발송">호스 빼고 발송</option>
+      <option value="시운전 포함">시운전 포함</option>
+      <option value="시운전 없음">시운전 없음</option>
+      <option value="파레트 작업 출고">파레트 작업 출고</option>
+      <option value="결품 대체 가능">결품 대체 가능</option>
+      <option value="A/S 처리">A/S 처리</option>
+    </select>
+    <input type="text" id="memo" placeholder="직접 입력도 가능 (예: 위 선택 후 추가 메모)" class="search-input" style="margin-top:4px">
   </section>
 
   <section class="step hidden" id="step-confirm">
@@ -163,18 +184,25 @@ async function init(){
 }
 async function fJ(p){try{const r=await fetch(p+'?t='+Date.now());if(!r.ok)return null;return await r.json();}catch(e){return null;}}
 function renderSalespersons(){
-  const names=Object.keys(SALESPERSONS).sort((a,b)=>Object.keys(SALESPERSONS[b]||{}).length-Object.keys(SALESPERSONS[a]||{}).length);
-  const PRIORITY=['이병호부장','장건희','문양수','건웅 김성원부장','임성우','임민수','김성원CS부장','전유영','임종호','임창수'];
-  const ordered=[];for(const p of PRIORITY)if(names.includes(p))ordered.push(p);
-  for(const n of names)if(!ordered.includes(n))ordered.push(n);
+  // 2026-05-22 #41: 6명 + 기타만 표시
+  const PRIORITY=['임창수','이병호부장','장건희','문양수','건웅 김성원부장','안양수'];
   const wrap=document.getElementById('salesperson-cards');wrap.innerHTML='';
-  ordered.forEach(name=>{
+  PRIORITY.forEach(name=>{
     const cnt=Object.keys(SALESPERSONS[name]||{}).length;
     const card=document.createElement('div');card.className='card';
-    card.innerHTML=`<div>${name}</div><div class="sub">담당 ${cnt}개</div>`;
+    card.innerHTML=`<div>${name.replace('부장','').replace('건웅 ','건웅 ')}</div><div class="sub">담당 ${cnt}개</div>`;
     card.onclick=()=>selectSalesperson(name,card);
     wrap.appendChild(card);
   });
+  // 기타 카드 (직접 입력 영업맨)
+  const otherCard=document.createElement('div');otherCard.className='card';
+  otherCard.style.background='#FFF4E5';otherCard.style.borderColor='#FFD699';otherCard.style.color='#B26A00';
+  otherCard.innerHTML=`<div>+ 기타</div><div class="sub">직접 입력</div>`;
+  otherCard.onclick=()=>{
+    const n=prompt('영업맨 이름을 입력하세요:');
+    if(n && n.trim()) selectSalesperson(n.trim(), otherCard);
+  };
+  wrap.appendChild(otherCard);
 }
 function selectSalesperson(name,el){
   SELECTED_SALESPERSON=name;
@@ -198,6 +226,7 @@ function renderClients(){
 }
 function selectClient(name,el){
   SELECTED_CLIENT=name;
+  const btn=document.getElementById('btnResetClient');if(btn)btn.style.display='inline-block';
   document.querySelectorAll('#client-cards .card').forEach(c=>c.classList.remove('selected'));if(el)el.classList.add('selected');
   document.getElementById('selected-client-display').style.display='block';
   document.getElementById('selected-client-display').textContent='✓ '+name;
@@ -211,6 +240,7 @@ function resetFromClient(){
   SELECTED_CLIENT=null;SELECTED_ITEM=null;ORDER_ITEMS=[];
   document.getElementById('selected-client-display').style.display='none';
   document.getElementById('client-search').value='';renderClients();
+  const btn=document.getElementById('btnResetClient');if(btn)btn.style.display='none';
 }
 document.getElementById('client-search').addEventListener('input',e=>{
   const q=e.target.value.trim().toLowerCase();if(!q){renderClients();return;}
@@ -224,8 +254,14 @@ document.getElementById('client-search').addEventListener('input',e=>{
     wrap.appendChild(card);
   });
 });
+// 2026-05-22 #48: 비주문 품목 제외 (운반비·은행·시운전·수수료 등)
+function isNonProduct(name) {
+  if (!name) return true;
+  const exclude = /운반|운송비|은행|수수료|시운전|결제수수료|배송비|일괄정산|BATTERY|충전|건별|할인/i;
+  return exclude.test(name);
+}
 function renderItemsForClient(){
-  const cs=SALES.filter(r=>r.거래처명===SELECTED_CLIENT);
+  const cs=SALES.filter(r=>r.거래처명===SELECTED_CLIENT && !isNonProduct(r.품목명));
   const freq={};
   cs.forEach(r=>{
     const k=(r.품목코드||'')+'|'+(r.품목명||'');
@@ -253,7 +289,13 @@ function selectItem(item,el){
     box.style.display='block';list.innerHTML='';
     sales.forEach(s=>{
       const d=document.createElement('div');d.className='history-card';
-      d.innerHTML=`<div class="date">${s.일자||''}</div><div class="meta">수량 ${s.수량} · 단가 ${fmt(s.단가)} · 공급 ${fmt(s.공급가액||0)}</div>`;
+      d.style.cursor='pointer';d.title='클릭하면 수량·단가 자동 채움';
+      d.innerHTML=`<div class="date">${s.일자||''} <span style="float:right;color:var(--c-accent);font-size:11px">👆 클릭으로 적용</span></div><div class="meta">수량 ${s.수량} · 단가 ${fmt(s.단가)} · 공급 ${fmt(s.공급가액||0)}</div>`;
+      d.onclick=()=>{
+        document.getElementById('qty').value=s.수량||1;
+        document.getElementById('price').value=s.단가||0;
+        toast('✓ 이 거래의 수량·단가 자동 채움');
+      };
       list.appendChild(d);
     });
   }else{box.style.display='none';}
@@ -265,6 +307,7 @@ document.getElementById('item-search').addEventListener('input',e=>{
   const q=e.target.value.trim().toLowerCase();if(!q){renderItemsForClient();return;}
   const freq={};
   SALES.forEach(r=>{
+    if(isNonProduct(r.품목명))return;
     const n=(r.품목명||'').toLowerCase(),c=(r.품목코드||'').toLowerCase();
     if(!n.includes(q)&&!c.includes(q))return;
     const k=(r.품목코드||'')+'|'+(r.품목명||'');
@@ -334,13 +377,40 @@ function updateSummary(){
 }
 function submitOrder(){
   if(!SELECTED_SALESPERSON||!SELECTED_CLIENT||ORDER_ITEMS.length===0)return toast('필수 정보 비어있음');
-  const order={_from:'salesman',_ts:new Date().toISOString(),영업맨:SELECTED_SALESPERSON,거래처명:SELECTED_CLIENT,품목:ORDER_ITEMS,
-    결제조건:document.getElementById('payment').value,배송유형:SHIP_TYPE,배송방법:document.getElementById('ship-method').value,
-    박스수:parseInt(document.getElementById('box-count').value)||1,
-    화물운송비:document.getElementById('ship-fee').value.trim()||'착불',
+  // 2026-05-22 #58: 업무맨이 받을 때 undefined 방지 — 필수 필드 자동 채움
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0,10);
+  const docNo = 'SAL' + today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(today.getDate()).padStart(2,'0') + String(today.getHours()).padStart(2,'0') + String(today.getMinutes()).padStart(2,'0');
+  const total = ORDER_ITEMS.reduce((s,i)=>s+(i.수량||0)*(i.단가||0),0);
+  const vat = Math.round(total*0.1);
+  const fee = (total + vat).toLocaleString() + '원';
+  // 회사: Company 토글 우선, 없으면 SMT
+  const company = (typeof Company !== 'undefined' && Company.get && Company.get() !== 'ALL') ? Company.get() : 'SMT';
+  // 배송비 결제 (착불/선불 라디오)
+  const shipPayEl = document.querySelector('input[name="ship-pay"]:checked');
+  const shipPay = shipPayEl ? shipPayEl.value : '착불';
+  
+  const order={
+    _from:'salesman',
+    _ts:new Date().toISOString(),
+    _증빙번호: docNo,
+    일자: dateStr,
+    영업맨: SELECTED_SALESPERSON,
+    발행회사: company,
+    거래처명: SELECTED_CLIENT,
+    품목: ORDER_ITEMS,
+    요금: fee,
+    공급가: total,
+    부가세: vat,
+    결제조건: document.getElementById('payment').value,
+    배송유형: SHIP_TYPE,
+    배송방법: document.getElementById('ship-method').value,
+    박스수: parseInt(document.getElementById('box-count').value)||1,
+    화물운송비: shipPay,  // 착불 또는 선불 (금액은 업무맨이 산정)
     수신지:{이름:document.getElementById('recv-name').value,연락처:document.getElementById('recv-phone').value,주소:document.getElementById('recv-addr').value},
     발신지:{이름:document.getElementById('send-name').value,주소:document.getElementById('send-addr').value},
-    비고:document.getElementById('memo').value};
+    비고:document.getElementById('memo').value
+  };
   let p=[];try{p=JSON.parse(localStorage.getItem('pending_orders')||'[]');}catch(e){}
   p.push(order);localStorage.setItem('pending_orders',JSON.stringify(p));
   toast('✅ 던졌습니다! 업무맨이 받아 처리');
