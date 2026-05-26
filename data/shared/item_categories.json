@@ -2,108 +2,816 @@
   "_generated": "2026-05-26",
   "_note": "카탈로그 표지(7개 브랜드) + 재고 품목 패턴 기반 1차 분류. 추후 보정 필요.",
   "_source": "catalog/cover.jpg + inventory_smt.json + inventory_gw.json",
-
   "brands": {
-    "HONDA":    { "ko": ["혼다", "Honda", "honda"], "en": ["HONDA","Honda","honda"] },
-    "GENEX":    { "ko": ["제넥스", "지넥스", "겐엑스", "겐넥스"], "en": ["GENEX","Genex","genex"] },
-    "LEXION":   { "ko": ["렉시온"], "en": ["LEXION","Lexion","lexion"] },
-    "TORO":     { "ko": ["토로"], "en": ["TORO","Toro","toro"] },
-    "BLUETTI":  { "ko": ["블루에티", "블루티"], "en": ["BLUETTI","Bluetti","bluetti"] },
-    "ECOFLOW":  { "ko": ["에코플로우", "에코플로"], "en": ["ECOFLOW","EcoFlow","ecoflow"] },
-    "JACKERY":  { "ko": ["잭커리", "자케리"], "en": ["JACKERY","Jackery","jackery"] }
+    "HONDA": {
+      "ko": [
+        "혼다",
+        "Honda",
+        "honda"
+      ],
+      "en": [
+        "HONDA",
+        "Honda",
+        "honda"
+      ]
+    },
+    "GENEX": {
+      "ko": [
+        "제넥스",
+        "지넥스",
+        "겐엑스",
+        "겐넥스"
+      ],
+      "en": [
+        "GENEX",
+        "Genex",
+        "genex"
+      ]
+    },
+    "LEXION": {
+      "ko": [
+        "렉시온"
+      ],
+      "en": [
+        "LEXION",
+        "Lexion",
+        "lexion"
+      ]
+    },
+    "TORO": {
+      "ko": [
+        "토로"
+      ],
+      "en": [
+        "TORO",
+        "Toro",
+        "toro"
+      ]
+    },
+    "BLUETTI": {
+      "ko": [
+        "블루에티",
+        "블루티"
+      ],
+      "en": [
+        "BLUETTI",
+        "Bluetti",
+        "bluetti"
+      ]
+    },
+    "ECOFLOW": {
+      "ko": [
+        "에코플로우",
+        "에코플로"
+      ],
+      "en": [
+        "ECOFLOW",
+        "EcoFlow",
+        "ecoflow"
+      ]
+    },
+    "JACKERY": {
+      "ko": [
+        "잭커리",
+        "자케리"
+      ],
+      "en": [
+        "JACKERY",
+        "Jackery",
+        "jackery"
+      ]
+    }
   },
-
   "tree": [
-    { "cat": "발전기", "en": "Generator", "ko_alts": ["발전기","제너레이터","발젼기"], "en_alts": ["generator","power generator","genset"],
+    {
+      "cat": "발전기",
+      "en": "Generator",
+      "ko_alts": [
+        "발전기",
+        "제너레이터",
+        "발젼기"
+      ],
+      "en_alts": [
+        "generator",
+        "power generator",
+        "genset"
+      ],
       "sub": [
-        { "cat": "HONDA EU (인버터 방음형 핸디)", "brand": "HONDA", "prefix": ["EU"], "ko_alts": ["혼다EU","혼다 EU","인버터발전기","방음발전기","핸디발전기"], "en_alts": ["EU","Honda EU","inverter generator"] },
-        { "cat": "HONDA EG (표준형)",             "brand": "HONDA", "prefix": ["EG"], "ko_alts": ["혼다EG"], "en_alts": ["EG","Honda EG"] },
-        { "cat": "HONDA EK (산업용)",             "brand": "HONDA", "prefix": ["EK"], "ko_alts": ["혼다EK"], "en_alts": ["EK","Honda EK"] },
-        { "cat": "HONDA EZ (방음형)",             "brand": "HONDA", "prefix": ["EZ"], "ko_alts": ["혼다EZ"], "en_alts": ["EZ","Honda EZ"] },
-        { "cat": "HONDA EM (가정용)",             "brand": "HONDA", "prefix": ["EM"], "ko_alts": ["혼다EM"], "en_alts": ["EM","Honda EM"] },
-        { "cat": "HONDA E1 (소형)",               "brand": "HONDA", "prefix": ["E1"], "ko_alts": ["혼다E1"], "en_alts": ["E1","Honda E1"] },
-        { "cat": "GENEX SG (표준형)",             "brand": "GENEX", "prefix": ["SG"], "ko_alts": ["제넥스SG","지넥스SG"], "en_alts": ["SG","Genex SG"] },
-        { "cat": "GENEX SP (표준형)",             "brand": "GENEX", "prefix": ["SP"], "ko_alts": ["제넥스SP","지넥스SP"], "en_alts": ["SP","Genex SP"] },
-        { "cat": "GENEX SH (소형/특수)",          "brand": "GENEX", "prefix": ["SH"], "ko_alts": ["제넥스SH"], "en_alts": ["SH","Genex SH"] }
+        {
+          "cat": "HONDA EU (인버터 방음형 핸디)",
+          "brand": "HONDA",
+          "prefix": [
+            "EU"
+          ],
+          "ko_alts": [
+            "혼다EU",
+            "혼다 EU",
+            "인버터발전기",
+            "방음발전기",
+            "핸디발전기"
+          ],
+          "en_alts": [
+            "EU",
+            "Honda EU",
+            "inverter generator"
+          ]
+        },
+        {
+          "cat": "HONDA EG (표준형)",
+          "brand": "HONDA",
+          "prefix": [
+            "EG"
+          ],
+          "ko_alts": [
+            "혼다EG"
+          ],
+          "en_alts": [
+            "EG",
+            "Honda EG"
+          ]
+        },
+        {
+          "cat": "HONDA EK (산업용)",
+          "brand": "HONDA",
+          "prefix": [
+            "EK"
+          ],
+          "ko_alts": [
+            "혼다EK"
+          ],
+          "en_alts": [
+            "EK",
+            "Honda EK"
+          ]
+        },
+        {
+          "cat": "HONDA EZ (방음형)",
+          "brand": "HONDA",
+          "prefix": [
+            "EZ"
+          ],
+          "ko_alts": [
+            "혼다EZ"
+          ],
+          "en_alts": [
+            "EZ",
+            "Honda EZ"
+          ]
+        },
+        {
+          "cat": "HONDA EM (가정용)",
+          "brand": "HONDA",
+          "prefix": [
+            "EM"
+          ],
+          "ko_alts": [
+            "혼다EM"
+          ],
+          "en_alts": [
+            "EM",
+            "Honda EM"
+          ]
+        },
+        {
+          "cat": "HONDA E1 (소형)",
+          "brand": "HONDA",
+          "prefix": [
+            "E1"
+          ],
+          "ko_alts": [
+            "혼다E1"
+          ],
+          "en_alts": [
+            "E1",
+            "Honda E1"
+          ]
+        },
+        {
+          "cat": "GENEX SG (표준형)",
+          "brand": "GENEX",
+          "prefix": [
+            "SG"
+          ],
+          "ko_alts": [
+            "제넥스SG",
+            "지넥스SG"
+          ],
+          "en_alts": [
+            "SG",
+            "Genex SG"
+          ]
+        },
+        {
+          "cat": "GENEX SP (표준형)",
+          "brand": "GENEX",
+          "prefix": [
+            "SP"
+          ],
+          "ko_alts": [
+            "제넥스SP",
+            "지넥스SP"
+          ],
+          "en_alts": [
+            "SP",
+            "Genex SP"
+          ]
+        },
+        {
+          "cat": "GENEX SH (소형/특수)",
+          "brand": "GENEX",
+          "prefix": [
+            "SH"
+          ],
+          "ko_alts": [
+            "제넥스SH"
+          ],
+          "en_alts": [
+            "SH",
+            "Genex SH"
+          ]
+        },
+        {
+          "cat": "TORO GW (발전기)",
+          "brand": "TORO",
+          "prefix": [
+            "GW"
+          ],
+          "ko_alts": [
+            "토로GW",
+            "토로발전기",
+            "토로인버터"
+          ],
+          "en_alts": [
+            "GW",
+            "Toro GW"
+          ]
+        },
+        {
+          "cat": "TORO GPW (고압세척기)",
+          "brand": "TORO",
+          "prefix": [
+            "GPW"
+          ],
+          "ko_alts": [
+            "토로고압세척기",
+            "고압세척기"
+          ],
+          "en_alts": [
+            "GPW",
+            "pressure washer"
+          ]
+        }
       ]
     },
-    { "cat": "엔진", "en": "Engine", "ko_alts": ["엔진","원동기"], "en_alts": ["engine","motor"],
+    {
+      "cat": "엔진",
+      "en": "Engine",
+      "ko_alts": [
+        "엔진",
+        "원동기"
+      ],
+      "en_alts": [
+        "engine",
+        "motor"
+      ],
       "sub": [
-        { "cat": "혼다 엔진 GX시리즈", "brand": "HONDA", "prefix": ["GX"], "ko_alts": ["GX엔진","혼다엔진"], "en_alts": ["GX","Honda GX","GX engine"] },
-        { "cat": "제넥스 엔진 GP시리즈", "brand": "GENEX", "prefix": ["GP"], "ko_alts": ["GP엔진"], "en_alts": ["GP","Genex GP","GP engine"] },
-        { "cat": "GK엔진/기타",         "brand": "",      "prefix": ["GK"], "ko_alts": [],         "en_alts": ["GK"] }
+        {
+          "cat": "혼다 엔진 GX시리즈",
+          "brand": "HONDA",
+          "prefix": [
+            "GX"
+          ],
+          "ko_alts": [
+            "GX엔진",
+            "혼다엔진"
+          ],
+          "en_alts": [
+            "GX",
+            "Honda GX",
+            "GX engine"
+          ]
+        },
+        {
+          "cat": "제넥스 엔진 GP시리즈",
+          "brand": "GENEX",
+          "prefix": [
+            "GP"
+          ],
+          "ko_alts": [
+            "GP엔진"
+          ],
+          "en_alts": [
+            "GP",
+            "Genex GP",
+            "GP engine"
+          ]
+        },
+        {
+          "cat": "TORO GK엔진",
+          "brand": "TORO",
+          "prefix": [
+            "GK"
+          ],
+          "ko_alts": [
+            "토로엔진",
+            "토로GK",
+            "GK엔진"
+          ],
+          "en_alts": [
+            "GK",
+            "Toro GK"
+          ]
+        },
+        {
+          "cat": "GK엔진/기타",
+          "brand": "",
+          "prefix": [
+            "GK"
+          ],
+          "ko_alts": [],
+          "en_alts": [
+            "GK"
+          ]
+        }
       ]
     },
-    { "cat": "파워뱅크·ESS", "en": "Power Bank / ESS", "ko_alts": ["파워뱅크","파워스테이션","휴대용배터리","ESS","에너지저장"], "en_alts": ["power bank","powerbank","portable power","power station","ESS","battery"],
+    {
+      "cat": "파워뱅크·ESS",
+      "en": "Power Bank / ESS",
+      "ko_alts": [
+        "파워뱅크",
+        "파워스테이션",
+        "휴대용배터리",
+        "ESS",
+        "에너지저장"
+      ],
+      "en_alts": [
+        "power bank",
+        "powerbank",
+        "portable power",
+        "power station",
+        "ESS",
+        "battery"
+      ],
       "sub": [
-        { "cat": "Jackery 잭커리",   "brand": "JACKERY", "name_kw": ["잭커리","자케리","Jackery","jackery"] },
-        { "cat": "BLUETTI 블루에티", "brand": "BLUETTI", "name_kw": ["블루에티","블루티","BLUETTI","bluetti","Bluetti"] },
-        { "cat": "ECOFLOW 에코플로우","brand": "ECOFLOW", "name_kw": ["에코플로우","에코플로","ECOFLOW","ecoflow","EcoFlow"] }
+        {
+          "cat": "Jackery 잭커리",
+          "brand": "JACKERY",
+          "name_kw": [
+            "잭커리",
+            "자케리",
+            "Jackery",
+            "jackery"
+          ]
+        },
+        {
+          "cat": "BLUETTI 블루에티",
+          "brand": "BLUETTI",
+          "name_kw": [
+            "블루에티",
+            "블루티",
+            "BLUETTI",
+            "bluetti",
+            "Bluetti"
+          ]
+        },
+        {
+          "cat": "ECOFLOW 에코플로우",
+          "brand": "ECOFLOW",
+          "name_kw": [
+            "에코플로우",
+            "에코플로",
+            "ECOFLOW",
+            "ecoflow",
+            "EcoFlow"
+          ]
+        }
       ]
     },
-    { "cat": "분무기·잔디관리", "en": "Sprayer / Lawn Care", "ko_alts": ["분무기","잔디관리"], "en_alts": ["sprayer","lawn","lawn mower"],
+    {
+      "cat": "고압세척기",
+      "en": "Pressure Washer",
+      "ko_alts": [
+        "고압세척기",
+        "세척기"
+      ],
+      "en_alts": [
+        "pressure washer",
+        "washer"
+      ],
       "sub": [
-        { "cat": "LEXION 렉시온",   "brand": "LEXION", "name_kw": ["렉시온","LEXION","lexion","Lexion"] },
-        { "cat": "TORO 토로",        "brand": "TORO",   "name_kw": ["토로","TORO","toro","Toro"] },
-        { "cat": "분무기·헤드·호스", "brand": "",        "name_kw": ["분무기","분무기헤드","분무기호스","sprayer"] }
+        {
+          "cat": "TORO GPW",
+          "brand": "TORO",
+          "prefix": [
+            "GPW"
+          ],
+          "name_kw": [
+            "고압세척기",
+            "pressure washer"
+          ]
+        }
       ]
     },
-    { "cat": "태양광·액세서리", "en": "Solar / Accessories", "ko_alts": ["태양광","태양광패널","폴딩카트","가방"], "en_alts": ["solar","solar panel","panel","folding cart","bag"],
+    {
+      "cat": "분무기·잔디관리",
+      "en": "Sprayer / Lawn Care",
+      "ko_alts": [
+        "분무기",
+        "잔디관리"
+      ],
+      "en_alts": [
+        "sprayer",
+        "lawn",
+        "lawn mower"
+      ],
       "sub": [
-        { "cat": "태양광패널", "name_kw": ["태양광패널","태양광","solar","panel"] },
-        { "cat": "폴딩카트",    "name_kw": ["폴딩카트","카트","cart"] },
-        { "cat": "가방·케이스", "name_kw": ["가방","케이스","bag","case"] }
+        {
+          "cat": "LEXION 렉시온",
+          "brand": "LEXION",
+          "name_kw": [
+            "렉시온",
+            "LEXION",
+            "lexion",
+            "Lexion"
+          ]
+        },
+        {
+          "cat": "TORO 토로",
+          "brand": "TORO",
+          "name_kw": [
+            "토로",
+            "TORO",
+            "toro",
+            "Toro"
+          ],
+          "prefix": [
+            "GW",
+            "GPW",
+            "GK"
+          ]
+        },
+        {
+          "cat": "분무기·헤드·호스",
+          "brand": "",
+          "name_kw": [
+            "분무기",
+            "분무기헤드",
+            "분무기호스",
+            "sprayer"
+          ]
+        }
       ]
     },
-    { "cat": "부품·소모품", "en": "Parts / Consumables", "ko_alts": ["부품","소모품","수리부품"], "en_alts": ["parts","consumable","spare"],
+    {
+      "cat": "태양광·액세서리",
+      "en": "Solar / Accessories",
+      "ko_alts": [
+        "태양광",
+        "태양광패널",
+        "폴딩카트",
+        "가방"
+      ],
+      "en_alts": [
+        "solar",
+        "solar panel",
+        "panel",
+        "folding cart",
+        "bag"
+      ],
       "sub": [
-        { "cat": "오일·연료·필터", "name_kw": ["오일","OIL","Oil","FILTER","Filter","필터","엔진오일","연료","휘발유","에어필터","오일필터","연료필터"] },
-        { "cat": "카뷰레터",         "name_kw": ["카뷰레터","카브레타","카뷰","CARBU","Carburetor","CARBURETOR"] },
-        { "cat": "점화플러그",        "name_kw": ["플러그","PLUG","Plug","점화플러그","점화"] },
-        { "cat": "밸브·실·링·개스킷", "name_kw": ["VALVE","SEAL","RING","GASKET","Valve","Seal","Ring","Gasket","밸브","개스킷","오링"] },
-        { "cat": "커버·탱크·파이프·튜브","name_kw": ["COVER","TANK","PIPE","TUBE","Cover","Tank","Pipe","Tube","커버","탱크","파이프","튜브","연료탱크","호스"] },
-        { "cat": "콘덴서·차단기·스위치","name_kw": ["콘덴서","차단기","SWITCH","Switch","스위치","CAPACITOR","capacitor","BREAKER","breaker"] },
-        { "cat": "베어링·샤프트·스프링","name_kw": ["BEARING","SHAFT","SPRING","Bearing","Shaft","Spring","베어링","샤프트","스프링"] },
-        { "cat": "케이블·하네스",     "name_kw": ["CABLE","HARNESS","Cable","Harness","케이블","하네스","코드"] },
-        { "cat": "방진고무·고무류",    "name_kw": ["방진고무","고무","RUBBER","Rubber","rubber"] },
-        { "cat": "배터리·충전기",     "name_kw": ["배터리","BATTERY","Battery","battery","충전기","CHARGER","Charger"] }
+        {
+          "cat": "태양광패널",
+          "name_kw": [
+            "태양광패널",
+            "태양광",
+            "solar",
+            "panel"
+          ]
+        },
+        {
+          "cat": "폴딩카트",
+          "name_kw": [
+            "폴딩카트",
+            "카트",
+            "cart"
+          ]
+        },
+        {
+          "cat": "가방·케이스",
+          "name_kw": [
+            "가방",
+            "케이스",
+            "bag",
+            "case"
+          ]
+        }
+      ]
+    },
+    {
+      "cat": "부품·소모품",
+      "en": "Parts / Consumables",
+      "ko_alts": [
+        "부품",
+        "소모품",
+        "수리부품"
+      ],
+      "en_alts": [
+        "parts",
+        "consumable",
+        "spare"
+      ],
+      "sub": [
+        {
+          "cat": "오일·연료·필터",
+          "name_kw": [
+            "오일",
+            "OIL",
+            "Oil",
+            "FILTER",
+            "Filter",
+            "필터",
+            "엔진오일",
+            "연료",
+            "휘발유",
+            "에어필터",
+            "오일필터",
+            "연료필터"
+          ]
+        },
+        {
+          "cat": "카뷰레터",
+          "name_kw": [
+            "카뷰레터",
+            "카브레타",
+            "카뷰",
+            "CARBU",
+            "Carburetor",
+            "CARBURETOR"
+          ]
+        },
+        {
+          "cat": "점화플러그",
+          "name_kw": [
+            "플러그",
+            "PLUG",
+            "Plug",
+            "점화플러그",
+            "점화"
+          ]
+        },
+        {
+          "cat": "밸브·실·링·개스킷",
+          "name_kw": [
+            "VALVE",
+            "SEAL",
+            "RING",
+            "GASKET",
+            "Valve",
+            "Seal",
+            "Ring",
+            "Gasket",
+            "밸브",
+            "개스킷",
+            "오링"
+          ]
+        },
+        {
+          "cat": "커버·탱크·파이프·튜브",
+          "name_kw": [
+            "COVER",
+            "TANK",
+            "PIPE",
+            "TUBE",
+            "Cover",
+            "Tank",
+            "Pipe",
+            "Tube",
+            "커버",
+            "탱크",
+            "파이프",
+            "튜브",
+            "연료탱크",
+            "호스"
+          ]
+        },
+        {
+          "cat": "콘덴서·차단기·스위치",
+          "name_kw": [
+            "콘덴서",
+            "차단기",
+            "SWITCH",
+            "Switch",
+            "스위치",
+            "CAPACITOR",
+            "capacitor",
+            "BREAKER",
+            "breaker"
+          ]
+        },
+        {
+          "cat": "베어링·샤프트·스프링",
+          "name_kw": [
+            "BEARING",
+            "SHAFT",
+            "SPRING",
+            "Bearing",
+            "Shaft",
+            "Spring",
+            "베어링",
+            "샤프트",
+            "스프링"
+          ]
+        },
+        {
+          "cat": "케이블·하네스",
+          "name_kw": [
+            "CABLE",
+            "HARNESS",
+            "Cable",
+            "Harness",
+            "케이블",
+            "하네스",
+            "코드"
+          ]
+        },
+        {
+          "cat": "방진고무·고무류",
+          "name_kw": [
+            "방진고무",
+            "고무",
+            "RUBBER",
+            "Rubber",
+            "rubber"
+          ]
+        },
+        {
+          "cat": "배터리·충전기",
+          "name_kw": [
+            "배터리",
+            "BATTERY",
+            "Battery",
+            "battery",
+            "충전기",
+            "CHARGER",
+            "Charger"
+          ]
+        }
       ]
     }
   ],
-
   "synonyms": {
-    "발전기": ["generator","제너레이터","발젼기","발젼"],
-    "엔진": ["engine","motor","모터"],
-    "오일": ["oil","엔진오일"],
-    "필터": ["filter","에어필터","오일필터","연료필터"],
-    "카뷰레터": ["carburetor","carb","카브레타","카뷰","CARBU"],
-    "플러그": ["plug","점화플러그","점화"],
-    "콘덴서": ["capacitor","컨덴서"],
-    "차단기": ["breaker"],
-    "케이블": ["cable","와이어","wire"],
-    "베어링": ["bearing"],
-    "탱크": ["tank","연료탱크"],
-    "커버": ["cover"],
-    "파이프": ["pipe","호스","tube"],
-    "고무": ["rubber"],
-    "배터리": ["battery"],
-    "충전기": ["charger"],
-    "스위치": ["switch"],
-    "밸브": ["valve"],
-    "개스킷": ["gasket"],
-    "오링": ["o-ring","ring"],
-    "스프링": ["spring"],
-    "샤프트": ["shaft"],
-    "분무기": ["sprayer"],
-    "태양광": ["solar"],
-    "패널": ["panel"],
-    "파워뱅크": ["power bank","powerbank","power station","portable power"],
-    "혼다": ["honda","HONDA","Honda"],
-    "제넥스": ["genex","GENEX","Genex","지넥스","겐엑스","겐넥스"],
-    "잭커리": ["jackery","JACKERY","Jackery","자케리"],
-    "블루에티": ["bluetti","BLUETTI","Bluetti","블루티"],
-    "에코플로우": ["ecoflow","ECOFLOW","EcoFlow","에코플로"],
-    "렉시온": ["lexion","LEXION","Lexion"],
-    "토로": ["toro","TORO","Toro"]
+    "발전기": [
+      "generator",
+      "제너레이터",
+      "발젼기",
+      "발젼"
+    ],
+    "엔진": [
+      "engine",
+      "motor",
+      "모터"
+    ],
+    "오일": [
+      "oil",
+      "엔진오일"
+    ],
+    "필터": [
+      "filter",
+      "에어필터",
+      "오일필터",
+      "연료필터"
+    ],
+    "카뷰레터": [
+      "carburetor",
+      "carb",
+      "카브레타",
+      "카뷰",
+      "CARBU"
+    ],
+    "플러그": [
+      "plug",
+      "점화플러그",
+      "점화"
+    ],
+    "콘덴서": [
+      "capacitor",
+      "컨덴서"
+    ],
+    "차단기": [
+      "breaker"
+    ],
+    "케이블": [
+      "cable",
+      "와이어",
+      "wire"
+    ],
+    "베어링": [
+      "bearing"
+    ],
+    "탱크": [
+      "tank",
+      "연료탱크"
+    ],
+    "커버": [
+      "cover"
+    ],
+    "파이프": [
+      "pipe",
+      "호스",
+      "tube"
+    ],
+    "고무": [
+      "rubber"
+    ],
+    "배터리": [
+      "battery"
+    ],
+    "충전기": [
+      "charger"
+    ],
+    "스위치": [
+      "switch"
+    ],
+    "밸브": [
+      "valve"
+    ],
+    "개스킷": [
+      "gasket"
+    ],
+    "오링": [
+      "o-ring",
+      "ring"
+    ],
+    "스프링": [
+      "spring"
+    ],
+    "샤프트": [
+      "shaft"
+    ],
+    "분무기": [
+      "sprayer"
+    ],
+    "태양광": [
+      "solar"
+    ],
+    "패널": [
+      "panel"
+    ],
+    "파워뱅크": [
+      "power bank",
+      "powerbank",
+      "power station",
+      "portable power"
+    ],
+    "혼다": [
+      "honda",
+      "HONDA",
+      "Honda"
+    ],
+    "제넥스": [
+      "genex",
+      "GENEX",
+      "Genex",
+      "지넥스",
+      "겐엑스",
+      "겐넥스"
+    ],
+    "잭커리": [
+      "jackery",
+      "JACKERY",
+      "Jackery",
+      "자케리"
+    ],
+    "블루에티": [
+      "bluetti",
+      "BLUETTI",
+      "Bluetti",
+      "블루티"
+    ],
+    "에코플로우": [
+      "ecoflow",
+      "ECOFLOW",
+      "EcoFlow",
+      "에코플로"
+    ],
+    "렉시온": [
+      "lexion",
+      "LEXION",
+      "Lexion"
+    ],
+    "토로": [
+      "toro",
+      "TORO",
+      "Toro",
+      "GW",
+      "GPW",
+      "GK"
+    ],
+    "고압세척기": [
+      "pressure washer",
+      "washer",
+      "GPW"
+    ]
   }
 }
