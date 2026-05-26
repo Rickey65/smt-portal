@@ -243,28 +243,26 @@ function _extractRegion(addr) {
 }
 
 function renderClients(){
-  // 2026-05-26 수정: 매출 큰 거래처는 무조건 표시. 영업맨 지역·이력은 우선 정렬만.
+  // 2026-05-26 수정v2: 매출 필드 = '합계금액'(위하고 표준). 매출 0이어도 폐업만 아니면 표시.
   const regions = SALESPERSON_REGIONS[SELECTED_SALESPERSON] || ['전국'];
   const isAll = regions.includes('전국');
   const my = SALESPERSONS[SELECTED_SALESPERSON] || {};
-  
-  // 거래처 매출 집계 (1회 캐시)
+
+  // 거래처 매출 집계 (1회 캐시) — 위하고 필드명 시도
   if (!window._allClientSales) {
     const agg = {};
     SALES.forEach(s => {
-      if (!s.거래처명) return;
-      agg[s.거래처명] = (agg[s.거래처명] || 0) + (s.금액 || 0);
+      const name = s.거래처명; if (!name) return;
+      const amt = (+s.합계금액) || (+s.공급가액) || (+s.금액) || 0;
+      agg[name] = (agg[name] || 0) + amt;
     });
     window._allClientSales = agg;
   }
   const agg = window._allClientSales;
-  
-  // 폐업 제외 + 매출 있는 거래처만 (활성)
-  let pool = CLIENTS.filter(c => {
-    if (c.폐업일자 && c.폐업일자.trim()) return false;
-    return (agg[c.거래처명] || 0) > 0;
-  });
-  
+
+  // 폐업만 제외 (매출 0이어도 표시 — 매칭 실패 거래처 보호)
+  let pool = CLIENTS.filter(c => !(c.폐업일자 && c.폐업일자.trim()));
+
   pool.sort((a, b) => {
     const an = a.거래처명, bn = b.거래처명;
     // 1순위: 영업맨 직접 거래 이력 (카톡 매핑)
@@ -280,7 +278,7 @@ function renderClients(){
     // 3순위: 매출 큰 순
     return (agg[bn] || 0) - (agg[an] || 0);
   });
-  
+
   const top = pool.slice(0, 12);
   const wrap = document.getElementById('client-cards'); wrap.innerHTML = '';
   if (top.length === 0) {
