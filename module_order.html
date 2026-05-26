@@ -750,9 +750,11 @@ function searchClients() {
   
   const includeClosed = !!(document.getElementById('include-closed') || {}).checked;
   const results = CLIENTS.filter(c => {
-    // 폐업 제외 (체크박스 OFF 디폴트)
-    if (!includeClosed && c.폐업일자 && String(c.폐업일자).trim()) return false;
-    const n = (c.거래처명 || c.상호 || '').toLowerCase();
+    const name = c.거래처명 || c.상호 || '';
+    // 폐업 제외 (체크박스 OFF 디폴트) — 필드 + 이름 패턴 양쪽 체크
+    const isClosed = (c.폐업일자 && String(c.폐업일자).trim()) || /폐업일자\s*:/.test(name);
+    if (!includeClosed && isClosed) return false;
+    const n = name.toLowerCase();
     const a = (c.사업장주소 || c.주소 || '').toLowerCase();
     const r = (c.대표자명 || c.대표자 || '').toLowerCase();
     return n.includes(q) || a.includes(q) || r.includes(q);
@@ -768,7 +770,8 @@ function searchClients() {
 
 function renderClientItem(c, isRecent, recentDate) {
   if (!c) return '';
-  const name = c.거래처명 || c.상호 || '';
+  const rawName = c.거래처명 || c.상호 || '';
+  const name = rawName.replace(/\s*폐업일자\s*:\s*[\d\-\.]+\s*/, '').trim();
   const rep = c.대표자명 || c.대표자 || '';
   const addr = (c.사업장주소 || c.주소 || '').slice(0, 30);
   const code = c.거래처코드 || c.코드 || c.code || '';
@@ -776,7 +779,8 @@ function renderClientItem(c, isRecent, recentDate) {
   let tags = '';
   if (companies.includes('SMT')) tags += '<span class="smt-tag">SMT</span> ';
   if (companies.includes('GW')) tags += '<span class="gw-tag">건웅</span> ';
-  if (c.폐업일자 && String(c.폐업일자).trim()) tags += `<span style="background:#D7493A;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px">⛔ 폐업 ${c.폐업일자}</span> `;
+  const _closedDate = (c.폐업일자 && String(c.폐업일자).trim()) || (() => { const m=/폐업일자\s*:\s*([\d\-\.]+)/.exec(name); return m ? m[1] : ''; })();
+  if (_closedDate) tags += `<span style="background:#D7493A;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px">⛔ 폐업 ${_closedDate}</span> `;
   if (isRecent) tags += `<span class="recent">최근 ${recentDate}</span>`;
   return `<div class="sg-item" onclick='selectClient(${JSON.stringify(code)})'>
     <div>

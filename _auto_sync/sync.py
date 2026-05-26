@@ -665,3 +665,15 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
     input("\n엔터를 누르면 종료...")
+
+
+# 2026-05-26: 거래처명에 '폐업일자:YYYY-MM-DD' 박혀 있으면 폐업일자 필드로 분리
+import re as _re_polish
+_POLISH_PAT = _re_polish.compile(r'\s*폐업일자\s*:\s*([\d\-\.]+)\s*')
+def polish_client_name(client):
+    name = client.get('거래처명','') or ''
+    m = _POLISH_PAT.search(name)
+    if m:
+        client['거래처명'] = _POLISH_PAT.sub('', name).strip()
+        if not client.get('폐업일자'): client['폐업일자'] = m.group(1)
+    return client
