@@ -185,10 +185,19 @@ body { background: var(--c-bg); }
 
   <!-- Step 1: 영업맨 -->
   <div class="step-card">
-    <h3><span class="step-num">1</span> 영업맨</h3>
+    <h3><span class="step-num">1</span> 영업맨 <span style="font-size:12px;color:var(--c-text-2);font-weight:normal">(거래 대표 — 카톡·실적용)</span></h3>
     <select id="salesperson" style="width:100%; padding:10px; font-size:15px; border:1px solid var(--c-border); border-radius:6px">
-      <option value="">— 본인 선택 —</option>
+      <option value="">— 영업맨 선택 —</option>
     </select>
+  </div>
+
+  <!-- Step 1B: 업무맨 (위하고 사원코드 박힐 사람) -->
+  <div class="step-card" style="background:#F0F8F4;border-left:4px solid var(--c-accent)">
+    <h3><span class="step-num" style="background:var(--c-accent)">1B</span> 업무맨 <span style="font-size:12px;color:var(--c-text-2);font-weight:normal">(위하고 출고전표·일반전표 입력자 = 사원코드)</span></h3>
+    <select id="operator" style="width:100%; padding:10px; font-size:15px; border:1px solid var(--c-border); border-radius:6px">
+      <option value="">— 업무맨 선택 (위하고 사원) —</option>
+    </select>
+    <div style="font-size:11px;color:var(--c-text-2);margin-top:6px">위하고 엑셀 만들 때 이 사람의 사원코드가 박힙니다.</div>
   </div>
 
 
@@ -239,14 +248,24 @@ body { background: var(--c-bg); }
     <div class="suggestions" id="item-suggestions" style="display:none"></div>
     
     <div class="item-list" id="item-list"></div>
+
+    <!-- B. 거래처+품목 최신 거래 5건 — 업무맨이 단가 검증용 -->
+    <div id="item-history-check" style="display:none; margin-top:12px; padding:10px; background:#FFF8E1; border-left:4px solid #FFB300; border-radius:6px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">💡 이 거래처+품목 최근 거래 (단가 검증)</div>
+      <div id="item-history-list" style="font-size:12px"></div>
+    </div>
   </div>
 
   <!-- Step 4: 발행 회사 -->
   <div class="step-card">
-    <h3><span class="step-num">4</span> 발행 회사</h3>
+    <h3><span class="step-num">4</span> 발행 회사 <span style="font-size:12px;color:var(--c-text-2);font-weight:normal">(위하고 출고전표·세금계산서를 어느 회사 명의로?)</span></h3>
     <div class="radio-group">
-      <label><input type="radio" name="issuer" value="SMT" checked onchange="updateIssuer()"> SMT서울기연 명의</label>
-      <label><input type="radio" name="issuer" value="GW" onchange="updateIssuer()"> 건웅 명의</label>
+      <label><input type="radio" name="issuer" value="SMT" checked onchange="updateIssuer()"> SMT서울기연 명의로 발급</label>
+      <label><input type="radio" name="issuer" value="GW" onchange="updateIssuer()"> 건웅 명의로 발급</label>
+    </div>
+    <div style="font-size:11px;color:var(--c-text-2);margin-top:8px;line-height:1.5">
+      · 영업맨이 정한 회사를 디폴트로 가져오고, 업무맨이 필요 시 변경 가능<br>
+      · 양사 내부거래(예: SMT가 출고하고 GW로 청구) 시 → 두 회사 모두에 위하고 전표가 자동 생성
     </div>
     <div id="internal-alert"></div>
   </div>
@@ -419,7 +438,28 @@ async function init() {
   sel.appendChild(sharedGroup);
   sel.appendChild(smtGroup);
   sel.appendChild(gwGroup);
-  
+
+  // === 업무맨 dropdown — 위하고 사원 (회계·관리) ===
+  const operatorSel = document.getElementById('operator');
+  if (operatorSel) {
+    operatorSel.innerHTML = '<option value="">— 업무맨 선택 (위하고 사원) —</option>';
+    // 회계·총무·관리 권한자 위주 + 코드 보유자만
+    const candidates = SALESPERSONS.filter(p => p.shared || ['회계','총무','관리'].some(r => (p.role||'').includes(r)) || p.직급==='대표이사');
+    const opSmt = document.createElement('optgroup'); opSmt.label='── SMT 업무 ──';
+    const opGw = document.createElement('optgroup'); opGw.label='── 건웅 업무 ──';
+    candidates.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.name; o.dataset.company = p.company; o.dataset.code = p.code;
+      o.textContent = `${p.label} (${p.company} ${p.code}번)`;
+      if (p.company === 'SMT') opSmt.appendChild(o); else opGw.appendChild(o);
+    });
+    operatorSel.appendChild(opSmt); operatorSel.appendChild(opGw);
+    // 로컬 저장된 업무맨 자동 선택 (마지막 사용자)
+    const lastOp = localStorage.getItem('last_operator');
+    if (lastOp) operatorSel.value = lastOp;
+    operatorSel.addEventListener('change', () => localStorage.setItem('last_operator', operatorSel.value));
+  }
+
   // 회사 토글
   CompanyToggle.render(null, () => location.reload());
   updatePoolCount();
@@ -452,56 +492,68 @@ function updateIssuer() {
 }
 
 function updateShipFields() {
-  // 2026-05-21 v2 — 발신지·수신지 양쪽 모두 항상 표시, 모드별 자동 채움
+  // 2026-05-26 v3 — 배송유형 변경 시 발신지·수신지 명시적 재설정 (이전 값 클리어 후 자동 채움)
   const type = document.querySelector('input[name="ship-type"]:checked').value;
-  
   const sendNote = document.getElementById('send-fields-note');
   const sendName = document.getElementById('send-name');
   const sendPhone = document.getElementById('send-phone');
   const sendAddr = document.getElementById('send-addr');
-  
   const recvNote = document.getElementById('recv-fields-note');
   const recvName = document.getElementById('recv-name');
   const recvPhone = document.getElementById('recv-phone');
   const recvAddr = document.getElementById('recv-addr');
-  
-  // 발행회사 정보 (Data.companyInfo에서)
+
   const issuer = (typeof getIssuer === 'function') ? getIssuer() : 'SMT';
   const company = (typeof Data !== 'undefined' && Data.companyInfo) ? Data.companyInfo[issuer] : null;
-  
-  // 거래처 정보
+
   const cname = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || '') : '';
   const ceo = SELECTED_CLIENT ? (SELECTED_CLIENT.대표자 || '') : '';
   const cAddr = SELECTED_CLIENT ? (SELECTED_CLIENT.사업장주소 || SELECTED_CLIENT.주소 || '') : '';
   const cPhone = SELECTED_CLIENT ? (SELECTED_CLIENT.담당자휴대전화 || SELECTED_CLIENT.담당자전화 || SELECTED_CLIENT.대표전화 || '') : '';
-  
+
+  // 직직배송 과거 발신처 datalist (E)
+  let direct2HistoryHtml = '';
+  if (type === '직직배송' && SELECTED_CLIENT) {
+    const key = 'direct2_history_' + cname;
+    try {
+      const hist = JSON.parse(localStorage.getItem(key) || '[]');
+      if (hist.length) {
+        direct2HistoryHtml = '<div style="margin-top:6px;padding:8px;background:#FFF8E1;border-radius:6px;font-size:12px"><b>📌 이 거래처가 과거 보냈던 발신처:</b><br>' +
+          hist.slice(0,5).map(h => `<a href="#" onclick="event.preventDefault();document.getElementById('send-name').value='${(h.name||'').replace(/'/g,"")}'; document.getElementById('send-phone').value='${(h.phone||'').replace(/'/g,"")}'; document.getElementById('send-addr').value='${(h.addr||'').replace(/'/g,"")}'; return false;" style="display:block;padding:4px;color:var(--c-accent);text-decoration:none">↳ ${h.name} · ${h.phone||''} · ${h.addr||''}</a>`).join('') + '</div>';
+      }
+    } catch(e){}
+  }
+
+  // 일반·직배송·직직배송별 발신지·수신지 자동 설정 (배송유형 바꿀 때마다 재설정)
   if (type === '일반') {
-    // 일반: 발신=발행회사 / 수신=거래처
-    sendNote.textContent = '(일반 — 발행회사 자동)';
+    sendNote.textContent = '(일반 — 발행회사 자동, 수정 불필요)';
     recvNote.textContent = '(일반 — 거래처 자동, 수정 가능)';
     if (company) {
-      if (!sendName.value) sendName.value = company.상호 || '';
-      if (!sendAddr.value) sendAddr.value = company.주소 || '';
-      if (!sendPhone.value) sendPhone.value = (issuer === 'SMT' ? '031-1644-2090' : '070-4272-5082');
+      sendName.value = company.상호 || '';
+      sendAddr.value = company.주소 || '';
+      sendPhone.value = (issuer === 'SMT' ? '031-1644-2090' : '070-4272-5082');
     }
     if (SELECTED_CLIENT) {
-      if (!recvName.value) recvName.value = ceo ? `${cname} (${ceo})` : cname;
-      if (!recvPhone.value) recvPhone.value = cPhone;
-      if (!recvAddr.value) recvAddr.value = cAddr;
+      recvName.value = ceo ? `${cname} (${ceo})` : cname;
+      recvPhone.value = cPhone;
+      recvAddr.value = cAddr;
     }
   } else if (type === '직배송요청') {
-    // 직배송: 발신=거래처 자동 / 수신=직접 입력
-    sendNote.textContent = '(직배송 — 거래처 자동)';
+    sendNote.textContent = '(직배송 — 주문 거래처가 발신자, 자동)';
     recvNote.textContent = '(직배송 — 받는 곳 직접 입력)';
     if (SELECTED_CLIENT) {
-      if (!sendName.value) sendName.value = ceo ? `${cname} (${ceo})` : cname;
-      if (!sendPhone.value) sendPhone.value = cPhone;
-      if (!sendAddr.value) sendAddr.value = cAddr;
+      sendName.value = ceo ? `${cname} (${ceo})` : cname;
+      sendPhone.value = cPhone;
+      sendAddr.value = cAddr;
     }
+    // 수신지 클리어 (입력 필요)
+    recvName.value = ''; recvPhone.value = ''; recvAddr.value = '';
   } else {
-    // 직직배송: 양쪽 다 직접 입력
-    sendNote.textContent = '(직직배송 — 발신처 직접 입력)';
+    // 직직배송: 발신·수신 모두 영업맨 직접 입력 — 과거 이력 노출
+    sendNote.innerHTML = '(직직배송 — 발신처 직접 입력)' + direct2HistoryHtml;
     recvNote.textContent = '(직직배송 — 받는 곳 직접 입력)';
+    sendName.value = ''; sendPhone.value = ''; sendAddr.value = '';
+    recvName.value = ''; recvPhone.value = ''; recvAddr.value = '';
   }
 }
 
@@ -677,24 +729,21 @@ function searchItems() {
 function addItem(code) {
   const inv = INVENTORY.find(i => i.품목코드 === code);
   if (!inv) return;
-  
-  // 직전 거래 3건 추출 — 거래처+품목 매칭 우선, 부족하면 거래처 무관으로 채움
+
+  // 2026-05-26: 거래처+품목 최근 5건 (다른 날짜만) — 부장님 지시
   const clientName = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호) : null;
   let history = [];
   if (clientName) {
-    history = SALES.filter(s => s.품목코드 === code && s.거래처명 === clientName)
-      .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
-      .slice(0, 3);
+    const all = SALES.filter(s => s.품목코드 === code && s.거래처명 === clientName)
+                     .sort((a,b) => (b.일자||'').localeCompare(a.일자||''));
+    const seenDates = new Set();
+    for (const r of all) {
+      const d = r.일자 || '';
+      if (seenDates.has(d)) continue;
+      seenDates.add(d); history.push(r);
+      if (history.length >= 5) break;
+    }
   }
-  // 3건 미만이면 거래처 무관으로 채움
-  if (history.length < 3) {
-    const others = SALES.filter(s => s.품목코드 === code && s.거래처명 !== clientName)
-      .sort((a,b) => (b.일자||'').localeCompare(a.일자||''))
-      .slice(0, 3 - history.length);
-    history = [...history, ...others];
-  }
-  
-  // 기본 단가 = 거래처 매칭 직전 1건 (없으면 fallback)
   const defaultPrice = history.length > 0 ? (history[0].단가 || 0) : 0;
   const defaultDate = history.length > 0 ? (history[0].일자 || '') : '';
   
@@ -823,13 +872,42 @@ function startVoice(inputId, micId, callback) {
 // ===== 주문 등록 =====
 function submitOrder() {
   if (!document.getElementById('salesperson').value) return alert('영업맨을 선택하세요');
+  const opSel = document.getElementById('operator');
+  if (opSel && !opSel.value) return alert('업무맨을 선택하세요 (위하고 사원코드 박힐 사람)');
   if (!SELECTED_CLIENT) return alert('거래처를 선택하세요');
   if (SELECTED_ITEMS.length === 0) return alert('품목을 1개 이상 추가하세요');
-  
+
   const issuer = document.querySelector('input[name="issuer"]:checked').value;
+  const opName = opSel ? opSel.value : '';
+  const opOption = opSel ? opSel.options[opSel.selectedIndex] : null;
+  const opCode = opOption ? (opOption.dataset.code || '') : '';
+  const opCompany = opOption ? (opOption.dataset.company || '') : '';
+
+  // E. 직직배송이면 발신처를 거래처별 이력에 저장 (다음번 자동 추천용)
+  const shipType = document.querySelector('input[name="ship-type"]:checked').value;
+  if (shipType === '직직배송') {
+    const sName = document.getElementById('send-name').value.trim();
+    const sPhone = document.getElementById('send-phone').value.trim();
+    const sAddr = document.getElementById('send-addr').value.trim();
+    if (sName || sAddr) {
+      const cname = SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || '';
+      const key = 'direct2_history_' + cname;
+      try {
+        const hist = JSON.parse(localStorage.getItem(key) || '[]');
+        // 중복 제거
+        const filtered = hist.filter(h => h.name !== sName || h.addr !== sAddr);
+        filtered.unshift({name: sName, phone: sPhone, addr: sAddr, _ts: Date.now()});
+        localStorage.setItem(key, JSON.stringify(filtered.slice(0, 10)));
+      } catch(e){}
+    }
+  }
+
   const order = {
     _id: Date.now(),
     영업맨: document.getElementById('salesperson').value,
+    업무맨: opName,
+    업무맨_사원코드: opCode,
+    업무맨_회사: opCompany,
     발행회사: issuer,
     거래처코드: SELECTED_CLIENT.거래처코드 || SELECTED_CLIENT.코드 || SELECTED_CLIENT.code,
     거래처명: SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호,
