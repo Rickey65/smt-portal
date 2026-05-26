@@ -446,9 +446,18 @@ async function init() {
     o.dataset.role = p.role;
     o.dataset.shared = p.shared ? '1' : '0';
     
-    if (p.shared) sharedGroup.appendChild(o);
-    else if (p.company === 'SMT') smtGroup.appendChild(o);
-    else gwGroup.appendChild(o);
+    // 영업 역할이면 영업맨 그룹 우선 (shared여도 영업 겸직이면 영업맨 그룹에)
+    const isSales = (p.role || '').includes('영업') || (p.name || '').includes('(영업)');
+    if (isSales) {
+      if (p.company === 'SMT') smtGroup.appendChild(o);
+      else gwGroup.appendChild(o);
+    } else if (p.shared) {
+      sharedGroup.appendChild(o);
+    } else if (p.company === 'SMT') {
+      smtGroup.appendChild(o);
+    } else {
+      gwGroup.appendChild(o);
+    }
   });
   sel.appendChild(sharedGroup);
   sel.appendChild(smtGroup);
