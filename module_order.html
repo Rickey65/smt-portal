@@ -1152,12 +1152,13 @@ function loadFromPending(i) {
   if (!o) return;
   
   try {
-    // 영업맨
+    // 영업맨 — 이름 부분 매칭 (영업맨이 '이병호부장'이면 옵션의 '이병호' 포함 가능)
     const spSelect = document.getElementById('salesperson');
     if (spSelect && o.영업맨) {
-      // 영업맨 이름이 옵션에 있으면 선택
+      const targetName = o.영업맨.replace(/부장|과장|차장|대리|이사/g, '').trim();
       for (const opt of spSelect.options) {
-        if (opt.text.includes(o.영업맨) || opt.value === o.영업맨) {
+        const optTxt = opt.text;
+        if (optTxt.includes(o.영업맨) || optTxt.includes(targetName) || opt.value === o.영업맨) {
           spSelect.value = opt.value;
           break;
         }
@@ -1170,15 +1171,22 @@ function loadFromPending(i) {
       if (radio) { radio.checked = true; if (typeof updateIssuer === 'function') updateIssuer(); }
     }
     
-    // 거래처 (이름으로 매칭)
+    // 거래처 (이름으로 정확 매칭 또는 부분 매칭)
     if (o.거래처명 && typeof CLIENTS !== 'undefined') {
-      const c = CLIENTS.find(x => (x.거래처명 || x.상호) === o.거래처명);
+      let c = CLIENTS.find(x => (x.거래처명 || x.상호) === o.거래처명);
+      // 정확 매칭 실패 시 부분 매칭 (이름 일부 포함)
+      if (!c) c = CLIENTS.find(x => ((x.거래처명 || x.상호 || '').includes(o.거래처명) || o.거래처명.includes((x.거래처명 || x.상호 || ''))));
       if (c) {
         SELECTED_CLIENT = c;
         document.getElementById('client-search').value = '';
         document.getElementById('client-suggestions').style.display = 'none';
-        document.getElementById('client-selected').innerHTML = `<div class="chip">✓ ${o.거래처명} (영업맨 던짐) <span class="x" onclick="unselectClient()">×</span></div>`;
+        const cname = c.거래처명 || c.상호 || o.거래처명;
+        document.getElementById('client-selected').innerHTML = `<div class="chip">✓ ${cname} (영업맨 던짐) <span class="x" onclick="unselectClient()">×</span></div>`;
         if (typeof refillRecvIfDefault === 'function') refillRecvIfDefault();
+      } else {
+        // 매칭 못 찾으면 검색창에 이름 넣어 사용자 안내
+        document.getElementById('client-search').value = o.거래처명;
+        if (typeof searchClients === 'function') searchClients();
       }
     }
     
@@ -1194,7 +1202,10 @@ function loadFromPending(i) {
           단가: p.단가 || 0
         });
       });
-      if (typeof renderSelectedItems === 'function') renderSelectedItems();
+      if (typeof renderItems === 'function') renderItems();
+      if (typeof updateSummary === 'function') updateSummary();
+      if (typeof calcShipFee === 'function') calcShipFee();
+      if (typeof checkInternalTransfer === 'function') checkInternalTransfer();
     }
     
     // 결제·배송
