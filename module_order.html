@@ -232,6 +232,9 @@ body { background: var(--c-bg); }
       <input type="text" id="client-search" placeholder="거래처명·지역·대표 검색 (예: 청주 대흥)" oninput="searchClients()" autocomplete="off">
       <button class="mic-btn" id="client-mic" onclick="startVoiceClient()">🎤</button>
     </div>
+    <label style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#666;cursor:pointer">
+      <input type="checkbox" id="include-closed" onchange="searchClients()"> 폐업 거래처 포함
+    </label>
     <div class="suggestions" id="client-suggestions" style="display:none"></div>
     <div id="client-selected"></div>
   </div>
@@ -745,7 +748,10 @@ function searchClients() {
     return;
   }
   
+  const includeClosed = !!(document.getElementById('include-closed') || {}).checked;
   const results = CLIENTS.filter(c => {
+    // 폐업 제외 (체크박스 OFF 디폴트)
+    if (!includeClosed && c.폐업일자 && String(c.폐업일자).trim()) return false;
     const n = (c.거래처명 || c.상호 || '').toLowerCase();
     const a = (c.사업장주소 || c.주소 || '').toLowerCase();
     const r = (c.대표자명 || c.대표자 || '').toLowerCase();
@@ -770,6 +776,7 @@ function renderClientItem(c, isRecent, recentDate) {
   let tags = '';
   if (companies.includes('SMT')) tags += '<span class="smt-tag">SMT</span> ';
   if (companies.includes('GW')) tags += '<span class="gw-tag">건웅</span> ';
+  if (c.폐업일자 && String(c.폐업일자).trim()) tags += `<span style="background:#D7493A;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px">⛔ 폐업 ${c.폐업일자}</span> `;
   if (isRecent) tags += `<span class="recent">최근 ${recentDate}</span>`;
   return `<div class="sg-item" onclick='selectClient(${JSON.stringify(code)})'>
     <div>
