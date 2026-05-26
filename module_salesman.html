@@ -243,12 +243,12 @@ function _extractRegion(addr) {
 }
 
 function renderClients(){
-  // 2026-05-26 수정v2: 매출 필드 = '합계금액'(위하고 표준). 매출 0이어도 폐업만 아니면 표시.
+  // 2026-05-26 수정v3 (부장님 지시): 무조건 매출 큰 순. 본인 담당/지역은 ★/📍 배지만.
   const regions = SALESPERSON_REGIONS[SELECTED_SALESPERSON] || ['전국'];
   const isAll = regions.includes('전국');
   const my = SALESPERSONS[SELECTED_SALESPERSON] || {};
 
-  // 거래처 매출 집계 (1회 캐시) — 위하고 필드명 시도
+  // 거래처 매출 집계 (1회 캐시)
   if (!window._allClientSales) {
     const agg = {};
     SALES.forEach(s => {
@@ -259,31 +259,34 @@ function renderClients(){
     window._allClientSales = agg;
   }
   const agg = window._allClientSales;
+  window._myMap = my;
+  window._myRegions = regions;
+  window._isAllRegion = isAll;
 
-  // 폐업만 제외 (매출 0이어도 표시 — 매칭 실패 거래처 보호)
+  // 폐업만 제외
   let pool = CLIENTS.filter(c => !(c.폐업일자 && c.폐업일자.trim()));
 
-  pool.sort((a, b) => {
-    const an = a.거래처명, bn = b.거래처명;
-    // 1순위: 영업맨 직접 거래 이력 (카톡 매핑)
-    const aMine = my[an] ? 1 : 0;
-    const bMine = my[bn] ? 1 : 0;
-    if (aMine !== bMine) return bMine - aMine;
-    // 2순위: 영업맨 지역 매치
-    if (!isAll) {
-      const aReg = regions.includes(_extractRegion(a.주소 || '')) ? 1 : 0;
-      const bReg = regions.includes(_extractRegion(b.주소 || '')) ? 1 : 0;
-      if (aReg !== bReg) return bReg - aReg;
-    }
-    // 3순위: 매출 큰 순
-    return (agg[bn] || 0) - (agg[an] || 0);
-  });
+  // 무조건 매출 큰 순 (1순위 = 매출). 누구를 선택하든 매출 TOP은 항상 보임.
+  pool.sort((a, b) => (agg[b.거래처명] || 0) - (agg[a.거래처명] || 0));
 
-  const top = pool.slice(0, 12);
+  // 페이지네이션 — 초기 12개, '더보기'로 12개씩 추가
+  window._clientPool = pool;
+  window._clientShown = 12;
   const wrap = document.getElementById('client-cards'); wrap.innerHTML = '';
-  if (top.length === 0) {
+  if (pool.length === 0) {
     wrap.innerHTML = '<div class="empty">활성 거래처 없음.</div>';
+    return;
   }
+  _renderClientCards();
+}
+function _renderClientCards(){
+  const pool = window._clientPool || [];
+  const shown = window._clientShown || 12;
+  const my = window._myMap || {};
+  const regions = window._myRegions || ['전국'];
+  const isAll = window._isAllRegion;
+  const wrap = document.getElementById('client-cards'); wrap.innerHTML = '';
+  const top = pool.slice(0, shown);
   top.forEach(c => {
     const name = c.거래처명;
     const freq = my[name];
@@ -300,6 +303,18 @@ function renderClients(){
     card.onclick = () => selectClient(name, card);
     wrap.appendChild(card);
   });
+  // 더보기 버튼
+  if (pool.length > shown) {
+    const more = document.createElement('div');
+    more.className = 'card';
+    more.style.background = '#FFF4E5';
+    more.style.borderColor = '#FFD699';
+    more.style.color = '#B26A00';
+    more.style.gridColumn = '1 / -1';
+    more.innerHTML = `<div>+ 더보기</div><div class="sub">${pool.length - shown}개 더 · 클릭하면 12개 추가</div>`;
+    more.onclick = () => { window._clientShown = (window._clientShown || 12) + 12; _renderClientCards(); };
+    wrap.appendChild(more);
+  }
 }
 function selectClient(name,el){
   SELECTED_CLIENT=name;
@@ -320,19 +335,19 @@ function resetFromClient(){
   const btn=document.getElementById('btnResetClient');if(btn)btn.style.display='none';
 }
 document.getElementById('client-search').addEventListener('input',e=>{
-  const q=e.target.value.trim().toLowerCase();if(!q){renderClients();return;}
-  const m=CLIENTS.filter(c=>{
-    if(c.폐업일자 && c.폐업일자.trim())return false;  // 폐업 제외
+  const q=e.target.value.trim().toLowerCase();
+  if(!q){renderClients();return;}
+  // 검색: 폐업 제외 + 매출 큰 순 (페이지네이션 동일 적용)
+  const agg = window._allClientSales || {};
+  const m = CLIENTS.filter(c=>{
+    if(c.폐업일자 && c.폐업일자.trim())return false;
     return ((c.거래처명||'').toLowerCase().includes(q)||(c.주소||'').toLowerCase().includes(q)||(c.대표자||'').toLowerCase().includes(q));
-  }).slice(0,16);
-  const wrap=document.getElementById('client-cards');wrap.innerHTML='';
-  if(m.length===0){wrap.innerHTML='<div class="empty">검색 결과 없음</div>';return;}
-  m.forEach(c=>{
-    const card=document.createElement('div');card.className='card';
-    card.innerHTML=`<div style="font-size:13px">${tr(c.거래처명,14)}</div><div class="sub">${c.대표자||c.업종||''}</div>`;
-    card.title=c.거래처명;card.onclick=()=>selectClient(c.거래처명,card);
-    wrap.appendChild(card);
-  });
+  }).sort((a,b)=>(agg[b.거래처명]||0)-(agg[a.거래처명]||0));
+  window._clientPool = m;
+  window._clientShown = 12;
+  const wrap = document.getElementById('client-cards');
+  if (m.length === 0){ wrap.innerHTML = '<div class="empty">검색 결과 없음</div>'; return; }
+  _renderClientCards();
 });
 // 2026-05-22 #48: 비주문 품목 제외 (운반비·은행·시운전·수수료 등)
 function isNonProduct(name) {
