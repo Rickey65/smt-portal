@@ -204,19 +204,32 @@ function renderSalespersons(){
     card.onclick=()=>selectSalesperson(name,card);
     wrap.appendChild(card);
   });
-  // 기타 카드 — 입력 + 전국 자동 매핑
-  const otherCard=document.createElement('div');otherCard.className='card';
-  otherCard.style.background='#FFF4E5';otherCard.style.borderColor='#FFD699';otherCard.style.color='#B26A00';
-  otherCard.innerHTML=`<div>+ 기타</div><div class="sub">직접 입력 (전국)</div>`;
-  otherCard.onclick=()=>{
-    const n=prompt('영업맨 이름을 입력하세요 (담당 = 전국):');
-    if(n && n.trim()) {
-      const tname = n.trim();
-      SALESPERSON_REGIONS[tname] = ['전국'];  // 입력자 = 전국 자동
-      selectSalesperson(tname, otherCard);
-    }
-  };
+  // 기타 카드 — 인라인 input + 확인 (담당 영업맨 6명에 없는 사람용)
+  const otherCard = document.createElement('div'); otherCard.className = 'card';
+  otherCard.style.background = '#FFF4E5'; otherCard.style.borderColor = '#FFD699'; otherCard.style.color = '#B26A00';
+  otherCard.style.gridColumn = '1 / -1'; otherCard.style.cursor = 'default';
+  otherCard.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">+ 기타 영업맨 (위 6명 외)</div>
+    <div style="display:flex;gap:6px;align-items:stretch;width:100%">
+      <input id="other-name" type="text" placeholder="이름 입력 (예: 홍길동)"
+        style="flex:1;padding:10px;border:1px solid #FFD699;border-radius:6px;font-size:14px;background:#fff;color:#1a1a1a" />
+      <button id="other-go" type="button"
+        style="padding:10px 16px;background:var(--c-accent);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">확인</button>
+    </div>
+    <div style="font-size:11px;margin-top:6px;opacity:0.85">담당 지역 = 전국 (자동)</div>`;
   wrap.appendChild(otherCard);
+  // 이벤트 바인딩 (DOM 추가 후)
+  const inp = document.getElementById('other-name');
+  const btn = document.getElementById('other-go');
+  const submit = () => {
+    const n = (inp.value || '').trim();
+    if (!n) { inp.focus(); return; }
+    SALESPERSON_REGIONS[n] = ['전국'];
+    selectSalesperson(n, otherCard);
+  };
+  btn.onclick = submit;
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  inp.onclick = e => e.stopPropagation();  // 카드 클릭 이벤트 차단
 }
 function selectSalesperson(name,el){
   SELECTED_SALESPERSON=name;
@@ -266,8 +279,16 @@ function renderClients(){
   // 폐업만 제외
   let pool = CLIENTS.filter(c => !(c.폐업일자 && c.폐업일자.trim()));
 
-  // 무조건 매출 큰 순 (1순위 = 매출). 누구를 선택하든 매출 TOP은 항상 보임.
-  pool.sort((a, b) => (agg[b.거래처명] || 0) - (agg[a.거래처명] || 0));
+  // 2026-05-26 수정v4 (부장님 지시): 지역 매치 거래처를 앞에 (매출 큰 순) → 그 뒤로 나머지 (매출 큰 순).
+  // 전국 영업맨은 그냥 매출 큰 순.
+  pool.sort((a, b) => {
+    if (!isAll) {
+      const aReg = regions.includes(_extractRegion(a.주소 || '')) ? 1 : 0;
+      const bReg = regions.includes(_extractRegion(b.주소 || '')) ? 1 : 0;
+      if (aReg !== bReg) return bReg - aReg;  // 지역 매치 우선
+    }
+    return (agg[b.거래처명] || 0) - (agg[a.거래처명] || 0);  // 같은 그룹 내에서 매출 큰 순
+  });
 
   // 페이지네이션 — 초기 12개, '더보기'로 12개씩 추가
   window._clientPool = pool;
