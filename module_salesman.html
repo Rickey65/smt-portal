@@ -390,6 +390,14 @@ function selectClient(name,el){
   document.getElementById('selected-client-display').textContent='✓ '+name;
   document.getElementById('header-sub').textContent=`${SELECTED_SALESPERSON} · ${tr(name,20)}`;
   document.getElementById('step-item').classList.remove('hidden');
+  // 품목 관련 박스 초기화 — 이전 선택 흔적 제거 (history-box·input-box·수량·단가·직접입력)
+  SELECTED_ITEM = null;
+  document.getElementById('item-history-box').style.display = 'none';
+  document.getElementById('item-input-box').style.display = 'none';
+  const q = document.getElementById('qty'); if (q) q.value = 1;
+  const p = document.getElementById('price'); if (p) p.value = '';
+  const mn = document.getElementById('manual-name'); if (mn) mn.value = '';
+  const mc = document.getElementById('manual-code'); if (mc) mc.value = '';
   renderItemsForClient();
   // 카탈로그 드릴다운 초기 렌더 (대분류 칩만 표시)
   CAT_STATE = {big:null,sub:null};
