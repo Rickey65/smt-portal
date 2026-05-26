@@ -35,9 +35,10 @@
       const co = Company.get();
       const lbl = co === 'ALL' ? 'SMT+건웅' : co === 'SMT' ? 'SMT서울기연' : '건웅';
       document.querySelectorAll('h1').forEach(h => {
+        // data-no-toggle 속성이 있으면 prefix 적용 안 함 (예: 거래명세표 출력물)
+        if (h.hasAttribute('data-no-toggle')) return;
         let base = h.getAttribute('data-base-title');
         if (!base) {
-          // 원본 텍스트 저장 (기존 [회사명] prefix 제거)
           let txt = h.textContent.trim().replace(/^\[[^\]]+\]\s*/, '');
           base = txt;
           h.setAttribute('data-base-title', base);
