@@ -261,17 +261,21 @@ function renderClients(){
   const isAll = regions.includes('전국');
   const my = SALESPERSONS[SELECTED_SALESPERSON] || {};
 
-  // 거래처 매출 집계 (1회 캐시)
-  if (!window._allClientSales) {
-    const agg = {};
+  // 거래처 매출 집계 + 거래건수 (1회 캐시)
+  if (!window._allClientStats) {
+    const sum = {}, cnt = {};
     SALES.forEach(s => {
       const name = s.거래처명; if (!name) return;
       const amt = (+s.합계금액) || (+s.공급가액) || (+s.금액) || 0;
-      agg[name] = (agg[name] || 0) + amt;
+      sum[name] = (sum[name] || 0) + amt;
+      cnt[name] = (cnt[name] || 0) + 1;
     });
-    window._allClientSales = agg;
+    window._allClientStats = { sum, cnt };
+    window._allClientSales = sum;  // 검색 정렬 호환
   }
-  const agg = window._allClientSales;
+  const stats = window._allClientStats;
+  const agg = stats.sum;
+  const cnt = stats.cnt;
   window._myMap = my;
   window._myRegions = regions;
   window._isAllRegion = isAll;
@@ -279,15 +283,22 @@ function renderClients(){
   // 폐업만 제외
   let pool = CLIENTS.filter(c => !(c.폐업일자 && c.폐업일자.trim()));
 
-  // 2026-05-26 수정v4 (부장님 지시): 지역 매치 거래처를 앞에 (매출 큰 순) → 그 뒤로 나머지 (매출 큰 순).
-  // 전국 영업맨은 그냥 매출 큰 순.
+  // 2026-05-26 수정v5 (부장님 지시):
+  //   1) 담당 지역 거래처: 거래건수 많은 순 (자주 거래하는 곳 우선)
+  //   2) 담당 지역 외: 매출액 큰 순
+  //   전국 영업맨은 그냥 매출액 큰 순.
   pool.sort((a, b) => {
     if (!isAll) {
       const aReg = regions.includes(_extractRegion(a.주소 || '')) ? 1 : 0;
       const bReg = regions.includes(_extractRegion(b.주소 || '')) ? 1 : 0;
       if (aReg !== bReg) return bReg - aReg;  // 지역 매치 우선
+      if (aReg === 1) {
+        // 둘 다 담당 지역 → 거래건수 많은 순
+        return (cnt[b.거래처명] || 0) - (cnt[a.거래처명] || 0);
+      }
     }
-    return (agg[b.거래처명] || 0) - (agg[a.거래처명] || 0);  // 같은 그룹 내에서 매출 큰 순
+    // 지역 외 또는 전국 → 매출액 큰 순
+    return (agg[b.거래처명] || 0) - (agg[a.거래처명] || 0);
   });
 
   // 페이지네이션 — 초기 12개, '더보기'로 12개씩 추가
@@ -308,17 +319,23 @@ function _renderClientCards(){
   const isAll = window._isAllRegion;
   const wrap = document.getElementById('client-cards'); wrap.innerHTML = '';
   const top = pool.slice(0, shown);
+  // 라벨 — 담당 지역은 거래건수, 그 외는 매출액
+  const stats = window._allClientStats || {sum:{}, cnt:{}};
   top.forEach(c => {
     const name = c.거래처명;
-    const freq = my[name];
     const region = _extractRegion(c.주소 || '');
     const inMyRegion = !isAll && regions.includes(region);
-    const card = document.createElement('div'); card.className = 'card';
-    // 라벨: 영업맨 거래이력 있으면 그 빈도, 없으면 지역
+    const txCnt = stats.cnt[name] || 0;
+    const txSum = stats.sum[name] || 0;
     let subtxt;
-    if (freq) subtxt = `${freq}건${region ? ' · '+region : ''}`;
-    else if (region) subtxt = inMyRegion ? `📍${region}` : region;
-    else subtxt = '';
+    if (inMyRegion) {
+      subtxt = txCnt > 0 ? `${txCnt}건${region ? ' · '+region : ''}` : (region || '');
+    } else {
+      const man = Math.round(txSum / 10000);
+      const moneyTxt = man >= 10000 ? `${(man/10000).toFixed(1)}억` : (man > 0 ? `${man.toLocaleString()}만` : '');
+      subtxt = moneyTxt ? `${moneyTxt}${region ? ' · '+region : ''}` : (region || '');
+    }
+    const card = document.createElement('div'); card.className = 'card';
     card.innerHTML = `<div style="font-size:13px">${tr(name, 14)}</div><div class="sub">${subtxt}</div>`;
     card.title = name + (region ? ' ('+region+')' : '');
     card.onclick = () => selectClient(name, card);
