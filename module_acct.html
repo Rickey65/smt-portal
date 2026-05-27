@@ -3,81 +3,418 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
-<title>회계 처리 · SMT서울기연</title>
+<title>회계 처리 — SMT/건웅</title>
 <style>
-  :root { --font-sans:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-    --bg:#F7F6F3;--surface:#fff;--border:#E5E3DD;--border-strong:#D4D2CB;
-    --text:#1A1A1A;--text-sec:#6B6963;--text-muted:#9C9A93;
-    --accent:#1D9E75;--accent-soft:#E8F5EF;--accent-dark:#146B4F;
-    --warn:#E89B3C;--danger:#D7493A;--info:#4A78C9; }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
-  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
-  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
-  .breadcrumb{font-size:13px;color:var(--text-sec)}
-  .breadcrumb a{color:var(--accent);text-decoration:none;font-weight:500}
-  .hero{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 32px;margin-bottom:24px;border-top:4px solid #E89B3C}
-  .hero .ico{font-size:42px;margin-bottom:12px;line-height:1}
-  .hero h1{font-size:24px;margin-bottom:8px}
-  .hero p{color:var(--text-sec);font-size:14px;line-height:1.7}
-  .section-title{font-size:13px;color:var(--text-sec);margin:24px 0 12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
-  .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-  .menu-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;transition:all .2s;cursor:pointer}
-  .menu-item:hover{border-color:var(--border-strong);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.04)}
-  .menu-item .label{font-size:15px;font-weight:600;margin-bottom:4px}
-  .menu-item .descr{color:var(--text-sec);font-size:12px;line-height:1.5}
-  .menu-item .badge{position:absolute;top:14px;right:14px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;background:#FEF5E7;color:#8B5A00}
-  .back-btn{background:transparent;border:1px solid var(--border-strong);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-  .back-btn:hover{background:var(--surface)}
-  .note{background:var(--accent-soft);border-left:4px solid var(--accent);padding:14px 16px;border-radius:6px;color:var(--accent-dark);font-size:13px;margin-top:20px;line-height:1.7}
+  :root { --c-text:#1a1a1a; --c-text-2:#6b6b6b; --c-border:#e0e0e0; --c-bg:#fafafa; --c-card:#fff; --c-accent:#1D9E75; --c-warn:#FFB300; --c-danger:#D7493A; --c-smt:#3B7EE5; --c-gw:#8845D5; }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,'Malgun Gothic',sans-serif;margin:0;background:var(--c-bg);color:var(--c-text);font-size:14px}
+  .container{max-width:1300px;margin:0 auto;padding:14px}
+  .crumb{font-size:12px;color:#888;margin-bottom:8px}
+  h1{font-size:20px;margin:0 0 12px}
+  .tabs{display:flex;gap:0;border-bottom:2px solid var(--c-border);margin-bottom:14px}
+  .tab{padding:10px 20px;background:transparent;border:0;cursor:pointer;font-size:14px;font-weight:600;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px}
+  .tab.active{color:var(--c-accent);border-bottom-color:var(--c-accent)}
+  .pane{display:none}
+  .pane.active{display:block}
+  .card{background:var(--c-card);border:1px solid var(--c-border);border-radius:8px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:6px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+  th{background:#f5f7fa;font-weight:600}
+  .btn{padding:7px 14px;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn-primary{background:var(--c-accent);color:#fff}
+  .btn-secondary{background:#fff;color:#666;border:1px solid var(--c-border)}
+  .btn-warn{background:var(--c-warn);color:#fff}
+  .btn-sm{padding:4px 10px;font-size:11px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+  .badge.smt{background:#3B7EE5;color:#fff}
+  .badge.gw{background:#8845D5;color:#fff}
+  .badge.gen{background:#E8F2EC;color:var(--c-accent)}
+  .badge.alert{background:#FFF4E5;color:#B26A00}
+  .row{display:flex;gap:14px}
+  .row > div{flex:1}
+  .row-3 > div{flex:1}
+  .empty{padding:20px;color:#999;text-align:center;font-size:13px}
+  .num{text-align:right;font-family:'Consolas',monospace}
+  .form-row{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .form-row label{min-width:80px;font-size:12px;color:#666}
+  .form-row select,.form-row input{flex:1;padding:6px;border:1px solid var(--c-border);border-radius:4px;font-size:12px}
+  .journal-preview{background:#FFF8E1;border-left:3px solid #FFB300;padding:8px;border-radius:6px;font-size:12px;margin-top:6px}
+  .journal-preview .je-row{padding:3px 0;display:flex;gap:6px}
+  .journal-preview .je-row .acct{width:120px;color:#555}
+  .journal-preview .je-row .desc{flex:1;color:#888}
+  .journal-preview .je-row .amt{width:120px;text-align:right;font-family:'Consolas',monospace;color:var(--c-accent);font-weight:600}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .stat-card{background:var(--c-card);border:1px solid var(--c-border);border-radius:8px;padding:10px;text-align:center}
+  .stat-card .lbl{font-size:11px;color:#888}
+  .stat-card .val{font-size:18px;font-weight:600;color:var(--c-accent);margin-top:2px}
+  details summary{cursor:pointer;font-weight:600;font-size:13px;padding:6px;background:#FAFAFA;border-radius:4px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div class="breadcrumb"><a href="index.html">🏠 홈</a> &nbsp;›&nbsp; 회계 처리</div>
-    <a class="back-btn" href="index.html">← 홈으로</a>
-  </header>
+<script src="shared/components.js"></script>
+<script src="shared/data_loader.js"></script>
+<script src="shared/wehago_exporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <div class="hero">
-    <div class="ico">💰</div>
-    <h1>회계 처리 (총무)</h1>
-    <p>매일 통장에서 발생하는 거래 내역을 자동으로 불러와 거래처와 매칭하고, 회계전표·수금 확인·월 결산까지 한 번에 처리합니다. 수기 기장 시간을 대폭 단축하고 미수채권 누락을 방지합니다.</p>
+<div class="container">
+  <div class="crumb"><a href="index.html">🏠 홈</a> › 회계 처리</div>
+  <h1>💰 회계 처리</h1>
+
+  <div class="tabs">
+    <button class="tab active" data-pane="logistics" onclick="switchTab('logistics')">🚚 물류 회계</button>
+    <button class="tab" data-pane="general" onclick="switchTab('general')">💳 총무 회계</button>
   </div>
 
-  <div class="section-title">일일 회계 업무</div>
-  <div class="menu-grid">
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">통장 거래 불러오기</div><div class="descr">은행 Excel/CSV 업로드 또는 오픈뱅킹 연동으로 당일 입출금 내역 자동 수집</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">거래처 자동 매칭</div><div class="descr">입금자명을 거래처 마스터 6,732개와 자동 대조하여 매칭 후보 제시</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">수금 확인 처리</div><div class="descr">매칭된 거래처의 미수채권과 대조 → 한 번의 클릭으로 수금 완료 처리</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">회계전표 초안</div><div class="descr">매출·매입·경비 거래를 자동 분개하여 위하고 전표 입력 형식으로 생성</div></div>
+  <!-- ========== 🚚 물류 회계 ========== -->
+  <div class="pane active" id="pane-logistics">
+
+    <!-- 회계맨 선택 + 통계 -->
+    <div class="card">
+      <h2>👤 회계맨 선택 <span style="margin-left:auto;font-size:11px;color:#888">위하고 사원코드 박힐 사람</span></h2>
+      <div class="form-row">
+        <label>회계맨</label>
+        <select id="acct-staff">
+          <option value="">— 본인 선택 —</option>
+          <optgroup label="── SMT ──">
+            <option value="염철분" data-code="94" data-co="SMT">염철분 (SMT 94) — 회계 메인</option>
+            <option value="김소희" data-code="121" data-co="SMT">김소희 (SMT 121) — CS·회계</option>
+            <option value="임성우" data-code="122" data-co="SMT">임성우 (SMT 122) — 부장</option>
+            <option value="이경민" data-code="0" data-co="SMT">이경민 (SMT) — CS</option>
+          </optgroup>
+          <optgroup label="── 건웅 ──">
+            <option value="전재홍" data-code="09" data-co="GW">전재홍 (GW 09) — 회계 메인</option>
+            <option value="임민수" data-code="10" data-co="GW">임민수 (GW 10) — 회계 보조</option>
+          </optgroup>
+        </select>
+        <button class="btn btn-sm btn-secondary" onclick="saveStaff()">💾 기억</button>
+      </div>
+      <div class="form-row">
+        <label>처리일자</label>
+        <input type="date" id="acct-date">
+        <button class="btn btn-sm btn-secondary" onclick="loadByDate()">📅 불러오기</button>
+      </div>
+    </div>
+
+    <!-- 통계 -->
+    <div class="stat-grid">
+      <div class="stat-card"><div class="lbl">오늘 미처리 주문</div><div class="val" id="stat-pending">-</div></div>
+      <div class="stat-card"><div class="lbl">금일 매출 컨펌</div><div class="val" id="stat-confirmed">-</div></div>
+      <div class="stat-card"><div class="lbl">미수 (전체)</div><div class="val" id="stat-receivable">-</div></div>
+      <div class="stat-card"><div class="lbl">금일 수금</div><div class="val" id="stat-paid">-</div></div>
+    </div>
+
+    <!-- A: 매출 분개 (오늘 미처리 주문) -->
+    <div class="card">
+      <h2>A. 매출 분개 — 오늘 미처리 주문 자동 컨펌</h2>
+      <div id="acct-pending-list"></div>
+      <div class="form-row" style="justify-content:flex-end;margin-top:12px">
+        <span style="font-size:11px;color:#888;flex:1">컨펌 후 위하고 일반전표 엑셀 자동 생성</span>
+        <button class="btn btn-warn" onclick="confirmAllPending()">⚡ 전체 일괄 컨펌</button>
+        <button class="btn btn-primary" onclick="downloadIlbanXlsx()">📥 일반전표 엑셀 다운로드</button>
+      </div>
+    </div>
+
+    <!-- B: 수금 매칭 (입금 → 외상매출금 회수) -->
+    <div class="card">
+      <h2>B. 수금 매칭 — 입금 → 외상매출금 회수</h2>
+      <div class="form-row">
+        <label>통장 엑셀</label>
+        <input type="file" id="bank-file" accept=".xlsx,.xls,.csv">
+        <button class="btn btn-sm btn-secondary" onclick="alert('통장 엑셀 업로드 → 자동 거래처 매칭 → 1-tap 수금 컨펌\n\n총무 회계에서 자료 받는 대로 활성화 예정')">ℹ 작동 방식</button>
+      </div>
+      <div id="acct-receipts-list" class="empty">통장 파일 업로드 후 자동 매칭</div>
+      <div class="form-row" style="justify-content:flex-end;margin-top:12px">
+        <button class="btn btn-primary" disabled>📥 수금 일반전표 엑셀 다운로드</button>
+      </div>
+    </div>
+
+    <!-- C: 위하고 4종 엑셀 일괄 -->
+    <div class="card">
+      <h2>C. 위하고 엑셀 4종 일괄 다운로드</h2>
+      <div class="row" style="margin-top:8px">
+        <button class="btn btn-secondary" onclick="downloadWehago('makeChulgo','출고전표')">📤 출고전표</button>
+        <button class="btn btn-secondary" onclick="downloadWehago('makeIpgo','입고전표')">📥 입고전표 (양사거래)</button>
+        <button class="btn btn-secondary" onclick="downloadWehago('makeIlban','일반전표')">📒 일반전표</button>
+        <button class="btn btn-secondary" onclick="downloadWehago('makeSegyumetan','세금계산서')">🧾 세금계산서 (월말)</button>
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:8px">컨펌된 매출 분개 + 양사 내부거래만 포함. 위하고 [회계관리 → 전표관리 → 일반전표입력 → Ctrl+U]에서 업로드.</div>
+    </div>
+
+    <!-- D: 세금계산서 (월말 일괄) -->
+    <div class="card">
+      <h2>D. 세금계산서 (월말 일괄 발급)</h2>
+      <div class="form-row">
+        <label>월 선택</label>
+        <select id="tax-month"></select>
+        <button class="btn btn-secondary" onclick="alert('월말 일괄 발급 — 다음 차수 진행')">📋 미발급 거래처 목록</button>
+        <button class="btn btn-primary" onclick="alert('월말 일괄 발급 — 다음 차수 진행')">🧾 세금계산서 일괄 발급</button>
+      </div>
+    </div>
   </div>
 
-  <div class="section-title">장부 · 결산</div>
-  <div class="menu-grid">
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">매입매출장</div><div class="descr">기간별 매입·매출 전표 조회 및 엑셀 내보내기</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">자금일보</div><div class="descr">일별 현금·통장 잔고 흐름 (예상 유입/유출 포함)</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">월별 결산 리포트</div><div class="descr">매출·매입·이익·미수·재고 평가를 한 페이지로 요약</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">분기·연간 손익</div><div class="descr">손익계산서·재무상태표 초안 (세무사 제출용)</div></div>
-  </div>
+  <!-- ========== 💳 총무 회계 ========== -->
+  <div class="pane" id="pane-general">
+    <div class="card">
+      <h2>💳 총무 회계 — 통장 + 카드</h2>
+      <div style="background:#FFF8E1;border-left:4px solid #FFB300;padding:14px;border-radius:6px;margin-top:8px">
+        <div style="font-weight:600;color:#B26A00;margin-bottom:6px">📌 담당: 장은영(SMT 123 신규) · 최은희(SMT 퇴사예정)</div>
+        <div style="font-size:12px;line-height:1.7">
+          이 영역은 <b>통장 입출금 + 카드 사용</b>에 대한 비용 분개를 자동화합니다.<br>
+          현재 부장님이 통장 거래내역·카드 청구서 자료를 수집 중입니다. 자료 받는 대로 활성화됩니다.<br><br>
+          <b>예정 기능:</b><br>
+          · 통장 거래내역 엑셀 업로드 → 자동 비용계정 분류 (복리후생비·차량유지비·여비교통비·통신비·임대료 등)<br>
+          · 카드 명세서 업로드 → 자동 분개<br>
+          · 거래처 자동 매칭 (미지급비용 자동 처리)<br>
+          · 위하고 일반전표 (비용) 엑셀 자동 다운로드
+        </div>
+      </div>
+    </div>
 
-  <div class="section-title">세무 · 신고</div>
-  <div class="menu-grid">
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">부가세 신고 자료</div><div class="descr">분기별 부가세 신고를 위한 매입·매출 집계</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">원천세 자료</div><div class="descr">인건비·사업소득 원천징수 집계</div></div>
-    <div class="menu-item"><span class="badge">준비중</span><div class="label">법인세 자료</div><div class="descr">연간 결산 기준 법인세 신고 자료</div></div>
-  </div>
-
-  <div class="note">
-    <strong>📌 총무 부서에게 드릴 가치.</strong> 현재 매일 통장 거래 내역을 인쇄하거나 별도 파일로 저장한 뒤 수기로 회계전표를 작성하시는 흐름을 자동화합니다. 일 평균 1~2시간 절약 + 미수채권 누락 0건 + 월말 결산 2~3일 단축이 목표입니다.
+    <details style="margin-top:14px">
+      <summary>📊 비용 계정 분포 (양사 5년 분개장 학습 결과)</summary>
+      <div style="padding:14px;background:#fff;border:1px solid var(--c-border);border-radius:6px;margin-top:8px;font-size:12px">
+        <table>
+          <thead><tr><th>비용계정</th><th>건수</th><th>주요 거래처 패턴</th></tr></thead>
+          <tbody>
+            <tr><td>복리후생비</td><td>1,726건</td><td>식대·간식·경조사</td></tr>
+            <tr><td>미지급비용</td><td>1,355건</td><td>각종 외부 청구</td></tr>
+            <tr><td>차량유지비</td><td>1,124건</td><td>주유·정비·세차</td></tr>
+            <tr><td>지급수수료(판)</td><td>778건</td><td>은행·세무·법무</td></tr>
+            <tr><td>여비교통비</td><td>605건</td><td>출장·택시·고속도로</td></tr>
+            <tr><td>소모품비</td><td>466건</td><td>사무용품·소모재</td></tr>
+            <tr><td>통신비</td><td>425건</td><td>KT·SKT·인터넷</td></tr>
+            <tr><td>보험료</td><td>271건</td><td>화재·의료·자동차</td></tr>
+            <tr><td>광고선전비</td><td>257건</td><td>네이버·구글·전단</td></tr>
+            <tr><td>접대비</td><td>256건</td><td>거래처 접대·식사</td></tr>
+            <tr><td>운반비</td><td>241건</td><td>택배·화물</td></tr>
+            <tr><td>원천세·예수금</td><td>204건</td><td>급여·인건비</td></tr>
+            <tr><td>이자비용</td><td>143건</td><td>금융기관 이자</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
   </div>
 </div>
+
 <script>
-if (sessionStorage.getItem('smtAuth') !== '1') {
-  alert('먼저 포털에 로그인하세요.');
-  location.href = 'index.html';
+let PENDING_ORDERS = [];
+let RECEIVABLE = [];
+let CLIENTS = [];
+let ITEM_OWNER = {};
+let CONFIRMED_JOURNAL = [];  // 컨펌된 매출 분개 (위하고 엑셀용)
+
+async function init(){
+  CompanyToggle.render && CompanyToggle.render(null, ()=>location.reload());
+  // 권한 체크
+  if (sessionStorage.getItem('smtAuth') !== '1') {
+    alert('먼저 포털에 로그인하세요.'); location.href='index.html'; return;
+  }
+  // 데이터 로드
+  try { CLIENTS = await Data.clients(); } catch(e){ CLIENTS = []; }
+  try { ITEM_OWNER = await Data.itemOwner(); } catch(e){ ITEM_OWNER = {}; }
+  try { RECEIVABLE = await Data.receivable(); } catch(e){ RECEIVABLE = []; }
+  try { PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch(e){ PENDING_ORDERS = []; }
+
+  // 회계맨 기억 복원
+  const lastStaff = localStorage.getItem('last_acct_staff');
+  if (lastStaff) document.getElementById('acct-staff').value = lastStaff;
+
+  // 처리일자 = 오늘
+  document.getElementById('acct-date').value = new Date().toISOString().slice(0,10);
+
+  // 월 dropdown
+  const monthSel = document.getElementById('tax-month');
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const v = d.toISOString().slice(0,7);
+    monthSel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`);
+  }
+
+  renderStats();
+  renderPendingList();
 }
+
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.pane === tab));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.id === 'pane-'+tab));
+}
+
+function saveStaff(){
+  const v = document.getElementById('acct-staff').value;
+  if (v) { localStorage.setItem('last_acct_staff', v); alert('회계맨 저장: '+v); }
+}
+
+function renderStats(){
+  document.getElementById('stat-pending').textContent = PENDING_ORDERS.length + '건';
+  document.getElementById('stat-confirmed').textContent = CONFIRMED_JOURNAL.length + '건';
+  const totalRecv = RECEIVABLE.reduce((s,c) => s + (c.채권_잔액 || c.미수금 || 0), 0);
+  document.getElementById('stat-receivable').textContent = Math.round(totalRecv/1e6) + '백만';
+  document.getElementById('stat-paid').textContent = '-';
+}
+
+// ========== 매출 분개 자동 생성 (적요 5종 패턴) ==========
+function generateJournalEntry(order){
+  // 주문 → 매출 분개 자동
+  const items = order.품목 || [];
+  const totalSupply = items.reduce((s,i) => s + (i.수량||1) * (i.단가||0), 0);
+  const totalVat = Math.round(totalSupply * 0.1);
+  const totalAmt = totalSupply + totalVat;
+
+  // 적요 자동 — 부장님 5종 패턴
+  let memo = '';
+  if (items.length === 1) {
+    const it = items[0];
+    const qty = it.수량 || 1;
+    const price = it.단가 || 0;
+    const nm = it.품목명 || it.모델 || '';
+    if (qty === 1) {
+      memo = `${nm} @${price.toLocaleString()}`;
+    } else {
+      memo = `${nm} ${qty}*@${price.toLocaleString()}`;
+    }
+    memo += ` (${order.거래처명 || '?'})`;
+  } else {
+    memo = `${items[0].품목명 || items[0].모델} 외 ${items.length-1}건 (${order.거래처명 || '?'})`;
+  }
+
+  // 매출 계정 결정 — 부장님 정의
+  // EU/EM/EG = 혼다 완제품 → 상품매출
+  // SG/EZ/EK/KG/SP/SH/XE = SMT 자체 제조 → 제품매출
+  // 그 외 = 부품매출
+  const firstCode = (items[0] && (items[0].품목코드 || items[0].모델) || '').toUpperCase();
+  let salesAcct = '부품매출', salesAcctCode = '402';
+  if (/^(EU|EM|EG|EK|EZ|ER|E1)/.test(firstCode)) {
+    salesAcct = '상품매출'; salesAcctCode = '401';
+  } else if (/^(SG|SP|SH|KG|XE|EP|SHW)/.test(firstCode)) {
+    salesAcct = '제품매출'; salesAcctCode = '404';
+  }
+
+  // 양사 내부거래 여부
+  const issuer = order.발행회사 || 'SMT';
+  const isInternal = order._internalTransfer && order._internalTransfer.confirmed;
+
+  return {
+    _orderId: order._id,
+    _증빙번호: order._증빙번호,
+    일자: order.일자,
+    회사: issuer,
+    거래처: order.거래처명,
+    적요: memo,
+    공급가액: totalSupply,
+    부가세: totalVat,
+    총액: totalAmt,
+    매출계정: salesAcct,
+    매출계정코드: salesAcctCode,
+    양사거래: isInternal,
+    분개: [
+      { 차변구분:'차변', 계정:'외상매출금', 계정코드:'108', 금액: totalAmt, 적요: memo },
+      { 차변구분:'대변', 계정: salesAcct,   계정코드: salesAcctCode, 금액: totalSupply, 적요: memo },
+      { 차변구분:'대변', 계정:'부가세예수금', 계정코드:'255', 금액: totalVat, 적요: memo },
+    ]
+  };
+}
+
+function renderPendingList(){
+  const wrap = document.getElementById('acct-pending-list');
+  if (PENDING_ORDERS.length === 0) {
+    wrap.innerHTML = '<div class="empty">오늘 미처리 주문 없음 — 영업맨/업무맨이 주문 등록 후 여기에 표시됩니다.</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th width="100">증빙</th><th>거래처</th><th>품목</th><th width="100">공급가액</th><th width="80">계정</th><th>적요 (자동)</th><th width="100">액션</th></tr></thead><tbody>';
+  PENDING_ORDERS.forEach((o, i) => {
+    const je = generateJournalEntry(o);
+    const sCo = o.발행회사 === 'SMT' ? '<span class="badge smt">SMT</span>' : '<span class="badge gw">건웅</span>';
+    const internal = je.양사거래 ? '<span class="badge alert">양사</span>' : '';
+    const items = (o.품목 || []).map(it => `${it.품목명 || it.모델}×${it.수량||1}`).join(', ').slice(0,40);
+    const confirmed = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+    const actionBtn = confirmed
+      ? '<span class="badge gen">✓ 컨펌</span>'
+      : `<button class="btn btn-sm btn-primary" onclick="confirmOne(${i})">✓ 컨펌</button>`;
+    html += `<tr>
+      <td>${(o._증빙번호 || '?').slice(0,12)}</td>
+      <td>${(o.거래처명 || '?').slice(0,15)} ${sCo} ${internal}</td>
+      <td>${items}</td>
+      <td class="num">${je.공급가액.toLocaleString()}</td>
+      <td><span class="badge">${je.매출계정}</span></td>
+      <td style="font-size:11px;color:#555">${je.적요}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function confirmOne(i){
+  const o = PENDING_ORDERS[i]; if (!o) return;
+  const je = generateJournalEntry(o);
+  if (CONFIRMED_JOURNAL.find(j => j._orderId === o._id)) return;
+  CONFIRMED_JOURNAL.push(je);
+  saveConfirmed();
+  renderPendingList(); renderStats();
+}
+
+function confirmAllPending(){
+  const newOnes = PENDING_ORDERS.filter(o => !CONFIRMED_JOURNAL.find(j => j._orderId === o._id));
+  if (newOnes.length === 0) return alert('컨펌 가능한 새 주문 없음');
+  if (!confirm(`${newOnes.length}건 일괄 컨펌? — 자동 매출 분개 생성`)) return;
+  newOnes.forEach(o => CONFIRMED_JOURNAL.push(generateJournalEntry(o)));
+  saveConfirmed();
+  renderPendingList(); renderStats();
+  alert(`✅ ${newOnes.length}건 컨펌 완료. C 영역에서 위하고 엑셀 다운로드 가능.`);
+}
+
+function saveConfirmed(){
+  localStorage.setItem('confirmed_journal', JSON.stringify(CONFIRMED_JOURNAL));
+}
+
+function loadByDate(){
+  const d = document.getElementById('acct-date').value;
+  // 일자 필터 후 풀 갱신 — 향후 보강
+  alert('일자별 조회 — 다음 차수 보강 예정. 현재는 오늘 미처리 주문 표시.');
+}
+
+function downloadIlbanXlsx(){
+  if (CONFIRMED_JOURNAL.length === 0) return alert('컨펌된 주문이 없습니다. A영역에서 [✓ 컨펌] 먼저.');
+  // 컨펌된 주문들을 WehagoExporter.makeIlban으로
+  if (!window.WehagoExporter || !window.XLSX) return alert('XLSX 라이브러리 로딩 실패');
+  // 회사별 다운로드
+  const sCo = document.querySelector('#acct-staff option:checked')?.dataset?.co || 'SMT';
+  const orders = CONFIRMED_JOURNAL.filter(j => j.회사 === sCo).map(j => ({
+    일자: j.일자, 거래처코드: '', 거래처명: j.거래처, 발행회사: j.회사,
+    품목: [{ 품목명: j.적요, 수량: 1, 단가: j.공급가액 }]
+  }));
+  const wb = WehagoExporter.makeIlban(orders, sCo);
+  if (wb) {
+    XLSX.writeFile(wb, `위하고_일반전표_${sCo}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } else {
+    alert('엑셀 생성 실패');
+  }
+}
+
+function downloadWehago(fnName, label){
+  if (!window.WehagoExporter || !window.XLSX) return alert('XLSX 라이브러리 로딩 실패');
+  const sCo = document.querySelector('#acct-staff option:checked')?.dataset?.co || 'SMT';
+  const orders = CONFIRMED_JOURNAL.map(j => {
+    const o = PENDING_ORDERS.find(p => p._id === j._orderId) || {};
+    return {...o};
+  });
+  if (orders.length === 0) return alert('컨펌된 주문이 없습니다.');
+  const wb = WehagoExporter[fnName](orders, sCo);
+  if (wb && wb.SheetNames.length) {
+    XLSX.writeFile(wb, `위하고_${label}_${sCo}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } else {
+    alert(label + ' 엑셀 생성 결과 없음 (해당 회사 데이터 부족)');
+  }
+}
+
+// 컨펌 풀 복원
+try {
+  CONFIRMED_JOURNAL = JSON.parse(localStorage.getItem('confirmed_journal') || '[]');
+} catch(e) { CONFIRMED_JOURNAL = []; }
+
+init();
 </script>
 </body>
 </html>
