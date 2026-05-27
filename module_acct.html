@@ -55,6 +55,7 @@
 <script src="shared/components.js"></script>
 <script src="shared/data_loader.js"></script>
 <script src="shared/wehago_exporter.js"></script>
+<script src="shared/bank_parser.js"></script>
 <script>
 // XLSX 안전 로더 — 로컬 → CDN 폴백 → 동적 로드
 (function loadXLSX(){
@@ -177,20 +178,51 @@
   <!-- ========== 💳 총무 회계 ========== -->
   <div class="pane" id="pane-general">
     <div class="card">
-      <h2>💳 총무 회계 — 통장 + 카드</h2>
-      <div style="background:#FFF8E1;border-left:4px solid #FFB300;padding:14px;border-radius:6px;margin-top:8px">
-        <div style="font-weight:600;color:#B26A00;margin-bottom:6px">📌 담당: 장은영(SMT 123 신규) · 최은희(SMT 퇴사예정)</div>
-        <div style="font-size:12px;line-height:1.7">
-          이 영역은 <b>통장 입출금 + 카드 사용</b>에 대한 비용 분개를 자동화합니다.<br>
-          현재 부장님이 통장 거래내역·카드 청구서 자료를 수집 중입니다. 자료 받는 대로 활성화됩니다.<br><br>
-          <b>예정 기능:</b><br>
-          · 통장 거래내역 엑셀 업로드 → 자동 비용계정 분류 (복리후생비·차량유지비·여비교통비·통신비·임대료 등)<br>
-          · 카드 명세서 업로드 → 자동 분개<br>
-          · 거래처 자동 매칭 (미지급비용 자동 처리)<br>
-          · 위하고 일반전표 (비용) 엑셀 자동 다운로드
-        </div>
+      <h2>💳 총무 회계 — 통장 자동 분개</h2>
+      <div class="form-row">
+        <label>📥 통장 엑셀</label>
+        <input type="file" id="bank-file" accept=".xlsx,.xls,.csv" onchange="onBankFile(event)">
+        <span style="font-size:11px;color:#888">기업은행 인터넷뱅킹 12컬럼 양식</span>
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:6px">학습 사전: 4년치 통장 23,028건 → 메모 2,137 + 실제이름 900 = 3,037 키워드</div>
+      <div id="bank-stats" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="bank-result-card" style="display:none">
+      <h2>🤖 자동 분개 결과 — 검토 후 컨펌</h2>
+      <div style="display:flex;gap:6px;margin-bottom:8px;font-size:12px">
+        <button class="btn btn-sm btn-secondary" onclick="filterBank('all')">전체</button>
+        <button class="btn btn-sm btn-secondary" onclick="filterBank('high')">🟢 신뢰도 높음만</button>
+        <button class="btn btn-sm btn-secondary" onclick="filterBank('mid')">🟡 중간</button>
+        <button class="btn btn-sm btn-secondary" onclick="filterBank('low')">🔴 낮음</button>
+        <span style="margin-left:auto;font-size:11px;color:#666" id="bank-counter"></span>
+      </div>
+      <div id="bank-result-list" style="max-height:600px;overflow-y:auto"></div>
+      <div class="form-row" style="margin-top:10px">
+        <span style="font-size:11px;color:#888;flex:1">🟢 자동 컨펌 → 위하고 일반전표 엑셀 다운로드</span>
+        <button class="btn btn-warn" onclick="confirmAllHigh()">⚡ 🟢 일괄 컨펌</button>
+        <button class="btn btn-primary" onclick="downloadBankIlban()">📥 일반전표 엑셀 다운로드</button>
       </div>
     </div>
+
+    <details style="margin-top:14px">
+      <summary>📊 비용 계정 분포 (4년치 학습)</summary>
+      <div style="padding:14px;background:#fff;border:1px solid var(--c-border);border-radius:6px;margin-top:8px;font-size:12px">
+        <table>
+          <thead><tr><th>비용계정</th><th>건수</th></tr></thead>
+          <tbody>
+            <tr><td>복리후생비</td><td>1,726건</td></tr>
+            <tr><td>미지급비용</td><td>1,355건</td></tr>
+            <tr><td>차량유지비</td><td>1,124건</td></tr>
+            <tr><td>지급수수료</td><td>778건</td></tr>
+            <tr><td>여비교통비</td><td>605건</td></tr>
+            <tr><td>통신비</td><td>425건</td></tr>
+            <tr><td>광고선전비</td><td>257건</td></tr>
+            <tr><td>접대비</td><td>256건</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
 
     <details style="margin-top:14px">
       <summary>📊 비용 계정 분포 (양사 5년 분개장 학습 결과)</summary>
@@ -466,6 +498,127 @@ function downloadWehago(fnName, label){
 try {
   CONFIRMED_JOURNAL = JSON.parse(localStorage.getItem('confirmed_journal') || '[]');
 } catch(e) { CONFIRMED_JOURNAL = []; }
+
+
+
+// ========== 💳 총무 회계 — 통장 자동 분개 ==========
+let BANK_TX = [];        // 파싱된 통장 거래
+let BANK_ENTRIES = [];   // 자동 분개 결과
+let BANK_FILTER = 'all';
+let BANK_CONFIRMED = new Set();
+
+async function onBankFile(ev){
+  const file = ev.target.files[0]; if (!file) return;
+  if (!window.XLSX) return alert('XLSX 라이브러리 로딩 실패');
+  await BankParser.loadDict();
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), {type:'array'});
+  BANK_TX = BankParser.parseFromWorkbook(wb);
+  // 분개 자동 생성
+  BANK_ENTRIES = BANK_TX.map(tx => BankParser.generateEntry(tx, {receivable: RECEIVABLE}));
+  BANK_CONFIRMED = new Set();
+  renderBankStats();
+  renderBankList();
+  document.getElementById('bank-result-card').style.display = 'block';
+}
+
+function renderBankStats(){
+  const stats = {high:0, mid:0, low:0, in:0, out:0};
+  BANK_ENTRIES.forEach(e => {
+    stats[e.신뢰도]++;
+    if (e._tx.입금 > 0) stats.in++; else stats.out++;
+  });
+  const total = BANK_ENTRIES.length;
+  document.getElementById('bank-stats').innerHTML = `
+    <div style="display:flex;gap:10px;font-size:13px;flex-wrap:wrap">
+      <span>총 <b>${total}건</b></span>
+      <span>입금 <b>${stats.in}</b></span>
+      <span>출금 <b>${stats.out}</b></span>
+      <span style="color:var(--c-accent)">🟢 ${stats.high} (${Math.round(stats.high*100/total)}%)</span>
+      <span style="color:#B26A00">🟡 ${stats.mid}</span>
+      <span style="color:var(--c-danger)">🔴 ${stats.low}</span>
+    </div>`;
+}
+
+function filterBank(level){
+  BANK_FILTER = level;
+  renderBankList();
+}
+
+function renderBankList(){
+  const wrap = document.getElementById('bank-result-list');
+  const filtered = BANK_ENTRIES.filter(e => BANK_FILTER === 'all' || e.신뢰도 === BANK_FILTER);
+  document.getElementById('bank-counter').textContent = `${filtered.length}건 표시 · 컨펌 ${BANK_CONFIRMED.size}건`;
+  if (filtered.length === 0){ wrap.innerHTML = '<div class="empty">표시할 거래 없음</div>'; return; }
+  wrap.innerHTML = filtered.slice(0, 100).map((e,i) => {
+    const idx = BANK_ENTRIES.indexOf(e);
+    const tx = e._tx;
+    const color = e.신뢰도 === 'high' ? 'var(--c-accent)' : e.신뢰도 === 'mid' ? '#B26A00' : 'var(--c-danger)';
+    const icon = e.신뢰도 === 'high' ? '🟢' : e.신뢰도 === 'mid' ? '🟡' : '🔴';
+    const isIn = tx.입금 > 0;
+    const amt = isIn ? tx.입금 : tx.출금;
+    const confirmed = BANK_CONFIRMED.has(idx);
+    return `<div style="border:1px solid ${color};border-left:4px solid ${color};border-radius:6px;padding:10px;margin-bottom:8px;background:${confirmed ? '#E8F2EC':'#fff'}">
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
+        <span>${icon} ${tx.일자} | ${(tx.메모||'').slice(0,30)} ${tx.실제이름 ? '← '+(tx.실제이름||'').slice(0,15) : ''}</span>
+        <span style="color:${isIn?'var(--c-accent)':'var(--c-danger)'}">${isIn?'+':'-'} ${amt.toLocaleString()}원</span>
+      </div>
+      <div style="margin-top:6px;font-size:12px;color:#555">
+        <b>자동 분개:</b><br>
+        &nbsp;차변 ${e.차변.map(c=>c.계정+' '+c.금액.toLocaleString()).join(' / ')}<br>
+        &nbsp;대변 ${e.대변.map(c=>c.계정+' '+c.금액.toLocaleString()).join(' / ')}<br>
+        &nbsp;거래처: <b>${e.거래처}</b> | 적요: ${e.적요}
+        ${e.미수매칭 ? `<div style="color:var(--c-accent);font-weight:600;margin-top:4px">💰 외상매출금 잔액: ${e.미수매칭.잔액.toLocaleString()}원 매칭</div>` : ''}
+      </div>
+      <div style="margin-top:6px;display:flex;gap:6px">
+        ${confirmed
+          ? `<span class="badge gen">✓ 컨펌</span>`
+          : `<button class="btn btn-sm btn-primary" onclick="confirmBank(${idx})">✓ 컨펌</button>
+             <button class="btn btn-sm btn-secondary" onclick="alert('수정 UI — 다음 차수')">수정</button>`}
+        <span style="font-size:11px;color:#888;margin-left:auto">학습 ${e._match건수}건 기반</span>
+      </div>
+    </div>`;
+  }).join('');
+  if (filtered.length > 100) wrap.innerHTML += `<div class="empty">+${filtered.length-100}건 더 (필터로 좁히기)</div>`;
+}
+
+function confirmBank(idx){
+  BANK_CONFIRMED.add(idx);
+  renderBankList();
+  renderBankStats();
+}
+
+function confirmAllHigh(){
+  let n = 0;
+  BANK_ENTRIES.forEach((e,i) => {
+    if (e.신뢰도 === 'high' && !BANK_CONFIRMED.has(i)){
+      BANK_CONFIRMED.add(i); n++;
+    }
+  });
+  alert(`🟢 ${n}건 일괄 컨펌 완료. [📥 일반전표 다운로드] 가능.`);
+  renderBankList();
+}
+
+function downloadBankIlban(){
+  if (BANK_CONFIRMED.size === 0) return alert('컨펌된 거래 없음. [⚡ 🟢 일괄 컨펌] 먼저.');
+  if (!window.XLSX) return alert('XLSX 로딩 실패');
+  // 일반전표 양식으로 변환
+  const rows = [['월','일','구분','Code','계정과목','Code','거래처','적요','차변(출금)','대변(입금)']];
+  BANK_ENTRIES.forEach((e,i) => {
+    if (!BANK_CONFIRMED.has(i)) return;
+    const d = e._tx.일자 || ''; const [, m, day] = d.split('-');
+    // 차변
+    e.차변.forEach(c => rows.push([+m, +day, 3, c.코드 || '', c.계정, '', e.거래처, e.적요, c.금액, '']));
+    // 대변
+    e.대변.forEach(c => rows.push([+m, +day, 4, c.코드 || '', c.계정, '', e.거래처, e.적요, '', c.금액]));
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:5},{wch:5},{wch:6},{wch:8},{wch:15},{wch:9},{wch:25},{wch:35},{wch:14},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '일반전표');
+  XLSX.writeFile(wb, `위하고_일반전표_총무_${new Date().toISOString().slice(0,10)}.xlsx`);
+  alert(`✅ ${BANK_CONFIRMED.size}건 → 일반전표 엑셀 다운로드 완료`);
+}
 
 init();
 </script>
