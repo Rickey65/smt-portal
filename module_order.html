@@ -1374,7 +1374,12 @@ async function downloadWehagoOne(fnName, label){
   if (typeof PENDING_ORDERS === 'undefined' || PENDING_ORDERS.length === 0) {
     return alert('미처리 주문 풀이 비어있습니다.');
   }
-  const sCo = document.querySelector('input[name="issuer"]:checked')?.value || 'SMT';
+  let sCo = document.querySelector('input[name="issuer"]:checked')?.value || 'SMT';
+  // 입고전표는 반대편 회사로 자동 전환 (양사거래에서 입고 받는 쪽)
+  if (fnName === 'makeIpgo') {
+    sCo = (sCo === 'SMT') ? 'GW' : 'SMT';
+    console.log('입고전표 — 반대편 회사로 자동 전환:', sCo);
+  }
   if (!window.WehagoExporter) return alert('wehago_exporter 로드 실패. 페이지 새로고침');
   if (!window.XLSX) {
     // 1초 대기 후 재시도 (CDN 폴백 로딩 중일 수 있음)
