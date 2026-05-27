@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>배송 처리 (발송통지서 팩스) — SMT/건웅</title>
+<style>
+  :root { --c-text:#1a1a1a; --c-border:#e0e0e0; --c-bg:#fafafa; --c-card:#fff; --c-accent:#1D9E75; --c-warn:#FFB300; --c-danger:#D7493A; }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,'Malgun Gothic',sans-serif;margin:0;background:var(--c-bg);color:var(--c-text);font-size:14px}
+  .container{max-width:1200px;margin:0 auto;padding:14px}
+  h1{font-size:20px;margin:0 0 10px}
+  .crumb{font-size:12px;color:#888;margin-bottom:8px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--c-card);border:1px solid var(--c-border);border-radius:8px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}
+  th{background:#f5f7fa;font-weight:600}
+  .btn{padding:8px 14px;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn-primary{background:var(--c-accent);color:#fff}
+  .btn-warn{background:var(--c-warn);color:#fff}
+  .btn-secondary{background:#fff;color:#666;border:1px solid var(--c-border)}
+  .form-row{display:flex;gap:8px;margin-top:8px;align-items:center}
+  .form-row label{min-width:80px;font-size:12px;color:#666}
+  .form-row input,.form-row select{flex:1;padding:8px;border:1px solid var(--c-border);border-radius:4px;font-size:13px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+  .badge.smt{background:#3B7EE5;color:#fff}
+  .badge.gw{background:#8845D5;color:#fff}
+  .badge.gen{background:#E8F2EC;color:var(--c-accent)}
+  .preview{background:#fff;border:2px solid #444;padding:16px;font-family:'Malgun Gothic';font-size:12px;line-height:1.5;min-height:300px}
+  .preview h3{font-size:14px;margin:0 0 8px;text-align:center;border-bottom:2px solid #000;padding-bottom:4px}
+  .preview-row{display:flex;border-bottom:1px solid #ccc;padding:4px 0}
+  .preview-row .lbl{font-weight:600;width:80px;color:#555}
+  .preview-row .val{flex:1}
+  .courier-row{display:flex;gap:8px;margin-top:6px;align-items:center;font-size:12px}
+  .courier-row input{flex:1;padding:6px;font-size:12px;border:1px solid var(--c-border);border-radius:4px}
+  .logs{max-height:200px;overflow-y:auto;font-size:11px}
+  .logs .log{padding:4px 8px;border-bottom:1px dashed #eee}
+  .empty{padding:20px;color:#999;text-align:center;font-size:13px}
+</style>
+</head>
+<body>
+<script src="shared/components.js"></script>
+<script src="shared/data_loader.js"></script>
+<script src="shared/fax_sender.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+<div class="container">
+  <div class="crumb"><a href="index.html">🏠 홈</a> › 배송 처리 (발송통지서 팩스)</div>
+  <h1>📠 배송 처리 — 택배사 팩스 발송</h1>
+
+  <div class="grid">
+    <!-- 좌측: 출고건 리스트 + 양식 -->
+    <div>
+      <div class="card">
+        <h2>📋 오늘 출고건 (대기 풀)</h2>
+        <div id="pending-list"></div>
+      </div>
+
+      <div class="card">
+        <h2>✏️ 발송통지서 양식</h2>
+        <div class="form-row"><label>발화주 (자동)</label><input id="f-sender-name" type="text" readonly></div>
+        <div class="form-row"><label>발신팩스</label><input id="f-sender-fax" type="text" value="031-353-4727" readonly></div>
+        <div class="form-row"><label>택배사</label>
+          <select id="f-courier" onchange="onCourierChange()">
+            <option value="대신화물">대신화물</option>
+            <option value="대신택배">대신택배</option>
+            <option value="경동화물">경동화물</option>
+            <option value="경동택배">경동택배</option>
+          </select>
+          <input id="f-courier-fax" type="text" placeholder="택배사 팩스번호" style="flex:1">
+          <button class="btn btn-secondary" onclick="saveCourierFax()" style="padding:6px 10px;font-size:11px">💾 저장</button>
+        </div>
+        <div class="form-row"><label>수화주</label><input id="f-recv-name" type="text" placeholder="받는 사람·상호"></div>
+        <div class="form-row"><label>수화주 TEL</label><input id="f-recv-phone" type="text" placeholder="연락처"></div>
+        <div class="form-row"><label>수화주 주소</label><input id="f-recv-addr" type="text" placeholder="주소"></div>
+        <div class="form-row"><label>품명·수량</label><input id="f-items" type="text" placeholder="EU30is 1대, ..."></div>
+        <div class="form-row"><label>총운임</label><input id="f-fare" type="text" placeholder="자동 또는 직접"></div>
+        <div class="form-row"><label>운임결제</label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-weight:normal;color:#333"><input type="radio" name="f-pay" value="현화"> 현화(현금화물)</label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-weight:normal;color:#333"><input type="radio" name="f-pay" value="현택" checked> 현택(현금택배)</label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-weight:normal;color:#333"><input type="radio" name="f-pay" value="착화"> 착화(착불화물)</label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-weight:normal;color:#333"><input type="radio" name="f-pay" value="착택"> 착택(착불택배)</label>
+        </div>
+        <div class="form-row"><label>비고</label><input id="f-memo" type="text" placeholder="직송 요청 / 사무실앞 등"></div>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="refreshPreview()" style="flex:1">🔄 미리보기 갱신</button>
+          <button class="btn btn-warn" onclick="sendFax()" style="flex:1">📠 팩스 발송 (PDF 다운로드)</button>
+          <button class="btn btn-secondary" onclick="printPreview()">🖨 인쇄</button>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#888">💡 엔팩스 API 키 받으면 자동 발송으로 전환됩니다 (현재는 PDF 다운로드)</div>
+      </div>
+    </div>
+
+    <!-- 우측: 미리보기 + 발송 이력 -->
+    <div>
+      <div class="card">
+        <h2>👁 발송통지서 미리보기</h2>
+        <div id="preview" class="preview">
+          <h3>발 송 화 물 통 지 서</h3>
+          <div id="preview-body" class="empty">출고건을 선택하거나 양식을 채우면 여기에 미리보기가 나타납니다.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📜 발송 이력 (최근 20건)</h2>
+        <div id="fax-logs" class="logs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let PENDING_ORDERS = [];
+let SELECTED_ORDER = null;
+
+async function init(){
+  CompanyToggle.render && CompanyToggle.render(null, ()=>location.reload());
+  // 출고건 (pending_orders) 로드
+  try {
+    PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]');
+  } catch(e){ PENDING_ORDERS = []; }
+  renderPendingList();
+  // 택배사 팩스 사전 복원
+  const fmap = FaxSender.getCourierFaxMap();
+  document.getElementById('f-courier-fax').value = fmap['대신화물'] || '';
+  // 로그 표시
+  renderLogs();
+}
+
+function renderPendingList(){
+  const wrap = document.getElementById('pending-list');
+  if (PENDING_ORDERS.length === 0) {
+    wrap.innerHTML = '<div class="empty">오늘 출고건 없음 — 영업맨이 던진 주문이 여기에 표시됩니다.</div>';
+    return;
+  }
+  const today = new Date().toISOString().slice(0,10);
+  const todayOrders = PENDING_ORDERS.filter(o => (o.일자 || o._ts || '').startsWith(today));
+  const showOrders = todayOrders.length > 0 ? todayOrders : PENDING_ORDERS.slice(0, 10);
+  let html = '<table><thead><tr><th>증빙</th><th>거래처</th><th>품목</th><th>배송</th><th>액션</th></tr></thead><tbody>';
+  showOrders.forEach((o,i) => {
+    const itemsTxt = (o.품목 || []).map(it => `${it.품목명 || it.모델}×${it.수량}`).join(', ').slice(0,30);
+    const sCo = o.발행회사 === 'SMT' ? '<span class="badge smt">SMT</span>' : '<span class="badge gw">건웅</span>';
+    html += `<tr><td>${(o._증빙번호 || '?').slice(0,12)}</td>
+      <td>${(o.거래처명 || '?').slice(0,15)} ${sCo}</td>
+      <td>${itemsTxt}</td><td>${o.배송유형 || '일반'}</td>
+      <td><button class="btn btn-primary" style="padding:4px 10px;font-size:11px" onclick="loadOrder(${i})">📥 불러오기</button></td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function loadOrder(i){
+  const orders = PENDING_ORDERS.filter(o => (o.일자 || '').startsWith(new Date().toISOString().slice(0,10)));
+  SELECTED_ORDER = orders.length > 0 ? orders[i] : PENDING_ORDERS[i];
+  if (!SELECTED_ORDER) return;
+  const o = SELECTED_ORDER;
+  // 발화주 = 발행회사 (양사 공통 팩스 031-353-4727)
+  document.getElementById('f-sender-name').value = o.발행회사 === 'GW' ? '주식회사건웅' : '에스엠티서울기연주식회사';
+  // 수화주
+  const recv = o.수신지 || {};
+  document.getElementById('f-recv-name').value = recv.이름 || o.거래처명 || '';
+  document.getElementById('f-recv-phone').value = recv.연락처 || '';
+  document.getElementById('f-recv-addr').value = recv.주소 || '';
+  // 품명
+  const items = (o.품목 || []).map(it => `${it.품목명 || it.모델} ${it.수량}대`).join(', ');
+  document.getElementById('f-items').value = items;
+  // 총운임
+  document.getElementById('f-fare').value = o.화물운송비 || '';
+  // 운임결제 라디오
+  const pay = (o.요금 === '선불' || o.화물운송비 === '선불') ? '현택' : '착택';
+  const r = document.querySelector(`input[name="f-pay"][value="${pay}"]`);
+  if (r) r.checked = true;
+  // 비고
+  document.getElementById('f-memo').value = o.비고 || '';
+  refreshPreview();
+}
+
+function refreshPreview(){
+  const body = document.getElementById('preview-body');
+  const fld = id => document.getElementById(id).value;
+  const senderName = fld('f-sender-name') || '(발화주 미선택)';
+  const senderFax = fld('f-sender-fax');
+  const courier = fld('f-courier');
+  const courierFax = fld('f-courier-fax');
+  const recvName = fld('f-recv-name'); const recvPhone = fld('f-recv-phone'); const recvAddr = fld('f-recv-addr');
+  const items = fld('f-items'); const fare = fld('f-fare'); const memo = fld('f-memo');
+  const pay = (document.querySelector('input[name="f-pay"]:checked')||{}).value || '';
+  body.innerHTML = `
+    <div class="preview-row"><span class="lbl">발화주</span><span class="val"><b>${senderName}</b></span></div>
+    <div class="preview-row"><span class="lbl">발신 팩스</span><span class="val">${senderFax}</span></div>
+    <div class="preview-row"><span class="lbl">수탁일</span><span class="val">${new Date().toISOString().slice(0,10)}</span></div>
+    <div class="preview-row"><span class="lbl">택배사</span><span class="val"><b>${courier}</b> ${courierFax ? '('+courierFax+')' : '<span style="color:red">팩스번호 미입력</span>'}</span></div>
+    <div class="preview-row"><span class="lbl">────</span><span class="val">────────────────────</span></div>
+    <div class="preview-row"><span class="lbl">수화주</span><span class="val"><b>${recvName || '?'}</b></span></div>
+    <div class="preview-row"><span class="lbl">TEL</span><span class="val">${recvPhone || ''}</span></div>
+    <div class="preview-row"><span class="lbl">주소</span><span class="val">${recvAddr || ''}</span></div>
+    <div class="preview-row"><span class="lbl">품명·수량</span><span class="val">${items || ''}</span></div>
+    <div class="preview-row"><span class="lbl">총운임</span><span class="val">${fare || ''} <b style="color:#1D9E75;margin-left:6px">[${pay}]</b></span></div>
+    <div class="preview-row"><span class="lbl">비고</span><span class="val">${memo || ''}</span></div>
+    <div style="margin-top:8px;text-align:right;font-size:10px;color:#888">${senderName} | 발신팩스 ${senderFax}</div>
+  `;
+}
+
+function onCourierChange(){
+  const fmap = FaxSender.getCourierFaxMap();
+  const c = document.getElementById('f-courier').value;
+  document.getElementById('f-courier-fax').value = fmap[c] || '';
+  refreshPreview();
+}
+function saveCourierFax(){
+  const c = document.getElementById('f-courier').value;
+  const f = document.getElementById('f-courier-fax').value.trim();
+  if (!f) return alert('팩스번호 입력');
+  FaxSender.setCourierFax(c, f);
+  alert(`${c} 팩스번호 저장: ${f}`);
+}
+
+async function sendFax(){
+  refreshPreview();
+  const senderName = document.getElementById('f-sender-name').value;
+  const recipientFax = document.getElementById('f-courier-fax').value.trim();
+  if (!recipientFax) return alert('택배사 팩스번호를 입력하고 저장해주세요');
+  const recvName = document.getElementById('f-recv-name').value;
+  if (!recvName) return alert('수화주 입력 필요');
+
+  // 미리보기 영역을 PDF로
+  const preview = document.getElementById('preview');
+  const fileName = `발송통지서_${recvName}_${new Date().toISOString().slice(0,10)}.pdf`;
+
+  try {
+    const pdfBlob = await html2pdf().from(preview).set({
+      margin: 10, filename: fileName,
+      image: { type:'jpeg', quality:0.95 },
+      html2canvas: { scale:2 },
+      jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
+    }).outputPdf('blob');
+
+    const result = await FaxSender.send(pdfBlob, recipientFax, {
+      title:'발송화물통지서',
+      sender: senderName,
+      recipient: recvName,
+      fileName: fileName,
+      courier: document.getElementById('f-courier').value
+    });
+
+    if (result.mode === 'manual') {
+      alert(`📥 ${result.message}\n\n📠 모바일팩스 앱으로:\n수신: ${recipientFax} (${document.getElementById('f-courier').value})\n파일: ${fileName}`);
+    } else if (result.success) {
+      alert(`✅ 자동 발송 완료 (전송 ID: ${result.tx_id})`);
+    } else {
+      alert(`❌ 발송 실패: ${result.message}`);
+    }
+    renderLogs();
+  } catch(e) {
+    alert('PDF 생성 오류: ' + e.message);
+  }
+}
+
+function printPreview(){
+  refreshPreview();
+  const w = window.open('','_blank');
+  w.document.write('<html><head><title>발송통지서</title></head><body>'+document.getElementById('preview').outerHTML+'</body></html>');
+  w.document.close(); w.print();
+}
+
+function renderLogs(){
+  const wrap = document.getElementById('fax-logs');
+  const logs = FaxSender.getFaxLogs();
+  if (logs.length === 0) { wrap.innerHTML = '<div class="empty">발송 이력 없음</div>'; return; }
+  wrap.innerHTML = logs.slice(0,20).map(l => {
+    const d = new Date(l._ts).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const mode = l.method === 'manual_download' ? '📥수동' : '📠자동';
+    return `<div class="log">${d} | ${mode} | ${l.courier || ''} → ${l.recipient || '?'} | ${l.status}</div>`;
+  }).join('');
+}
+
+['f-sender-name','f-recv-name','f-recv-phone','f-recv-addr','f-items','f-fare','f-memo','f-courier-fax'].forEach(id => {
+  document.addEventListener('input', e => { if (e.target.id === id) refreshPreview(); });
+});
+document.addEventListener('change', e => { if (e.target.name === 'f-pay') refreshPreview(); });
+
+init();
+</script>
+</body>
+</html>
