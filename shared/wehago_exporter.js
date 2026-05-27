@@ -40,80 +40,132 @@
     return { y: parseInt(y), m: parseInt(m), d: parseInt(day) };
   }
 
-  // ===== 1. 입고전표 엑셀 생성 =====
-  // 양사 간 내부거래(상대방으로부터 입고) 또는 일반 매입
-  // 컬럼: 일자 | 거래처코드 | 거래처명 | 품목코드 | 품목명 | 규격 | 단위 | 수량 | 단가 | 공급가액 | 부가세
-  global.WehagoExporter = global.WehagoExporter || {};
-  
-  global.WehagoExporter.makeIpgo = function(orders, company) {
-    if (!global.XLSX) return null;
-    const rows = [];
-    rows.push(['일자','거래처코드','거래처명','품목코드','품목명','규격','단위','수량','단가','공급가액','부가세','비고']);
-    
-    orders.forEach(o => {
-      // 양사 간 내부거래만 입고전표 생성
-      if (o._internalTransfer && o._internalTransfer.toCompany === company) {
-        o.품목.forEach(item => {
-          if (item._fromCompany && item._fromCompany !== company) {
-            const supply = (item.수량 || 0) * (item._internalPrice || item.단가 || 0);
-            const vat = Math.round(supply * 0.1);
-            rows.push([
-              o.일자,
-              o._fromCompanyCode || '',
-              COMPANIES[item._fromCompany]?.명 || '',
-              item.품목코드,
-              item.품목명,
-              item.규격 || '',
-              item.단위 || '',
-              item.수량,
-              item._internalPrice || item.단가,
-              supply,
-              vat,
-              `양사간이동: ${item._fromCompany}→${company}`
-            ]);
-          }
-        });
-      }
-    });
-    
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '입고전표');
-    return wb;
+
+  // ===== 위하고 표준 2시트 구조 헬퍼 =====
+  // 사이트가 받는 위하고 양식:
+  //  시트1 = "출고처리 거래처정보(상단)" — 그룹번호·일자·거래처코드·부서코드·사원코드·관리항목코드·VAT여부값·과세구분·비고1·2·3
+  //  시트2 = "출고처리 폼목정보(하단)" — 그룹번호·품목코드·규격·납기일자·수량·단가·공급가액·부가세액·창고코드·프로젝트코드·품목비고·입고단가
+  //  그룹번호로 상단·하단 연결 (1주문 = 1그룹, 품목 N건이면 하단 N행)
+
+  // 양사 회사별 디폴트 코드 (필요시 부장님 위하고 코드로 보정)
+  const WEHAGO_DEFAULTS = {
+    SMT: { 부서코드:'0002', 사원코드:'122', 창고코드:'12', 부서명:'영업팀' },  // 부서10·창고화성하길리·사원임성우
+    GW:  { 부서코드:'0001', 사원코드:'07',  창고코드:'1',  부서명:'영업팀' },
   };
 
-  // ===== 2. 출고전표 엑셀 생성 =====
-  // 모든 매출 거래 (영업맨이 입력한 모든 주문)
-  global.WehagoExporter.makeChulgo = function(orders, company) {
+  // 결제조건 → 관리항목코드 매핑 (부장님 확인 필요 — 디폴트)
+  const PAY_TO_GWANRI = { '현금':'1', '월말':'2', '익월말':'3', '카드':'4', '기타':'9' };
+
+  // 일자 yyyymmdd
+  function ymd(d){
+    if (!d) d = new Date().toISOString().slice(0,10);
+    return d.replace(/-/g,'');
+  }
+
+  // ===== 1. 출고전표 — 2시트 구조 =====
+  global.WehagoExporter.makeChulgo = function(orders, company){
     if (!global.XLSX) return null;
-    const rows = [];
-    rows.push(['일자','거래처코드','거래처명','품목코드','품목명','규격','단위','수량','단가','공급가액','부가세','담당사원','비고']);
-    
-    orders.filter(o => o.발행회사 === company).forEach(o => {
-      o.품목.forEach(item => {
-        const supply = (item.수량 || 0) * (item.단가 || 0);
+    const def = WEHAGO_DEFAULTS[company] || WEHAGO_DEFAULTS.SMT;
+    // 상단 헤더
+    const topHeader = ['그룹번호','일자','거래처코드','부서코드','사원코드','관리항목코드','VAT여부값','과세구분','비고1','비고2','비고3'];
+    const botHeader = ['그룹번호','품목코드','규격','납기일자','수량','단가','공급가액','부가세액','창고코드','프로젝트코드','품목비고','입고단가'];
+    const topRows = [topHeader];
+    const botRows = [botHeader];
+    let groupNo = 0;
+    orders.filter(o => (o.발행회사||'SMT') === company).forEach(o => {
+      groupNo++;
+      const gwanri = PAY_TO_GWANRI[o.결제조건] || '2';
+      const op = o.업무맨_사원코드 || def.사원코드;
+      const cliCode = o.거래처코드 || '';
+      // 상단 1행
+      topRows.push([
+        groupNo,                       // 그룹번호
+        ymd(o.일자),                   // 일자 yyyymmdd
+        cliCode,                       // 거래처코드
+        def.부서코드,                  // 부서코드
+        op,                            // 사원코드 (업무맨)
+        gwanri,                        // 관리항목코드 (결제조건 매핑)
+        1,                             // VAT여부값 (1=별도, 디폴트)
+        0,                             // 과세구분 (0=과세)
+        o.배송방법 || '',              // 비고1 (택배사)
+        (o.화물운송비 === '선불' ? '선불' : (o.화물운송비 === '착불' ? '착불' : '')),  // 비고2
+        o.비고 || ''                   // 비고3
+      ]);
+      // 하단 N행 (품목별)
+      (o.품목 || []).forEach(item => {
+        const qty = +item.수량 || 0;
+        const price = +item.단가 || 0;
+        const supply = qty * price;
         const vat = Math.round(supply * 0.1);
-        rows.push([
-          o.일자,
-          o.거래처코드,
-          o.거래처명,
-          item.품목코드 || '',
-          item.품목명,
-          item.규격 || '',
-          item.단위 || '',
-          item.수량,
-          item.단가,
-          supply,
-          vat,
-          o.영업맨,
-          o.비고 || ''
+        botRows.push([
+          groupNo,                     // 그룹번호 (상단과 연결)
+          item.품목코드 || '',          // 품목코드
+          item.규격 || '',              // 규격
+          ymd(o.일자),                  // 납기일자
+          qty,                          // 수량
+          price,                        // 단가
+          supply,                       // 공급가액
+          vat,                          // 부가세액
+          def.창고코드,                 // 창고코드
+          '',                           // 프로젝트코드
+          item.품목비고 || '',          // 품목비고
+          ''                            // 입고단가
         ]);
       });
     });
-    
-    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const ws1 = XLSX.utils.aoa_to_sheet(topRows);
+    const ws2 = XLSX.utils.aoa_to_sheet(botRows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '출고전표');
+    XLSX.utils.book_append_sheet(wb, ws1, '출고처리 거래처정보(상단)');
+    XLSX.utils.book_append_sheet(wb, ws2, '출고처리 폼목정보(하단)');
+    return wb;
+  };
+
+  // ===== 2. 입고전표 — 2시트 구조 (양사 내부거래 받는 쪽) =====
+  global.WehagoExporter.makeIpgo = function(orders, company){
+    if (!global.XLSX) return null;
+    const def = WEHAGO_DEFAULTS[company] || WEHAGO_DEFAULTS.SMT;
+    const topHeader = ['그룹번호','일자','거래처코드','부서코드','사원코드','관리항목코드','VAT여부값','과세구분','비고1','비고2','비고3'];
+    const botHeader = ['그룹번호','품목코드','납기일자','수량','단가','공급가액','부가세액','창고코드','프로젝트코드','품목비고'];
+    const topRows = [topHeader];
+    const botRows = [botHeader];
+    let groupNo = 0;
+    // 양사 내부거래에서 'company'가 입고 받는 쪽인 경우만
+    orders.forEach(o => {
+      const intern = o._internalTransfer;
+      if (!intern || !intern.confirmed) return;
+      // 발행회사 != company (입고는 받는 쪽)
+      if ((o.발행회사 || 'SMT') === company) return;
+      // 입고 받는 쪽 = company. 출고 발행 = 반대편
+      const other = (o.발행회사 || 'SMT');  // 출고 발행
+      groupNo++;
+      const op = def.사원코드;  // 받는 쪽 사원코드
+      topRows.push([
+        groupNo,
+        ymd(o.일자),
+        '',                           // 거래처코드 (반대 회사 — 자기 회사에서 본 거래처)
+        def.부서코드, op, '2', 1, 0,
+        '양사내부 입고', '', o.비고 || ''
+      ]);
+      (o.품목 || []).forEach(item => {
+        const qty = +item.수량 || 0;
+        const price = +item._internalPrice || +item.단가 || 0;
+        const supply = qty * price;
+        const vat = Math.round(supply * 0.1);
+        botRows.push([
+          groupNo,
+          item.품목코드 || '',
+          ymd(o.일자),
+          qty, price, supply, vat,
+          def.창고코드, '', item.품목비고 || ''
+        ]);
+      });
+    });
+    const ws1 = XLSX.utils.aoa_to_sheet(topRows);
+    const ws2 = XLSX.utils.aoa_to_sheet(botRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, '입고처리 거래처정보(상단)');
+    XLSX.utils.book_append_sheet(wb, ws2, '입고처리 폼목정보(하단)');
     return wb;
   };
 
