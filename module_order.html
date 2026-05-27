@@ -395,23 +395,23 @@ body { background: var(--c-bg); }
     <div class="total">총 <strong id="sum-total">0원</strong></div>
   </div>
 
+  <!-- 위하고 물류 엑셀 (폼 흐름 안에 배치) -->
+  <details style="margin:14px 0;background:#F8FBFF;border:1px solid #C7DEEF;border-radius:6px">
+    <summary style="cursor:pointer;padding:8px 12px;font-size:12px;font-weight:600;color:#456">📦 위하고 물류 엑셀 (풀 <span id="wehago-pool-cnt">0</span>건) ▾</summary>
+    <div style="padding:8px 12px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid #DCE7F0">
+      <button onclick="downloadWehagoOne('makeChulgo','출고전표')" style="flex:1;min-width:80px;padding:6px 10px;background:#fff;border:1px solid var(--c-border);border-radius:4px;cursor:pointer;font-size:12px">📤 출고</button>
+      <button onclick="downloadWehagoOne('makeIpgo','입고전표')" style="flex:1;min-width:80px;padding:6px 10px;background:#fff;border:1px solid var(--c-border);border-radius:4px;cursor:pointer;font-size:12px">📥 입고</button>
+      <button onclick="downloadAllExcel()" style="flex:1;min-width:80px;padding:6px 10px;background:var(--c-accent);color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:12px">📦 4종 일괄</button>
+    </div>
+    <div style="font-size:10px;color:#999;padding:0 12px 8px">일반전표·세금계산서는 회계 처리 화면에서</div>
+  </details>
+
 </div>
 
 <!-- 하단 액션바 -->
 <div class="action-bar">
   <button class="btn-reset" onclick="resetForm()">↻ 초기화</button>
   <button class="btn-submit" onclick="submitOrder()">✅ 주문 등록 + 거래명세표 발급</button>
-
-  <!-- 위하고 물류 엑셀 — 컴팩트 (접힌 details, 모바일 친화) -->
-  <details style="margin-top:10px;background:#F8FBFF;border:1px solid #C7DEEF;border-radius:6px">
-    <summary style="cursor:pointer;padding:8px 12px;font-size:12px;font-weight:600;color:#456">📦 위하고 물류 엑셀 (풀 <span id="wehago-pool-cnt">0</span>건) ▾</summary>
-    <div style="padding:8px 12px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid #DCE7F0">
-      <button class="btn-sm" onclick="downloadWehagoOne('makeChulgo','출고전표')" style="flex:1;min-width:80px;padding:6px 10px;background:#fff;border:1px solid var(--c-border);border-radius:4px;cursor:pointer;font-size:12px">📤 출고</button>
-      <button class="btn-sm" onclick="downloadWehagoOne('makeIpgo','입고전표')" style="flex:1;min-width:80px;padding:6px 10px;background:#fff;border:1px solid var(--c-border);border-radius:4px;cursor:pointer;font-size:12px">📥 입고</button>
-      <button class="btn-sm" onclick="downloadAllExcel()" style="flex:1;min-width:80px;padding:6px 10px;background:var(--c-accent);color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:12px">📦 4종 일괄</button>
-    </div>
-    <div style="font-size:10px;color:#999;padding:0 12px 8px">일반전표·세금계산서는 회계 처리 화면에서</div>
-  </details>
 </div>
 
 <script src="shared/data_loader.js"></script>
@@ -1781,7 +1781,14 @@ function loadFromPending(i) {
         spSelect.value = matched.value;
         spSelect.dispatchEvent(new Event('change'));
       } else {
-        console.warn('영업맨 매칭 실패:', rawName);
+        // 매칭 실패 — dropdown에 임시 옵션 동적 추가 후 선택
+        console.warn('영업맨 매칭 실패 — 동적 옵션 추가:', rawName);
+        const opt = document.createElement('option');
+        opt.value = rawName; opt.textContent = rawName + ' (영업맨 던짐)';
+        opt.dataset.dynamic = '1';
+        spSelect.appendChild(opt);
+        spSelect.value = rawName;
+        spSelect.dispatchEvent(new Event('change'));
       }
     }
     
