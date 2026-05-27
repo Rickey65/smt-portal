@@ -87,6 +87,9 @@
     return d.replace(/-/g,'');
   }
 
+  // ===== WehagoExporter 객체 초기화 =====
+  global.WehagoExporter = global.WehagoExporter || {};
+
   // ===== 1. 출고전표 — 2시트 구조 =====
   global.WehagoExporter.makeChulgo = function(orders, company){
     if (!global.XLSX) return null;
