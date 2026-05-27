@@ -1677,16 +1677,39 @@ function loadFromPending(i) {
   if (!o) return;
   
   try {
-    // 영업맨 — 이름 부분 매칭 (영업맨이 '이병호부장'이면 옵션의 '이병호' 포함 가능)
+    // 영업맨 매칭 강화 — 회사prefix·직급 제거 후 핵심 이름 + 회사 일치 우선
     const spSelect = document.getElementById('salesperson');
     if (spSelect && o.영업맨) {
-      const targetName = o.영업맨.replace(/부장|과장|차장|대리|이사/g, '').trim();
+      // "건웅 김성원부장" → 핵심이름 "김성원", 회사 "GW"
+      let rawName = o.영업맨 || '';
+      const targetCo = /^건웅|^GW/i.test(rawName) ? 'GW' : (/SMT|서울기연/i.test(rawName) ? 'SMT' : (o.발행회사 || ''));
+      const coreName = rawName
+        .replace(/^건웅\s*|^GW\s*|^SMT\s*|^서울기연\s*/g, '')
+        .replace(/(부장|과장|차장|대리|이사|선임|주임|이병호부장)/g, '')
+        .trim();
+      // 1순위: 핵심이름 + 회사 일치
+      let matched = null;
       for (const opt of spSelect.options) {
-        const optTxt = opt.text;
-        if (optTxt.includes(o.영업맨) || optTxt.includes(targetName) || opt.value === o.영업맨) {
-          spSelect.value = opt.value;
-          break;
+        if (!opt.value) continue;
+        const optCo = opt.dataset && opt.dataset.company;
+        const txt = opt.text;
+        const val = opt.value;
+        if (coreName && (txt.includes(coreName) || val.includes(coreName))) {
+          if (targetCo && optCo === targetCo) { matched = opt; break; }
+          if (!matched) matched = opt;  // 회사 미일치라도 후보 보관
         }
+      }
+      // 2순위: 원래 이름 그대로
+      if (!matched) {
+        for (const opt of spSelect.options) {
+          if (opt.text.includes(rawName) || opt.value === rawName) { matched = opt; break; }
+        }
+      }
+      if (matched) {
+        spSelect.value = matched.value;
+        spSelect.dispatchEvent(new Event('change'));
+      } else {
+        console.warn('영업맨 매칭 실패:', rawName);
       }
     }
     
