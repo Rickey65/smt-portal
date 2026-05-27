@@ -74,13 +74,16 @@
         <div class="form-row"><label>발신팩스</label><input id="f-sender-fax" type="text" value="031-353-4727" readonly></div>
         <div class="form-row"><label>택배사</label>
           <select id="f-courier" onchange="onCourierChange()">
-            <option value="대신화물">대신화물</option>
+            <option value="대신화물" selected>대신화물 ⭐</option>
             <option value="대신택배">대신택배</option>
             <option value="경동화물">경동화물</option>
             <option value="경동택배">경동택배</option>
           </select>
           <input id="f-courier-fax" type="text" placeholder="택배사 팩스번호" style="flex:1">
           <button class="btn btn-secondary" onclick="saveCourierFax()" style="padding:6px 10px;font-size:11px">💾 저장</button>
+        </div>
+        <div class="form-row" style="font-size:11px;color:#888"><label></label>
+          <span id="f-courier-info">대신화물: T 031-8059-2310 / F 031-8059-2311</span>
         </div>
         <div class="form-row"><label>수화주</label><input id="f-recv-name" type="text" placeholder="받는 사람·상호"></div>
         <div class="form-row"><label>수화주 TEL</label><input id="f-recv-phone" type="text" placeholder="연락처"></div>
@@ -299,6 +302,17 @@ function onCourierChange(){
   const fmap = FaxSender.getCourierFaxMap();
   const c = document.getElementById('f-courier').value;
   document.getElementById('f-courier-fax').value = fmap[c] || '';
+  // 사전 정보 (전화·팩스) 표시
+  const dict = window._courierDict || {};
+  const info = dict[c];
+  const infoEl = document.getElementById('f-courier-info');
+  if (infoEl) {
+    if (info) {
+      infoEl.innerHTML = `${c}: T ${info['전화'] || '?'} / F ${info['팩스'] || '?'}` + (info['비고'] ? ` <span style="color:#999">(${info['비고']})</span>` : '');
+    } else {
+      infoEl.textContent = `${c}: 사전 정보 없음 — 팩스번호 직접 입력`;
+    }
+  }
   refreshPreview();
 }
 function saveCourierFax(){

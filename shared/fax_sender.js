@@ -106,4 +106,27 @@
     getCourierFaxMap, setCourierFax,
     logFax, getFaxLogs
   };
+
+
+  // 택배사 사전 자동 로드 (사이트 첫 진입 시) — localStorage가 비어있으면 couriers.json 값으로 초기화
+  async function loadCourierDict(){
+    try {
+      const r = await fetch('data/shared/couriers.json?t='+Date.now());
+      if (!r.ok) return;
+      const d = await r.json();
+      const couriers = d.couriers || {};
+      const saved = JSON.parse(localStorage.getItem('courier_fax_map') || '{}');
+      let changed = false;
+      Object.entries(couriers).forEach(([name, info]) => {
+        if (!saved[name] && info.팩스) { saved[name] = info.팩스; changed = true; }
+      });
+      if (changed) localStorage.setItem('courier_fax_map', JSON.stringify(saved));
+      // 사전 전체도 별도 저장 (전화·비고 포함)
+      window._courierDict = couriers;
+    } catch(e) { console.warn('couriers.json 로드 실패', e); }
+  }
+  global.FaxSender.loadCourierDict = loadCourierDict;
+  // 자동 호출
+  loadCourierDict();
+
 })(window);
