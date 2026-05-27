@@ -74,8 +74,12 @@
 
   // 양사 회사별 디폴트 코드 (필요시 부장님 위하고 코드로 보정)
   const WEHAGO_DEFAULTS = {
-    SMT: { 부서코드:'0002', 사원코드:'122', 창고코드:'12', 부서명:'영업팀' },  // 부서10·창고화성하길리·사원임성우
-    GW:  { 부서코드:'0001', 사원코드:'07',  창고코드:'1',  부서명:'영업팀' },
+    SMT: { 부서코드:'0002', 사원코드:'122', 창고코드:'12', 부서명:'영업팀',
+           // 양사간 거래처코드 (SMT 위하고에 박힌 GW 거래처)
+           양사거래처코드:'005366', 양사거래처명:'주식회사 건웅' },
+    GW:  { 부서코드:'0001', 사원코드:'07',  창고코드:'1',  부서명:'영업팀',
+           // 양사간 거래처코드 (GW 위하고에 박힌 SMT 거래처)
+           양사거래처코드:'000124', 양사거래처명:'에스엠티서울기연 주식회사' },
   };
 
   // 결제조건 → 관리항목코드 매핑 (부장님 확인 필요 — 디폴트)
@@ -109,8 +113,8 @@
       // 양사거래 발행회사 != company. company는 반대편 (매출 발생).
       if ((o.발행회사 || 'SMT') === company) return;
       groupNo++;
-      // 거래처 = 발행회사 (양사간 거래에서 상대방)
-      const partnerCode = (o.발행회사 === 'SMT') ? 'SMT_INTERNAL' : 'GW_INTERNAL';  // 부장님이 위하고 양사 거래처코드 알려주면 매핑
+      // 양사간 거래처코드 (company 위하고에 박힌 발행회사)
+      const partnerCode = def.양사거래처코드;
       topRows.push([
         groupNo, ymd(o.일자),
         partnerCode,  // 양사간 거래처코드 (부장님 확인 필요)
@@ -274,6 +278,87 @@
     
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '일반전표');
+    return wb;
+  };
+
+
+
+  // ===== 매입 분개 (양사거래 시 입고측 회계 처리) =====
+  // 차변 상품·부가세대급금 / 대변 외상매입금 (양사간 매입)
+  global.WehagoExporter.makeIlbanMaeip = function(orders, company){
+    if (!global.XLSX) return null;
+    const def = WEHAGO_DEFAULTS[company] || WEHAGO_DEFAULTS.SMT;
+    const rows = [['월','일','구분','Code','계정과목','Code','거래처','적요','차변(출금)','대변(입금)']];
+    orders.forEach(o => {
+      const intern = o._internalTransfer;
+      if (!intern || !intern.confirmed) return;
+      if ((o.발행회사 || 'SMT') !== company) return;  // 매입 = 발행회사 자기 입장
+      const { m, d } = splitDate(o.일자);
+      const totalSupply = (o.품목||[]).reduce((a,i) => a + (i.수량||0)*(i._internalPrice || i.단가||0), 0);
+      const totalVat = Math.round(totalSupply * 0.1);
+      const totalAmt = totalSupply + totalVat;
+      const memo = `${def.양사거래처명} 양사매입 ${(o.품목||[])[0]?.품목명 || ''}${(o.품목||[]).length>1 ? ` 외 ${(o.품목||[]).length-1}건` : ''}`;
+      // 차변 상품·부가세대급금 / 대변 외상매입금
+      rows.push([m, d, 3, '146', '상품',       def.양사거래처코드, def.양사거래처명, memo, totalSupply, '']);
+      rows.push([m, d, 3, '135', '부가세대급금', def.양사거래처코드, def.양사거래처명, memo, totalVat, '']);
+      rows.push([m, d, 4, '251', '외상매입금',  def.양사거래처코드, def.양사거래처명, memo, '', totalAmt]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:5},{wch:5},{wch:6},{wch:8},{wch:15},{wch:9},{wch:25},{wch:35},{wch:14},{wch:14}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '일반전표');
+    return wb;
+  };
+
+  // ===== 매출 분개 (양사거래의 반대편 = 매출 발생 측, 예: GW가 SMT에 매출) =====
+  global.WehagoExporter.makeIlbanCross = function(orders, company){
+    if (!global.XLSX) return null;
+    const def = WEHAGO_DEFAULTS[company] || WEHAGO_DEFAULTS.SMT;
+    const rows = [['월','일','구분','Code','계정과목','Code','거래처','적요','차변(출금)','대변(입금)']];
+    orders.forEach(o => {
+      const intern = o._internalTransfer;
+      if (!intern || !intern.confirmed) return;
+      if ((o.발행회사 || 'SMT') === company) return;  // 매출 측 = 발행회사 반대편
+      const { m, d } = splitDate(o.일자);
+      const totalSupply = (o.품목||[]).reduce((a,i) => a + (i.수량||0)*(i._internalPrice || i.단가||0), 0);
+      const totalVat = Math.round(totalSupply * 0.1);
+      const totalAmt = totalSupply + totalVat;
+      const memo = `${def.양사거래처명} 양사매출 ${(o.품목||[])[0]?.품목명 || ''}${(o.품목||[]).length>1 ? ` 외 ${(o.품목||[]).length-1}건` : ''}`;
+      rows.push([m, d, 3, '108', '외상매출금',   def.양사거래처코드, def.양사거래처명, memo, totalAmt, '']);
+      rows.push([m, d, 4, '401', '상품매출',      def.양사거래처코드, def.양사거래처명, memo, '', totalSupply]);
+      rows.push([m, d, 4, '255', '부가세예수금', def.양사거래처코드, def.양사거래처명, memo, '', totalVat]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:5},{wch:5},{wch:6},{wch:8},{wch:15},{wch:9},{wch:25},{wch:35},{wch:14},{wch:14}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '일반전표');
+    return wb;
+  };
+
+  // ===== 양사 세금계산서 (양사거래의 매출 발생 측) =====
+  global.WehagoExporter.makeSegyumetanCross = function(orders, company){
+    if (!global.XLSX) return null;
+    const def = WEHAGO_DEFAULTS[company] || WEHAGO_DEFAULTS.SMT;
+    const rows = [['작성일자','거래처코드','거래처명','거래처사업자번호','대표자','업태','종목','품목명','규격','수량','단가','공급가액','부가세','합계금액','비고','전자세금계산서구분']];
+    orders.forEach(o => {
+      const intern = o._internalTransfer;
+      if (!intern || !intern.confirmed) return;
+      if ((o.발행회사 || 'SMT') === company) return;  // 매출 측 발급
+      (o.품목 || []).forEach(item => {
+        const supply = (item.수량 || 0) * (item._internalPrice || item.단가 || 0);
+        const vat = Math.round(supply * 0.1);
+        rows.push([
+          o.일자, def.양사거래처코드, def.양사거래처명, '',
+          '', '도매및소매업', '',
+          item.품목명, item.규격 || '', item.수량,
+          (item._internalPrice || item.단가), supply, vat, supply+vat,
+          '양사간 매출', '01'
+        ]);
+      });
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '세금계산서');
     return wb;
   };
 

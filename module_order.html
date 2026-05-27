@@ -1429,15 +1429,16 @@ function downloadAllExcel() {
       }
     }
   }
-  // 발행회사 출고전표 (필수)
-  trydown('makeChulgo', '출고전표', sCo);
-  // 발행회사 입고전표 (양사거래 매입)
-  trydown('makeIpgo', '입고전표', sCo);
-  // 양사거래의 반대 회사 출고전표 (GW가 SMT에 매출 — 매출 짝 맞춤)
-  trydown('makeChulgoCross', '출고전표_양사매출', otherCo);
-  // 일반전표·세금계산서
-  trydown('makeIlban', '일반전표', sCo);
-  trydown('makeSegyumetan', '세금계산서', sCo);
+  // 발행회사 측 (5개)
+  trydown('makeChulgo',      '출고전표',         sCo);   // 1. 발행회사 → 거래처 출고전표
+  trydown('makeIpgo',        '입고전표',         sCo);   // 2. 발행회사가 양사 매입 (양사거래 시)
+  trydown('makeIlban',       '일반전표_거래처매출', sCo);   // 3. 발행회사 매출 분개
+  trydown('makeIlbanMaeip',  '일반전표_양사매입',  sCo);   // 4. 발행회사 양사 매입 분개
+  trydown('makeSegyumetan',  '세금계산서_거래처', sCo);   // 5. 발행회사 → 거래처 세금계산서
+  // 양사거래 반대편 (3개, 양사거래 있을 때만)
+  trydown('makeChulgoCross', '출고전표_양사매출', otherCo);  // 6. 반대편 → 발행회사 출고전표
+  trydown('makeIlbanCross',  '일반전표_양사매출', otherCo);  // 7. 반대편 양사 매출 분개
+  trydown('makeSegyumetanCross', '세금계산서_양사', otherCo); // 8. 반대편 → 발행회사 세금계산서
   if (downloaded > 0) {
     if (confirm(`✅ 엑셀 ${downloaded}개 다운로드 완료.\n위하고에 업로드 후 미처리 풀을 비우시겠습니까?`)) {
       PENDING_ORDERS = [];
