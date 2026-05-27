@@ -247,26 +247,41 @@
     return wb;
   };
 
-  // ===== 3. 일반전표 엑셀 생성 (우리 표준양식) =====
-  // 컬럼: 월·일·구분·계정코드·계정과목·거래처코드·거래처·적요·차변·대변
+  // ===== 3. 일반전표 — 매출 분개 (계정 동적 분기 + 5종 적요) =====
+  // 매출 계정: EU/EM/EG/EK/EZ = 상품매출(혼다 수입) / SG/SP/SH/KG/XE = 제품매출(자체) / 그외 = 부품매출
+  function _decideSalesAccount(item) {
+    const name = ((item && (item.품목명 || item.모델)) || '').toUpperCase();
+    if (/\b(EU|EM|EG|EK|EZ|ER|E1)\d/.test(name)) return { 계정:'상품매출', 코드:'401' };
+    if (/\b(SG|SP|SH|KG|XE|EP|SHW)\d/.test(name)) return { 계정:'제품매출', 코드:'404' };
+    return { 계정:'부품매출', 코드:'402' };
+  }
+  function _generateMemo(o){
+    const items = o.품목 || [];
+    if (items.length === 0) return o.거래처명 || '';
+    const it = items[0];
+    const qty = it.수량 || 1;
+    const price = it.단가 || 0;
+    const nm = it.품목명 || it.모델 || '';
+    let memo = (qty === 1) ? `${nm} @${price.toLocaleString()}` : `${nm} ${qty}*@${price.toLocaleString()}`;
+    if (items.length > 1) memo += ` 외 ${items.length-1}건`;
+    return memo;
+  }
   global.WehagoExporter.makeIlban = function(orders, company) {
     if (!global.XLSX) return null;
     const rows = [];
     rows.push(['월','일','구분','Code','계정과목','Code','거래처','적요','차변(출금)','대변(입금)']);
-    
-    let entryNo = 0;
-    orders.filter(o => o.발행회사 === company).forEach(o => {
-      entryNo++;
+    orders.filter(o => (o.발행회사||'SMT') === company).forEach(o => {
       const { m, d } = splitDate(o.일자);
-      const totalSupply = o.품목.reduce((a,i) => a + (i.수량 * i.단가), 0);
+      // 매출 계정은 첫 품목 기준 결정 (대부분 한 분개 = 같은 계정)
+      const acct = _decideSalesAccount((o.품목 || [])[0]);
+      const totalSupply = (o.품목 || []).reduce((a,i) => a + ((i.수량||0)*(i.단가||0)), 0);
       const totalVat = Math.round(totalSupply * 0.1);
       const totalAmt = totalSupply + totalVat;
-      const memo = `${o.거래처명} ${o.품목[0]?.품목명 || ''}${o.품목.length > 1 ? ` 외 ${o.품목.length-1}건` : ''}`;
-      
-      // 대체전표 패턴: 차변 외상매출금 + 대변 상품매출 + 대변 부가세예수금
-      rows.push([m, d, 3, '108', '외상매출금', o.거래처코드, o.거래처명, memo, totalAmt, '']);
-      rows.push([m, d, 4, '401', '상품매출',   o.거래처코드, o.거래처명, memo, '', totalSupply]);
-      rows.push([m, d, 4, '255', '부가세예수금', o.거래처코드, o.거래처명, memo, '', totalVat]);
+      const memo = _generateMemo(o);
+      // 외상매출금 / 매출계정 + 부가세예수금
+      rows.push([m, d, 3, '108', '외상매출금',    o.거래처코드 || '', o.거래처명, memo, totalAmt, '']);
+      rows.push([m, d, 4, acct.코드, acct.계정, o.거래처코드 || '', o.거래처명, memo, '', totalSupply]);
+      rows.push([m, d, 4, '255', '부가세예수금', o.거래처코드 || '', o.거래처명, memo, '', totalVat]);
     });
     
     const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -372,7 +387,7 @@
       '품목명','규격','수량','단가','공급가액','부가세','합계금액','비고','전자세금계산서구분'
     ]);
     
-    orders.filter(o => o.발행회사 === company && o._taxIssue).forEach(o => {
+    orders.filter(o => (o.발행회사||'SMT') === company).forEach(o => {
       o.품목.forEach(item => {
         const supply = (item.수량 || 0) * (item.단가 || 0);
         const vat = Math.round(supply * 0.1);
