@@ -47,6 +47,31 @@
   //  시트2 = "출고처리 폼목정보(하단)" — 그룹번호·품목코드·규격·납기일자·수량·단가·공급가액·부가세액·창고코드·프로젝트코드·품목비고·입고단가
   //  그룹번호로 상단·하단 연결 (1주문 = 1그룹, 품목 N건이면 하단 N행)
 
+
+  // 거래처명 → 거래처코드 폴백 (영업맨 던지기에서 코드 누락 시)
+  let _CLIENTS_CACHE = null;
+  async function _loadClients(){
+    if (_CLIENTS_CACHE) return _CLIENTS_CACHE;
+    try {
+      const r = await fetch('data/shared/clients.json?t='+Date.now());
+      if (r.ok) {
+        const d = await r.json();
+        _CLIENTS_CACHE = d.rows || [];
+      }
+    } catch(e){ _CLIENTS_CACHE = []; }
+    return _CLIENTS_CACHE || [];
+  }
+  function _findClientCode(name){
+    if (!name) return '';
+    const list = window._wehagoClients || _CLIENTS_CACHE || [];
+    const exact = list.find(c => (c.거래처명 || c.상호) === name);
+    if (exact) return exact.거래처코드 || exact.코드 || exact.code || '';
+    const partial = list.find(c => ((c.거래처명 || c.상호 || '').includes(name)) || (name.includes(c.거래처명 || '')));
+    return partial ? (partial.거래처코드 || partial.코드 || partial.code || '') : '';
+  }
+  // 페이지 로드 시 미리 캐시
+  _loadClients().then(list => { window._wehagoClients = list; });
+
   // 양사 회사별 디폴트 코드 (필요시 부장님 위하고 코드로 보정)
   const WEHAGO_DEFAULTS = {
     SMT: { 부서코드:'0002', 사원코드:'122', 창고코드:'12', 부서명:'영업팀' },  // 부서10·창고화성하길리·사원임성우
@@ -76,7 +101,7 @@
       groupNo++;
       const gwanri = PAY_TO_GWANRI[o.결제조건] || '2';
       const op = o.업무맨_사원코드 || def.사원코드;
-      const cliCode = o.거래처코드 || '';
+      const cliCode = o.거래처코드 || _findClientCode(o.거래처명) || '';
       // 상단 1행
       topRows.push([
         groupNo,                       // 그룹번호
@@ -143,7 +168,7 @@
       topRows.push([
         groupNo,
         ymd(o.일자),
-        '',                           // 거래처코드 (반대 회사 — 자기 회사에서 본 거래처)
+        _findClientCode(o.거래처명) || '',  // 거래처코드 (clients 사전 매칭)
         def.부서코드, op, '2', 1, 0,
         '양사내부 입고', '', o.비고 || ''
       ]);

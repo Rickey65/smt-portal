@@ -817,6 +817,12 @@ function submitOrder(){
     // 일반 — 발행회사 자동 (업무맨 화면에서 채움)
     sendInfo = { 이름: '발행회사 자동', 주소: '', 연락처: '' };
   }
+  // 거래처코드 찾기 — SELECTED_CLIENT는 문자열(거래처명)
+  let _cliCode = '';
+  try {
+    const _c = CLIENTS.find(c => (c.거래처명 || c.상호) === SELECTED_CLIENT);
+    if (_c) _cliCode = _c.거래처코드 || _c.코드 || _c.code || '';
+  } catch(e){}
   const order={
     _from:'salesman',
     _ts:new Date().toISOString(),
@@ -825,6 +831,7 @@ function submitOrder(){
     영업맨: SELECTED_SALESPERSON,
     발행회사: company,
     거래처명: SELECTED_CLIENT,
+    거래처코드: _cliCode,
     품목: ORDER_ITEMS,
     요금: fee,
     공급가: total,
