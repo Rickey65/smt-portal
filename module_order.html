@@ -380,6 +380,17 @@ body { background: var(--c-bg); }
 <div class="action-bar">
   <button class="btn-reset" onclick="resetForm()">↻ 초기화</button>
   <button class="btn-submit" onclick="submitOrder()">✅ 주문 등록 + 거래명세표 발급</button>
+
+  <!-- 위하고 물류 엑셀 4종 (출고·입고·일반전표·세금계산서) — 컨펌된 풀 일괄 다운로드 -->
+  <div style="margin-top:14px;padding:14px;background:#F8FBFF;border:1px solid #C7DEEF;border-radius:8px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">📦 위하고 물류 엑셀 — 미처리 풀 (<span id="wehago-pool-cnt">0</span>건) 일괄 다운로드</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn-secondary" onclick="downloadWehagoOne('makeChulgo','출고전표')" style="flex:1;min-width:120px;padding:10px;background:#fff;border:1px solid var(--c-border);border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📤 출고전표</button>
+      <button class="btn-secondary" onclick="downloadWehagoOne('makeIpgo','입고전표')" style="flex:1;min-width:120px;padding:10px;background:#fff;border:1px solid var(--c-border);border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📥 입고전표 (양사거래)</button>
+      <button class="btn-secondary" onclick="downloadAllExcel()" style="flex:1;min-width:120px;padding:10px;background:var(--c-accent);color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📦 4종 일괄 (양사)</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">출고·입고전표는 물류 영역. 일반전표·세금계산서는 회계 처리 화면에서.</div>
+  </div>
 </div>
 
 <script src="shared/data_loader.js"></script>
@@ -1337,7 +1348,34 @@ function resetForm() {
   calcShipFee();
 }
 
+
+function downloadWehagoOne(fnName, label){
+  if (typeof PENDING_ORDERS === 'undefined' || PENDING_ORDERS.length === 0) {
+    return alert('미처리 주문 풀이 비어있습니다.');
+  }
+  const sCo = document.querySelector('input[name="issuer"]:checked')?.value || 'SMT';
+  if (!window.WehagoExporter || !window.XLSX) return alert('XLSX 라이브러리 로딩 실패 (페이지 새로고침 시도)');
+  const wb = WehagoExporter[fnName](PENDING_ORDERS, sCo);
+  if (wb && wb.SheetNames && wb.SheetNames.length) {
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    if (range.e.r > 0) {
+      const ts = new Date().toISOString().slice(0,10);
+      XLSX.writeFile(wb, `위하고_${label}_${sCo}_${ts}.xlsx`);
+    } else {
+      alert(`${label}: ${sCo} 데이터 없음 (헤더만 있음). 회사 토글·발행회사 확인.`);
+    }
+  } else {
+    alert(`${label} 엑셀 생성 실패`);
+  }
+}
+function updateWehagoPoolCnt(){
+  const el = document.getElementById('wehago-pool-cnt');
+  if (el && typeof PENDING_ORDERS !== 'undefined') el.textContent = PENDING_ORDERS.length;
+}
+
 function updatePoolCount() {
+  updateWehagoPoolCnt();
   document.getElementById('pool-cnt').textContent = PENDING_ORDERS.length;
 }
 
