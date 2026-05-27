@@ -308,7 +308,7 @@ body { background: var(--c-bg); }
     <label style="display:block; font-size:13px; color:var(--c-text-2); margin-bottom:4px">배송 유형</label>
     <div class="radio-group">
       <label><input type="radio" name="ship-type" value="일반" checked> 일반 (발송=발행회사 / 수령=거래처)</label>
-      <label><input type="radio" name="ship-type" value="직배송요청"> 직배송요청 (발송=거래처)</label>
+      <label><input type="radio" name="ship-type" value="직배송"> 직배송 (발송=거래처)</label>
       <label><input type="radio" name="ship-type" value="직직배송"> 직직배송 (발송=거래처의 거래처)</label>
     </div>
     
@@ -710,7 +710,7 @@ function updateShipFields() {
       recvPhone.value = cPhone;
       recvAddr.value = cAddr;
     }
-  } else if (type === '직배송요청') {
+  } else if (type === '직배송') {
     sendNote.textContent = '(직배송 — 주문 거래처가 발신자, 자동)';
     recvNote.textContent = '(직배송 — 받는 곳 직접 입력)';
     if (SELECTED_CLIENT) {
