@@ -1290,11 +1290,14 @@ function submitOrder() {
     if (confirm(`🧪 테스트 모드 — 풀에 안 쌓임\n증빙번호: ${order._증빙번호}\n총 ${SELECTED_ITEMS.length}개 품목 / ${order.요금}\n\n📋 거래명세표를 지금 발급하시겠습니까?\n(확인) → 새 창에서 거래명세표 자동 표시\n(취소) → 폼 초기화만`)) {
       window.open('module_invoice.html?auto=1&id=' + order._id, '_blank');
     }
-    // 테스트 모드도 배송 화면 자동 호출 (테스트 가능하도록)
-    PENDING_ORDERS.push(order);  // 임시 풀에 push (테스트 후 reset에서 제거하지 않음)
-    localStorage.setItem('pending_orders', JSON.stringify(PENDING_ORDERS));
-    if (confirm(`📠 배송 처리 화면도 열까요? (테스트용)`)) {
-      window.open('module_shipping.html?orderId=' + order._id, '_blank');
+    // 테스트 모드 — 풀에 안 쌓임 (별도 키 'test_orders'에만 짧게 보관)
+    try {
+      const tests = JSON.parse(localStorage.getItem('test_orders') || '[]');
+      tests.unshift({...order, _testMode: true});
+      localStorage.setItem('test_orders', JSON.stringify(tests.slice(0, 20)));
+    } catch(e) {}
+    if (confirm(`📠 배송 처리 화면도 열까요? (테스트 — 풀에 영구저장 안 됨)`)) {
+      window.open('module_shipping.html?orderId=' + order._id + '&test=1', '_blank');
     }
     resetForm();
     return;

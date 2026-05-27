@@ -53,8 +53,19 @@
     <!-- 좌측: 출고건 리스트 + 양식 -->
     <div>
       <div class="card">
-        <h2>📋 오늘 출고건 (대기 풀)</h2>
+        <h2>📋 출고건 풀</h2>
+        <div style="display:flex;gap:6px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:8px">
+          <button class="btn btn-secondary" data-tab="pending" onclick="switchPoolTab('pending')" style="font-size:12px;background:var(--c-accent);color:#fff">📦 대기</button>
+          <button class="btn btn-secondary" data-tab="completed" onclick="switchPoolTab('completed')" style="font-size:12px">✅ 완료</button>
+          <button class="btn btn-secondary" data-tab="archive" onclick="switchPoolTab('archive')" style="font-size:12px">📅 일자별 조회</button>
+          <span style="margin-left:auto;font-size:11px;color:#888">최근 6개월 자동 보관</span>
+        </div>
         <div id="pending-list"></div>
+        <div id="completed-list" style="display:none"></div>
+        <div id="archive-list" style="display:none">
+          <input type="date" id="archive-date" onchange="renderArchive()" style="padding:6px;border:1px solid var(--c-border);border-radius:4px;font-size:12px;margin-bottom:8px">
+          <div id="archive-result"></div>
+        </div>
       </div>
 
       <div class="card">
@@ -113,6 +124,8 @@
 
 <script>
 let PENDING_ORDERS = [];
+let COMPLETED_ORDERS = [];
+let POOL_TAB = "pending";
 let SELECTED_ORDER = null;
 let CLIENTS = [];
 
@@ -120,10 +133,14 @@ async function init(){
   CompanyToggle.render && CompanyToggle.render(null, ()=>location.reload());
   // 거래처 사전 로드 — 주소·전화 자동 채움용
   try { CLIENTS = await Data.clients(); } catch(e){ CLIENTS = []; }
-  // 출고건 (pending_orders) 로드
+  // 출고건 로드 + 자동 정리
+  cleanupOldCompleted();
   try {
     PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]');
   } catch(e){ PENDING_ORDERS = []; }
+  try {
+    COMPLETED_ORDERS = JSON.parse(localStorage.getItem('completed_orders') || '[]');
+  } catch(e){ COMPLETED_ORDERS = []; }
   renderPendingList();
   // 택배사 팩스 사전 복원
   const fmap = FaxSender.getCourierFaxMap();
@@ -149,9 +166,14 @@ async function init(){
 function renderPendingList(){
   const wrap = document.getElementById('pending-list');
   if (PENDING_ORDERS.length === 0) {
-    wrap.innerHTML = '<div class="empty">오늘 출고건 없음 — 영업맨이 던진 주문이 여기에 표시됩니다.</div>';
+    wrap.innerHTML = '<div class="empty">대기 출고건 없음 — 영업맨/업무맨 주문 등록 시 여기에 표시됩니다.</div>';
     return;
   }
+  // 상단 정리 버튼
+  let topBar = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:#888">
+    <span>대기 ${PENDING_ORDERS.length}건</span>
+    <button onclick="if(confirm('대기 풀 전체 정리 — 테스트·옛 데이터 모두 삭제?\n(완료 풀에 이동 안 됨)')){PENDING_ORDERS=[];localStorage.setItem('pending_orders','[]');renderPendingList();}" style="padding:3px 8px;font-size:10px;background:#fff;color:#D7493A;border:1px solid #D7493A;border-radius:3px;cursor:pointer">🗑 대기 풀 정리</button>
+  </div>`;
   const today = new Date().toISOString().slice(0,10);
   const todayOrders = PENDING_ORDERS.filter(o => (o.일자 || o._ts || '').startsWith(today));
   const showOrders = todayOrders.length > 0 ? todayOrders : PENDING_ORDERS.slice(0, 10);
@@ -165,7 +187,7 @@ function renderPendingList(){
       <td><button class="btn btn-primary" style="padding:4px 10px;font-size:11px" onclick="loadOrder(${i})">📥 불러오기</button></td></tr>`;
   });
   html += '</tbody></table>';
-  wrap.innerHTML = html;
+  wrap.innerHTML = topBar + html;
 }
 
 function loadOrder(i){
@@ -322,6 +344,28 @@ async function sendFax(){
     } else {
       alert(`❌ 발송 실패: ${result.message}`);
     }
+    // pending → completed 이동 (대기 풀에서 제거, 완료 풀에 6개월 보관)
+    if (SELECTED_ORDER && !SELECTED_ORDER._testMode) {
+      const courier = document.getElementById('f-courier').value;
+      const movedOrder = {
+        ...SELECTED_ORDER,
+        _sentAt: Date.now(),
+        _sentCourier: courier,
+        _sentMode: result.mode,
+        _sentRecipientFax: recipientFax,
+        _sentBy: localStorage.getItem('last_operator') || ''
+      };
+      // 대기 풀에서 제거
+      PENDING_ORDERS = PENDING_ORDERS.filter(o => o._id !== SELECTED_ORDER._id);
+      localStorage.setItem('pending_orders', JSON.stringify(PENDING_ORDERS));
+      // 완료 풀에 추가
+      COMPLETED_ORDERS.unshift(movedOrder);
+      localStorage.setItem('completed_orders', JSON.stringify(COMPLETED_ORDERS.slice(0, 1000)));
+      SELECTED_ORDER = null;
+      renderPendingList();
+      // 폼 초기화
+      document.getElementById('preview-body').innerHTML = '<div class="empty">발송 완료 — 다음 출고건을 선택하세요.</div>';
+    }
     renderLogs();
   } catch(e) {
     alert('PDF 생성 오류: ' + e.message);
@@ -350,6 +394,97 @@ function renderLogs(){
   document.addEventListener('input', e => { if (e.target.id === id) refreshPreview(); });
 });
 document.addEventListener('change', e => { if (e.target.name === 'f-pay') refreshPreview(); });
+
+
+
+function switchPoolTab(tab){
+  POOL_TAB = tab;
+  document.querySelectorAll('[data-tab]').forEach(b => {
+    b.style.background = b.dataset.tab === tab ? 'var(--c-accent)' : '#fff';
+    b.style.color = b.dataset.tab === tab ? '#fff' : '#666';
+  });
+  document.getElementById('pending-list').style.display = tab==='pending' ? '' : 'none';
+  document.getElementById('completed-list').style.display = tab==='completed' ? '' : 'none';
+  document.getElementById('archive-list').style.display = tab==='archive' ? '' : 'none';
+  if (tab === 'pending') renderPendingList();
+  if (tab === 'completed') renderCompletedList();
+  if (tab === 'archive') {
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('archive-date').value = today;
+    renderArchive();
+  }
+}
+
+function renderCompletedList(){
+  const wrap = document.getElementById('completed-list');
+  if (COMPLETED_ORDERS.length === 0) {
+    wrap.innerHTML = '<div class="empty">완료된 발송 없음</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>증빙</th><th>거래처</th><th>발송일자</th><th>택배사</th><th>액션</th></tr></thead><tbody>';
+  COMPLETED_ORDERS.slice(0, 30).forEach((o,i) => {
+    const sCo = o.발행회사 === 'SMT' ? '<span class="badge smt">SMT</span>' : '<span class="badge gw">건웅</span>';
+    const sentDate = o._sentAt ? new Date(o._sentAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+    html += `<tr><td>${(o._증빙번호 || '?').slice(0,12)}</td>
+      <td>${(o.거래처명 || '?').slice(0,15)} ${sCo}</td>
+      <td>${sentDate}</td><td>${o._sentCourier || '-'}</td>
+      <td><button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="reloadCompleted(${i})">🔄 다시보기</button></td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function reloadCompleted(i){
+  SELECTED_ORDER = COMPLETED_ORDERS[i];
+  if (!SELECTED_ORDER) return;
+  // 임시로 pending에 추가하지 않고 폼에만 채움
+  const o = SELECTED_ORDER;
+  const tempIdx = PENDING_ORDERS.length;
+  PENDING_ORDERS.push(o);
+  loadOrder(tempIdx);
+  PENDING_ORDERS.pop();  // 다시 제거
+}
+
+function renderArchive(){
+  const date = document.getElementById('archive-date').value;
+  const wrap = document.getElementById('archive-result');
+  if (!date) { wrap.innerHTML = '<div class="empty">날짜 선택</div>'; return; }
+  // 완료 + 대기 모두에서 그 날짜 검색
+  const all = [...COMPLETED_ORDERS, ...PENDING_ORDERS];
+  const filtered = all.filter(o => {
+    const od = o.일자 || (o._sentAt || '').slice(0,10) || (o._ts || '').slice(0,10);
+    return od.startsWith(date);
+  });
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<div class="empty">' + date + '에 출고건 없음</div>';
+    return;
+  }
+  let html = `<div style="font-size:12px;color:#666;margin-bottom:6px">${date} - ${filtered.length}건</div>`;
+  html += '<table><thead><tr><th>증빙</th><th>거래처</th><th>품목</th><th>상태</th></tr></thead><tbody>';
+  filtered.forEach(o => {
+    const sCo = o.발행회사 === 'SMT' ? '<span class="badge smt">SMT</span>' : '<span class="badge gw">건웅</span>';
+    const items = (o.품목 || []).map(it => `${it.품목명 || it.모델}×${it.수량}`).join(', ').slice(0,30);
+    const stat = o._sentAt ? '<span class="badge gen">✅ 완료</span>' : '<span style="color:#888">대기</span>';
+    html += `<tr><td>${(o._증빙번호 || '?').slice(0,12)}</td>
+      <td>${(o.거래처명 || '?').slice(0,15)} ${sCo}</td>
+      <td>${items}</td><td>${stat}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function cleanupOldCompleted(){
+  // 6개월 = 180일 지난 완료 건 자동 제거
+  try {
+    const cutoff = Date.now() - 180*24*60*60*1000;
+    const list = JSON.parse(localStorage.getItem('completed_orders') || '[]');
+    const filtered = list.filter(o => (o._sentAt || 0) > cutoff);
+    if (filtered.length !== list.length) {
+      localStorage.setItem('completed_orders', JSON.stringify(filtered));
+      console.log(`[cleanup] 완료 풀 정리: ${list.length}→${filtered.length}`);
+    }
+  } catch(e) {}
+}
 
 init();
 </script>
