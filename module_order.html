@@ -1375,11 +1375,7 @@ async function downloadWehagoOne(fnName, label){
     return alert('미처리 주문 풀이 비어있습니다.');
   }
   let sCo = document.querySelector('input[name="issuer"]:checked')?.value || 'SMT';
-  // 입고전표는 반대편 회사로 자동 전환 (양사거래에서 입고 받는 쪽)
-  if (fnName === 'makeIpgo') {
-    sCo = (sCo === 'SMT') ? 'GW' : 'SMT';
-    console.log('입고전표 — 반대편 회사로 자동 전환:', sCo);
-  }
+  // 입고전표 = 발행회사 자기 위하고 (자기가 양사거래에서 매입한 케이스)
   if (!window.WehagoExporter) return alert('wehago_exporter 로드 실패. 페이지 새로고침');
   if (!window.XLSX) {
     // 1초 대기 후 재시도 (CDN 폴백 로딩 중일 수 있음)
@@ -1415,6 +1411,44 @@ function downloadAllExcel() {
     alert('미처리 주문이 없습니다.');
     return;
   }
+  if (!window.XLSX) return alert('XLSX 라이브러리 로딩 실패');
+  // 양사거래 자동 — 4종 (양쪽 회사 모두):
+  // SMT 출고전표·입고전표 + GW 출고전표·입고전표 + 일반전표·세금계산서
+  const sCo = document.querySelector('input[name="issuer"]:checked')?.value || 'SMT';
+  const otherCo = sCo === 'SMT' ? 'GW' : 'SMT';
+  const ts = new Date().toISOString().slice(0,10);
+  let downloaded = 0;
+  function trydown(fnName, label, co){
+    const wb = WehagoExporter[fnName](PENDING_ORDERS, co);
+    if (wb && wb.SheetNames.length){
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      if (range.e.r > 0) {
+        XLSX.writeFile(wb, `위하고_${label}_${co}_${ts}.xlsx`);
+        downloaded++;
+      }
+    }
+  }
+  // 발행회사 출고전표 (필수)
+  trydown('makeChulgo', '출고전표', sCo);
+  // 발행회사 입고전표 (양사거래 매입)
+  trydown('makeIpgo', '입고전표', sCo);
+  // 양사거래의 반대 회사 출고전표 (GW가 SMT에 매출 — 매출 짝 맞춤)
+  trydown('makeChulgoCross', '출고전표_양사매출', otherCo);
+  // 일반전표·세금계산서
+  trydown('makeIlban', '일반전표', sCo);
+  trydown('makeSegyumetan', '세금계산서', sCo);
+  if (downloaded > 0) {
+    if (confirm(`✅ 엑셀 ${downloaded}개 다운로드 완료.\n위하고에 업로드 후 미처리 풀을 비우시겠습니까?`)) {
+      PENDING_ORDERS = [];
+      localStorage.setItem('pending_orders', '[]');
+      updatePoolCount();
+    }
+  } else {
+    alert('생성된 엑셀 없음');
+  }
+  return;
+  // 옛 코드 (참조용 — 아래는 실행 안 됨)
   const res = WehagoExporter.downloadBoth(PENDING_ORDERS);
   const total = (res.SMT || 0) + (res.GW || 0);
   if (total > 0) {

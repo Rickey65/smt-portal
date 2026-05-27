@@ -90,6 +90,53 @@
   // ===== WehagoExporter 객체 초기화 =====
   global.WehagoExporter = global.WehagoExporter || {};
 
+
+
+  // ===== 양사거래의 반대편 출고전표 (회계상 양사 매출/매입 짝 맞춤) =====
+  // 예: SMT 발행 + GW 제품 양사거래 → GW가 SMT에 매출하는 출고전표 (GW 위하고용)
+  global.WehagoExporter.makeChulgoCross = function(orders, company){
+    if (!global.XLSX) return null;
+    const def = WEHAGO_DEFAULTS[company] || WEHAGO_DEFAULTS.SMT;
+    const topHeader = ['그룹번호','일자','거래처코드','부서코드','사원코드','관리항목코드','VAT여부값','과세구분','비고1','비고2','비고3'];
+    const botHeader = ['그룹번호','품목코드','규격','납기일자','수량','단가','공급가액','부가세액','창고코드','프로젝트코드','품목비고','입고단가'];
+    const topRows = [topHeader];
+    const botRows = [botHeader];
+    let groupNo = 0;
+    // 양사거래에서 company = 매출하는 쪽 (발행회사의 반대)
+    orders.forEach(o => {
+      const intern = o._internalTransfer;
+      if (!intern || !intern.confirmed) return;
+      // 양사거래 발행회사 != company. company는 반대편 (매출 발생).
+      if ((o.발행회사 || 'SMT') === company) return;
+      groupNo++;
+      // 거래처 = 발행회사 (양사간 거래에서 상대방)
+      const partnerCode = (o.발행회사 === 'SMT') ? 'SMT_INTERNAL' : 'GW_INTERNAL';  // 부장님이 위하고 양사 거래처코드 알려주면 매핑
+      topRows.push([
+        groupNo, ymd(o.일자),
+        partnerCode,  // 양사간 거래처코드 (부장님 확인 필요)
+        def.부서코드, def.사원코드, '2', 1, 0,
+        '양사내부 매출', '', '대상회사: ' + (o.발행회사 || 'SMT')
+      ]);
+      (o.품목 || []).forEach(item => {
+        const qty = +item.수량 || 0;
+        const price = +item._internalPrice || +item.단가 || 0;
+        const supply = qty * price;
+        const vat = Math.round(supply * 0.1);
+        botRows.push([
+          groupNo, item.품목코드 || '', item.규격 || '', ymd(o.일자),
+          qty, price, supply, vat,
+          def.창고코드, '', '양사거래', ''
+        ]);
+      });
+    });
+    const ws1 = XLSX.utils.aoa_to_sheet(topRows);
+    const ws2 = XLSX.utils.aoa_to_sheet(botRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, '출고처리 거래처정보(상단)');
+    XLSX.utils.book_append_sheet(wb, ws2, '출고처리 폼목정보(하단)');
+    return wb;
+  };
+
   // ===== 1. 출고전표 — 2시트 구조 =====
   global.WehagoExporter.makeChulgo = function(orders, company){
     if (!global.XLSX) return null;
@@ -158,14 +205,13 @@
     const topRows = [topHeader];
     const botRows = [botHeader];
     let groupNo = 0;
-    // 양사 내부거래에서 'company'가 입고 받는 쪽인 경우만
+    // 양사 내부거래 — 발행회사 = company. 발행회사가 다른 회사에서 매입 후 거래처로 출고.
     orders.forEach(o => {
       const intern = o._internalTransfer;
       if (!intern || !intern.confirmed) return;
-      // 발행회사 != company (입고는 받는 쪽)
-      if ((o.발행회사 || 'SMT') === company) return;
-      // 입고 받는 쪽 = company. 출고 발행 = 반대편
-      const other = (o.발행회사 || 'SMT');  // 출고 발행
+      // 발행회사 = company만 (입고 받는 쪽 = 발행회사 자기)
+      if ((o.발행회사 || 'SMT') !== company) return;
+      const other = (company === 'SMT') ? 'GW' : 'SMT';  // 매입한 반대편 회사
       groupNo++;
       const op = def.사원코드;  // 받는 쪽 사원코드
       topRows.push([
