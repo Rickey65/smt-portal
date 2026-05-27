@@ -50,14 +50,62 @@
     return txs;
   }
 
-  // 키워드 매칭 — 메모 우선, 실제이름 폴백
+  // 키워드 매칭 — 카테고리 룰(명확) → 정확 → 부분
   function matchKeyword(tx){
     if (!DICT) return null;
     const memoKey = (tx.메모 || '').slice(0,20);
     const realKey = (tx.실제이름 || '').slice(0,20);
-    return (DICT.by_memo && DICT.by_memo[memoKey])
-        || (DICT.by_real_name && DICT.by_real_name[realKey])
-        || null;
+    const fullMemo = (tx.메모 || '') + ' ' + (tx.실제이름 || '');
+
+    // 1순위: 카테고리 룰 (주유소·충전소·통신·식당 등 명확)
+    const rules = DICT._category_rules || {};
+    for (const [acct, kws] of Object.entries(rules)) {
+      for (const kw of kws) {
+        if (fullMemo.includes(kw)) {
+          return {
+            건수: 1,
+            추천계정: [[acct, 999]],  // 빈도 999 = 룰 우선
+            추천거래처: tx.실제이름 ? [[tx.실제이름, 1]] : (tx.메모 ? [[tx.메모, 1]] : []),
+            추천적요: [[`${tx.메모 || tx.실제이름}`, 1]],
+            _ruleMatch: kw, _ruleCategory: acct
+          };
+        }
+      }
+    }
+
+    // 2순위: 정확 매칭 (학습 데이터)
+    let match = (DICT.by_memo && DICT.by_memo[memoKey])
+             || (DICT.by_real_name && DICT.by_real_name[realKey]);
+    if (match) return match;
+
+    // 3순위: 부분 매칭 — 단, 키가 5자 이상이어야 (오매칭 방지)
+    if (DICT.by_memo) {
+      for (const k of Object.keys(DICT.by_memo)) {
+        if (k.length >= 5 && (memoKey.includes(k) || (k.includes(memoKey) && memoKey.length >= 4))) {
+          return DICT.by_memo[k];
+        }
+      }
+    }
+    if (DICT.by_real_name) {
+      for (const k of Object.keys(DICT.by_real_name)) {
+        if (k.length >= 5 && (realKey.includes(k) || (k.includes(realKey) && realKey.length >= 4))) {
+          return DICT.by_real_name[k];
+        }
+      }
+    }
+    return null;
+  }
+
+  // 체크카드 번호 → 사원 매핑 (학습된 사원 이름 + 카드 사용자 추정)
+  function getEmployeeFromTx(tx){
+    if (!DICT) return null;
+    const empNames = DICT._employee_names || {};
+    // 메모/실제이름에 사원 이름 직접 포함
+    const fullText = (tx.메모 || '') + ' ' + (tx.실제이름 || '');
+    for (const nm of Object.keys(empNames)) {
+      if (fullText.includes(nm)) return nm;
+    }
+    return null;
   }
 
   // 분개 자동 생성
@@ -71,15 +119,24 @@
     let confidence = 'low'; // 🔴
     if (match) {
       const cnt = match.건수 || 0;
-      if (cnt >= 5) confidence = 'high';        // 🟢
-      else if (cnt >= 2) confidence = 'mid';    // 🟡
-      else confidence = 'low';                   // 🔴
+      if (match._ruleMatch) confidence = 'high';  // 카테고리 룰 = 명확 신뢰도 높음
+      else if (cnt >= 5) confidence = 'high';     // 🟢
+      else if (cnt >= 2) confidence = 'mid';      // 🟡
+      else confidence = 'low';                     // 🔴
     }
 
     // 추천 계정 (Top 2)
     let recAccts = match ? (match.추천계정 || []).slice(0,3).map(([a,c]) => ({계정:a, 빈도:c})) : [];
     let recCli = match ? (match.추천거래처 || []).slice(0,2).map(([c,n]) => ({거래처:c, 빈도:n})) : [];
     let recMemo = match ? (match.추천적요 || []).slice(0,2).map(([m,n]) => ({적요:m, 빈도:n})) : [];
+
+    // 사원 매핑 (체크카드·카카오모빌 등 사용자 추정)
+    const emp = getEmployeeFromTx(tx);
+    if (emp && recMemo.length > 0) {
+      recMemo[0].적요 = recMemo[0].적요 + ' (' + emp + ')';
+    } else if (emp) {
+      recMemo.push({적요: `${tx.메모||tx.실제이름} (${emp})`, 빈도: 1});
+    }
 
     // 외상매출금 입금 매칭 (입금 + 거래처 매칭 + 미수채권 잔액)
     let receivableMatch = null;
