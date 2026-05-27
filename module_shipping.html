@@ -114,9 +114,12 @@
 <script>
 let PENDING_ORDERS = [];
 let SELECTED_ORDER = null;
+let CLIENTS = [];
 
 async function init(){
   CompanyToggle.render && CompanyToggle.render(null, ()=>location.reload());
+  // 거래처 사전 로드 — 주소·전화 자동 채움용
+  try { CLIENTS = await Data.clients(); } catch(e){ CLIENTS = []; }
   // 출고건 (pending_orders) 로드
   try {
     PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]');
@@ -127,6 +130,20 @@ async function init(){
   document.getElementById('f-courier-fax').value = fmap['대신화물'] || '';
   // 로그 표시
   renderLogs();
+
+  // URL ?orderId 또는 ?id 자동 로드 — 업무맨이 주문 등록 후 자동 호출 시
+  const urlp = new URLSearchParams(window.location.search);
+  const oid = urlp.get('orderId') || urlp.get('id') || urlp.get('order');
+  if (oid) {
+    const idx = PENDING_ORDERS.findIndex(o => String(o._id) === String(oid) || (o._증빙번호 || '') === oid);
+    if (idx >= 0) {
+      loadOrder(idx);
+      setTimeout(() => document.getElementById('preview').scrollIntoView({behavior:'smooth', block:'start'}), 200);
+    }
+  } else if (PENDING_ORDERS.length > 0) {
+    // 디폴트: 가장 최근 주문 자동 로드
+    loadOrder(0);
+  }
 }
 
 function renderPendingList(){
@@ -152,28 +169,78 @@ function renderPendingList(){
 }
 
 function loadOrder(i){
-  const orders = PENDING_ORDERS.filter(o => (o.일자 || '').startsWith(new Date().toISOString().slice(0,10)));
-  SELECTED_ORDER = orders.length > 0 ? orders[i] : PENDING_ORDERS[i];
+  // 오늘 + 전체에서 i번째 (renderPendingList 순서와 동일)
+  const today = new Date().toISOString().slice(0,10);
+  const todayOrders = PENDING_ORDERS.filter(o => (o.일자 || o._ts || '').startsWith(today));
+  const orders = todayOrders.length > 0 ? todayOrders : PENDING_ORDERS.slice(0, 10);
+  SELECTED_ORDER = orders[i];
   if (!SELECTED_ORDER) return;
   const o = SELECTED_ORDER;
+
   // 발화주 = 발행회사 (양사 공통 팩스 031-353-4727)
   document.getElementById('f-sender-name').value = o.발행회사 === 'GW' ? '주식회사건웅' : '에스엠티서울기연주식회사';
-  // 수화주
+
+  // 거래처 정보 (clients 사전에서 매칭) — 주소·전화 자동 채움
+  const cname = o.거래처명 || '';
+  const client = CLIENTS.find(c => (c.거래처명 || c.상호) === cname) ||
+                 CLIENTS.find(c => (c.거래처명 || c.상호 || '').includes(cname) || cname.includes(c.거래처명||'')) || null;
+  const cAddr = client ? (client.사업장주소 || client.주소 || '') : '';
+  const cPhone = client ? (client.담당자휴대전화 || client.담당자전화 || client.대표전화 || '') : '';
+
+  // 배송유형별 수신지 자동 채움
   const recv = o.수신지 || {};
-  document.getElementById('f-recv-name').value = recv.이름 || o.거래처명 || '';
-  document.getElementById('f-recv-phone').value = recv.연락처 || '';
-  document.getElementById('f-recv-addr').value = recv.주소 || '';
-  // 품명
-  const items = (o.품목 || []).map(it => `${it.품목명 || it.모델} ${it.수량}대`).join(', ');
+  const shipType = o.배송유형 || '일반';
+  let recvName = '', recvPhone = '', recvAddr = '';
+  if (shipType === '일반') {
+    // 일반: 수신=거래처 자동
+    recvName = cname || recv.이름 || '';
+    recvPhone = cPhone || recv.연락처 || '';
+    recvAddr = cAddr || recv.주소 || '';
+  } else {
+    // 직배송·직직배송: 수신=영업맨이 입력한 받는 곳
+    recvName = recv.이름 || cname || '';
+    recvPhone = recv.연락처 || cPhone || '';
+    recvAddr = recv.주소 || cAddr || '';
+  }
+  document.getElementById('f-recv-name').value = recvName;
+  document.getElementById('f-recv-phone').value = recvPhone;
+  document.getElementById('f-recv-addr').value = recvAddr;
+
+  // 품명·수량 (영업맨 단가 _salesmanPrice 또는 단가)
+  const items = (o.품목 || []).map(it => {
+    const nm = it.품목명 || it.모델;
+    const qty = it.수량 || 1;
+    return `${nm} ${qty}대`;
+  }).join(', ');
   document.getElementById('f-items').value = items;
-  // 총운임
-  document.getElementById('f-fare').value = o.화물운송비 || '';
+
+  // 총운임 — 영업맨이 화물운송비에 '선불'/'착불' 적었으면 그대로, 금액이면 그 금액
+  const fee = o.화물운송비;
+  if (fee === '선불' || fee === '착불') {
+    document.getElementById('f-fare').value = fee;
+  } else if (typeof fee === 'number') {
+    document.getElementById('f-fare').value = fee.toLocaleString() + '원';
+  } else {
+    document.getElementById('f-fare').value = '';
+  }
+
   // 운임결제 라디오
-  const pay = (o.요금 === '선불' || o.화물운송비 === '선불') ? '현택' : '착택';
+  const pay = (fee === '선불' || o.요금 === '선불') ? '현택' : '착택';
   const r = document.querySelector(`input[name="f-pay"][value="${pay}"]`);
   if (r) r.checked = true;
+
   // 비고
   document.getElementById('f-memo').value = o.비고 || '';
+
+  // 택배사 — 영업맨/업무맨 선택값 자동
+  if (o.배송방법) {
+    const cs = document.getElementById('f-courier');
+    for (const opt of cs.options) {
+      if (opt.value === o.배송방법) { cs.value = o.배송방법; break; }
+    }
+    onCourierChange();
+  }
+
   refreshPreview();
 }
 
