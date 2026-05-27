@@ -108,7 +108,12 @@
     return null;
   }
 
-  // 분개 자동 생성
+  // 통장 계좌 정보 (대변 거래처용)
+  const BANK_ACCOUNT_INFO = {
+    SMT: { 거래처: '기업은행발안산단(230-067203-04-012)', 코드: '098000' },
+    GW:  { 거래처: '기업은행(GW통장)', 코드: '098001' },
+  };
+  // 분개 자동 생성 — 차변·대변 거래처 분리
   function generateEntry(tx, opts = {}){
     opts = Object.assign({clients:[], receivable:[]}, opts);
     const match = matchKeyword(tx);
@@ -130,12 +135,21 @@
     let recCli = match ? (match.추천거래처 || []).slice(0,2).map(([c,n]) => ({거래처:c, 빈도:n})) : [];
     let recMemo = match ? (match.추천적요 || []).slice(0,2).map(([m,n]) => ({적요:m, 빈도:n})) : [];
 
-    // 사원 매핑 (체크카드·카카오모빌 등 사용자 추정)
+    // 사원 이름 처리:
+    // 1) 학습된 적요에서 (이름) 패턴이 있으면 → 현재 거래자와 무관하므로 제거
+    // 2) 메모·실제이름에 사원 이름이 명시된 경우만 추가
+    recMemo = recMemo.map(m => ({
+      ...m,
+      적요: m.적요.replace(/\s*[(（][가-힣]{2,4}[)）]\s*/g, '').trim()
+    }));
     const emp = getEmployeeFromTx(tx);
-    if (emp && recMemo.length > 0) {
-      recMemo[0].적요 = recMemo[0].적요 + ' (' + emp + ')';
-    } else if (emp) {
-      recMemo.push({적요: `${tx.메모||tx.실제이름} (${emp})`, 빈도: 1});
+    if (emp) {
+      // 메모/실제이름에 정말 그 사원이 등장하는 경우만 추가
+      const fullText = (tx.메모 || '') + ' ' + (tx.실제이름 || '');
+      if (fullText.includes(emp)) {
+        if (recMemo.length > 0) recMemo[0].적요 += ' (' + emp + ')';
+        else recMemo.push({적요: `${tx.메모||tx.실제이름} (${emp})`, 빈도: 1});
+      }
     }
 
     // 외상매출금 입금 매칭 (입금 + 거래처 매칭 + 미수채권 잔액)
@@ -149,25 +163,35 @@
       }
     }
 
-    // 자동 분개 — 차변/대변 결정
+    // 자동 분개 — 차변/대변에 거래처 각각 박기 (위하고 분개 양식)
+    const company = opts.company || 'SMT';
+    const bankAcct = BANK_ACCOUNT_INFO[company] || BANK_ACCOUNT_INFO.SMT;
+    // 실제 가맹점·송금자 거래처 (통장 계좌 제외)
+    const isAccount = (c) => /기업은행|발안산단|04-012|230-067203|국민은행|하나은행|신한은행|카카오뱅크|\d{3}-\d{6}/.test(c);
+    let realPartner = '';
+    const real = (recCli || []).find(c => !isAccount(c.거래처));
+    if (real) realPartner = real.거래처;
+    else realPartner = tx.실제이름 || tx.메모 || (recCli[0] && recCli[0].거래처) || '';
+
     let chae, dae, memo, mainAcct;
     if (isIn) {
-      // 입금 — 차변 보통예금 / 대변 외상매출금 (또는 추천 매출/기타)
-      chae = [{계정:'보통예금', 코드:'103', 금액:amt}];
-      // 대변 = 외상매출금 (수금분개) 또는 추천 매출계정
+      // 입금 — 차변 보통예금(통장 거래처) / 대변 외상매출금(실제 거래처)
+      chae = [{계정:'보통예금', 코드:'103', 금액:amt, 거래처: bankAcct.거래처, 거래처코드: bankAcct.코드}];
+      let acct, code;
       if (receivableMatch || (recAccts[0] && recAccts[0].계정.includes('외상매출'))) {
-        dae = [{계정:'외상매출금', 코드:'108', 금액:amt}];
+        acct = '외상매출금'; code = '108';
       } else if (recAccts.length) {
-        dae = [{계정:recAccts[0].계정, 코드:'', 금액:amt}];
+        acct = recAccts[0].계정; code = '';
       } else {
-        dae = [{계정:'외상매출금', 코드:'108', 금액:amt}];
+        acct = '외상매출금'; code = '108';
       }
+      dae = [{계정: acct, 코드: code, 금액: amt, 거래처: realPartner, 거래처코드: ''}];
       mainAcct = dae[0].계정;
     } else {
-      // 출금 — 차변 비용 / 대변 보통예금
+      // 출금 — 차변 비용(실제 가맹점) / 대변 보통예금(통장 거래처)
       const acct = recAccts.length ? recAccts[0].계정 : '미지급비용';
-      chae = [{계정:acct, 코드:'', 금액:amt}];
-      dae = [{계정:'보통예금', 코드:'103', 금액:amt}];
+      chae = [{계정:acct, 코드:'', 금액:amt, 거래처: realPartner, 거래처코드: ''}];
+      dae = [{계정:'보통예금', 코드:'103', 금액:amt, 거래처: bankAcct.거래처, 거래처코드: bankAcct.코드}];
       mainAcct = chae[0].계정;
     }
     memo = recMemo.length ? recMemo[0].적요 : (tx.메모 || tx.실제이름 || '');
@@ -178,7 +202,9 @@
       차변: chae,
       대변: dae,
       적요: memo,
-      거래처: recCli.length ? recCli[0].거래처 : (tx.실제이름 || tx.메모 || ''),
+      // 거래처: 실제 가맹점·송금자 우선 (통장 계좌번호 제외)
+      거래처: realPartner,  // 카드 표시용 (실제 가맹점)
+      통장거래처: bankAcct.거래처,  // 통장 측 거래처
       주_계정: mainAcct,
       추천계정: recAccts,
       추천거래처: recCli,

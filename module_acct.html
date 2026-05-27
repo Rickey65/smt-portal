@@ -565,16 +565,16 @@ function renderBankList(){
       </div>
       <div style="margin-top:6px;font-size:12px;color:#555">
         <b>자동 분개:</b><br>
-        &nbsp;차변 ${e.차변.map(c=>c.계정+' '+c.금액.toLocaleString()).join(' / ')}<br>
-        &nbsp;대변 ${e.대변.map(c=>c.계정+' '+c.금액.toLocaleString()).join(' / ')}<br>
-        &nbsp;거래처: <b>${e.거래처}</b> | 적요: ${e.적요}
+        &nbsp;차변 ${e.차변.map(c=>c.계정+' '+c.금액.toLocaleString()+' <span style=color:#888>('+c.거래처+')</span>').join(' / ')}<br>
+        &nbsp;대변 ${e.대변.map(c=>c.계정+' '+c.금액.toLocaleString()+' <span style=color:#888>('+c.거래처+')</span>').join(' / ')}<br>
+        &nbsp;적요: ${e.적요}
         ${e.미수매칭 ? `<div style="color:var(--c-accent);font-weight:600;margin-top:4px">💰 외상매출금 잔액: ${e.미수매칭.잔액.toLocaleString()}원 매칭</div>` : ''}
       </div>
       <div style="margin-top:6px;display:flex;gap:6px">
         ${confirmed
           ? `<span class="badge gen">✓ 컨펌</span>`
           : `<button class="btn btn-sm btn-primary" onclick="confirmBank(${idx})">✓ 컨펌</button>
-             <button class="btn btn-sm btn-secondary" onclick="alert('수정 UI — 다음 차수')">수정</button>`}
+             <button class="btn btn-sm btn-secondary" onclick="editBank(${idx})">수정</button>`}
         <span style="font-size:11px;color:#888;margin-left:auto">학습 ${e._match건수}건 기반</span>
       </div>
     </div>`;
@@ -607,10 +607,10 @@ function downloadBankIlban(){
   BANK_ENTRIES.forEach((e,i) => {
     if (!BANK_CONFIRMED.has(i)) return;
     const d = e._tx.일자 || ''; const [, m, day] = d.split('-');
-    // 차변
-    e.차변.forEach(c => rows.push([+m, +day, 3, c.코드 || '', c.계정, '', e.거래처, e.적요, c.금액, '']));
-    // 대변
-    e.대변.forEach(c => rows.push([+m, +day, 4, c.코드 || '', c.계정, '', e.거래처, e.적요, '', c.금액]));
+    // 차변 — 각 행에 거래처 박힘 (실제 가맹점 또는 통장)
+    e.차변.forEach(c => rows.push([+m, +day, 3, c.코드 || '', c.계정, c.거래처코드 || '', c.거래처 || e.거래처, e.적요, c.금액, '']));
+    // 대변 — 각 행에 거래처
+    e.대변.forEach(c => rows.push([+m, +day, 4, c.코드 || '', c.계정, c.거래처코드 || '', c.거래처 || e.거래처, e.적요, '', c.금액]));
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{wch:5},{wch:5},{wch:6},{wch:8},{wch:15},{wch:9},{wch:25},{wch:35},{wch:14},{wch:14}];
@@ -620,7 +620,68 @@ function downloadBankIlban(){
   alert(`✅ ${BANK_CONFIRMED.size}건 → 일반전표 엑셀 다운로드 완료`);
 }
 
+
+
+let _EDITING_IDX = null;
+function editBank(idx){
+  const e = BANK_ENTRIES[idx]; if (!e) return;
+  _EDITING_IDX = idx;
+  const tx = e._tx;
+  document.getElementById('edit-tx-info').innerHTML = `${tx.일자} | ${tx.메모} ${tx.실제이름 ? '← '+tx.실제이름:''} | ${tx.입금>0?'+':''}${(tx.입금||tx.출금).toLocaleString()}원`;
+  document.getElementById('edit-chae').value = e.차변.map(c=>c.계정).join(',');
+  document.getElementById('edit-dae').value = e.대변.map(c=>c.계정).join(',');
+  document.getElementById('edit-cli').value = e.거래처 || '';
+  document.getElementById('edit-memo').value = e.적요 || '';
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeEdit(){
+  document.getElementById('edit-modal').style.display = 'none';
+  _EDITING_IDX = null;
+}
+function saveEdit(){
+  if (_EDITING_IDX === null) return;
+  const e = BANK_ENTRIES[_EDITING_IDX];
+  const tx = e._tx;
+  const amt = tx.입금 > 0 ? tx.입금 : tx.출금;
+  // 차변/대변 갱신 (콤마로 여러 계정 가능)
+  const chaeAccts = document.getElementById('edit-chae').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const daeAccts = document.getElementById('edit-dae').value.split(',').map(s=>s.trim()).filter(Boolean);
+  e.차변 = chaeAccts.map((a,i,arr) => ({계정:a, 코드:'', 금액: i === arr.length-1 ? amt : Math.round(amt/arr.length)}));
+  e.대변 = daeAccts.map((a,i,arr) => ({계정:a, 코드:'', 금액: i === arr.length-1 ? amt : Math.round(amt/arr.length)}));
+  e.거래처 = document.getElementById('edit-cli').value;
+  e.적요 = document.getElementById('edit-memo').value;
+  e._edited = true;
+  // 학습 보강 — localStorage에 저장 (향후 재발 시 우선 사용)
+  try {
+    const learned = JSON.parse(localStorage.getItem('bank_user_corrections') || '{}');
+    const key = (tx.메모 || tx.실제이름 || '').slice(0,30);
+    if (key) {
+      learned[key] = { 차변: chaeAccts, 대변: daeAccts, 거래처: e.거래처, 적요: e.적요, _ts: Date.now() };
+      localStorage.setItem('bank_user_corrections', JSON.stringify(learned));
+    }
+  } catch(err){}
+  closeEdit();
+  renderBankList();
+}
+
 init();
 </script>
+
+<!-- 수정 모달 -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;padding:20px;border-radius:8px;max-width:500px;width:90%">
+    <h3 style="margin:0 0 12px;font-size:15px">✏️ 분개 수정</h3>
+    <div id="edit-tx-info" style="font-size:12px;color:#666;margin-bottom:12px"></div>
+    <div class="form-row"><label>차변계정</label><input type="text" id="edit-chae"></div>
+    <div class="form-row"><label>대변계정</label><input type="text" id="edit-dae"></div>
+    <div class="form-row"><label>거래처</label><input type="text" id="edit-cli"></div>
+    <div class="form-row"><label>적요</label><input type="text" id="edit-memo"></div>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeEdit()">취소</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
