@@ -245,33 +245,46 @@ body { background: var(--c-bg); }
       <a href="module_catalog.html" target="_blank" style="margin-left:auto; font-size:13px; background:var(--c-warn); color:white; padding:4px 10px; border-radius:6px; text-decoration:none; font-weight:500;">📖 카탈로그</a>
     </h3>
 
-    <!-- ① 텍스트 검색 (보조) -->
-    <div class="search-box">
-      <input type="text" id="item-search" placeholder="품목명·코드 검색 (예: 혼다발전기, GW4000)" oninput="searchItems()" autocomplete="off">
-      <button class="mic-btn" id="item-mic" onclick="startVoiceItem()">🎤</button>
-    </div>
-    <div class="suggestions" id="item-suggestions" style="display:none"></div>
-
-    <!-- ② 카탈로그 드릴다운 (위하고 대→중→소분류) -->
-    <div style="margin-top:12px; padding:10px; background:#F8FBFF; border:1px solid #C7DEEF; border-radius:6px;">
-      <div style="font-size:13px; color:#666; margin-bottom:6px">📂 카탈로그에서 찾기 — 분류 누르면 품목이 바로 나옴</div>
-      <div id="op-cat-breadcrumb" style="font-size:12px; color:#888"></div>
-      <div id="op-cat-chips" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; margin-top:6px"></div>
-      <div id="op-cat-items" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:6px; margin-top:8px"></div>
-    </div>
-
-    <!-- ③ 직접 입력 -->
-    <div style="margin-top:12px; padding:10px; background:#FFF7E0; border:1px solid #F0C870; border-radius:6px;">
-      <div style="font-size:13px; color:#B26A00; margin-bottom:6px">✏️ 위에 없는 품목 — 직접 입력</div>
-      <div style="display:flex; gap:6px">
-        <input type="text" id="op-manual-name" placeholder="품목명 (예: GX390 카뷰레터)" style="flex:2; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px">
-        <input type="text" id="op-manual-code" placeholder="코드(선택)" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px">
-        <button onclick="opAddManual()" style="background:var(--c-accent); color:#fff; border:0; padding:8px 14px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600">+ 추가</button>
+    <!-- ① 영업맨이 던진/선택된 품목 (최상단 — 부장님 지시) -->
+    <div id="item-list-wrap" style="margin-bottom:14px">
+      <div style="font-size:13px; color:var(--c-text-2); margin-bottom:6px; font-weight:600">📋 주문 품목 (영업맨이 보낸 것 + 업무맨 추가분)</div>
+      <div class="item-list" id="item-list"></div>
+      <div id="item-list-empty" style="display:none; padding:14px; text-align:center; color:#999; background:#F5F5F5; border-radius:6px; font-size:13px">
+        품목 없음 — 아래에서 추가하세요 ↓
       </div>
     </div>
 
-    <!-- 선택된 품목 카드 -->
-    <div class="item-list" id="item-list" style="margin-top:12px"></div>
+    <!-- ② 품목 추가 (필요한 경우) -->
+    <details id="item-add-box" style="margin-top:10px; padding:10px; background:#FAFAFA; border:1px dashed #C0C0C0; border-radius:6px;">
+      <summary style="cursor:pointer; font-weight:600; color:#666; font-size:13px">➕ 품목 추가 (영업맨이 안 보낸 것 / 없는 품목 입력)</summary>
+
+      <div style="margin-top:10px">
+        <!-- 텍스트 검색 -->
+        <div class="search-box">
+          <input type="text" id="item-search" placeholder="품목명·코드 검색 (예: 혼다발전기, GW4000)" oninput="searchItems()" autocomplete="off">
+          <button class="mic-btn" id="item-mic" onclick="startVoiceItem()">🎤</button>
+        </div>
+        <div class="suggestions" id="item-suggestions" style="display:none"></div>
+      </div>
+
+      <!-- 카탈로그 드릴다운 -->
+      <div style="margin-top:12px; padding:10px; background:#F8FBFF; border:1px solid #C7DEEF; border-radius:6px;">
+        <div style="font-size:13px; color:#666; margin-bottom:6px">📂 카탈로그에서 찾기</div>
+        <div id="op-cat-breadcrumb" style="font-size:12px; color:#888"></div>
+        <div id="op-cat-chips" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; margin-top:6px"></div>
+        <div id="op-cat-items" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:6px; margin-top:8px"></div>
+      </div>
+
+      <!-- 직접 입력 -->
+      <div style="margin-top:12px; padding:10px; background:#FFF7E0; border:1px solid #F0C870; border-radius:6px;">
+        <div style="font-size:13px; color:#B26A00; margin-bottom:6px">✏️ 위에 없는 품목 — 직접 입력</div>
+        <div style="display:flex; gap:6px">
+          <input type="text" id="op-manual-name" placeholder="품목명 (예: GX390 카뷰레터)" style="flex:2; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px">
+          <input type="text" id="op-manual-code" placeholder="코드(선택)" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px">
+          <button onclick="opAddManual()" style="background:var(--c-accent); color:#fff; border:0; padding:8px 14px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600">+ 추가</button>
+        </div>
+      </div>
+    </details>
   </div>
 
   <!-- Step 4: 발행 회사 -->
@@ -946,7 +959,13 @@ function addItem(code) {
 
 function renderItems() {
   const list = document.getElementById('item-list');
-  if (SELECTED_ITEMS.length === 0) { list.innerHTML = ''; return; }
+  const emptyBox = document.getElementById('item-list-empty');
+  if (SELECTED_ITEMS.length === 0) {
+    list.innerHTML = '';
+    if (emptyBox) emptyBox.style.display = 'block';
+    return;
+  }
+  if (emptyBox) emptyBox.style.display = 'none';
   list.innerHTML = SELECTED_ITEMS.map((it, i) => {
     // 2026-05-26 v2: 영업맨 단가 있으면 직전거래는 참고용 (클릭 비활성)
     let historyHtml = '';
@@ -1033,31 +1052,42 @@ function checkInternalTransfer() {
   const conflicts = SELECTED_ITEMS.filter(it => it._owner !== 'BOTH' && it._owner !== issuer);
   const alertBox = document.getElementById('internal-alert');
   if (conflicts.length === 0) {
-    alertBox.innerHTML = '';
-    window._internalTransferConfirmed = null;
+    // 같은 회사 출고만 필요한 경우 — 명시적 안내
+    alertBox.innerHTML = `<div style="background:#E8F2EC;border-left:4px solid var(--c-accent);padding:10px;border-radius:6px;margin-top:8px">
+      <div style="font-weight:600;color:var(--c-accent);font-size:14px">✅ 해당 주문은 출고전표만 필요한 것으로 설정됨</div>
+      <div style="font-size:12px;color:#666;margin-top:4px">모든 품목이 <b>${issuer}</b> 제품 — 단순 출고만 생성</div>
+    </div>`;
+    window._internalTransferConfirmed = 'yes';  // 자동 확정 (양사 거래 아님)
     return;
   }
   const other = issuer === 'SMT' ? '건웅' : 'SMT';
-  const itemList = conflicts.map(c => `<li style="font-size:12px">${c.품목명 || c.품목코드} <span style="color:#888">(자동분류: ${c._owner})</span></li>`).join('');
   const state = window._internalTransferConfirmed;
-  let stateHtml = '';
-  if (state === 'yes') {
-    stateHtml = `<div style="margin-top:8px;padding:6px 10px;background:#E8F2EC;color:var(--c-accent);border-radius:4px;font-weight:600">✅ 확인됨 — 양사 전표 자동 생성 (입고+출고)</div>`;
+  const itemList = conflicts.map(c => `<li style="font-size:12px">${c.품목명 || c.품목코드}</li>`).join('');
+
+  if (state === null || state === undefined || state === 'pending') {
+    // 디폴트: 입고+출고 필요 표시 + 수정 옵션
+    window._internalTransferConfirmed = 'yes';  // 디폴트 자동
+    alertBox.innerHTML = `<div style="background:#E8F2EC;border-left:4px solid var(--c-accent);padding:10px;border-radius:6px;margin-top:8px">
+      <div style="font-weight:600;color:var(--c-accent);font-size:14px">✅ 해당 주문은 입고와 출고가 모두 필요한 것으로 설정됨</div>
+      <div style="font-size:12px;color:#666;margin-top:4px">${conflicts.length}개 품목이 <b>${other}</b> 제품 — ${other}→${issuer} 입고 → ${issuer} 출고 (위하고 양사 전표 자동 생성)</div>
+      <ul style="margin:6px 0 4px 18px;padding:0;color:#555">${itemList}</ul>
+      <div style="margin-top:8px;font-size:12px;color:#888">↓ 업무맨이 수정을 원하시면 아래를 누르세요</div>
+      <button type="button" onclick="confirmInternalTransfer('no')" style="margin-top:6px;padding:8px 14px;background:#fff;color:#B26A00;border:1px solid #B26A00;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px">✗ 수정 — 입고 없이 ${issuer}만 출고</button>
+    </div>`;
+  } else if (state === 'yes') {
+    alertBox.innerHTML = `<div style="background:#E8F2EC;border-left:4px solid var(--c-accent);padding:10px;border-radius:6px;margin-top:8px">
+      <div style="font-weight:600;color:var(--c-accent);font-size:14px">✅ 해당 주문은 입고와 출고가 모두 필요한 것으로 설정됨</div>
+      <div style="font-size:12px;color:#666;margin-top:4px">${other}→${issuer} 입고 + ${issuer} 출고 (위하고 양사 전표 자동 생성)</div>
+      <ul style="margin:6px 0 4px 18px;padding:0;color:#555">${itemList}</ul>
+      <button type="button" onclick="confirmInternalTransfer('no')" style="margin-top:6px;padding:6px 12px;background:#fff;color:#B26A00;border:1px solid #B26A00;border-radius:4px;cursor:pointer;font-size:12px">✗ 수정 — 입고 없이 ${issuer}만 출고</button>
+    </div>`;
   } else if (state === 'no') {
-    stateHtml = `<div style="margin-top:8px;padding:6px 10px;background:#FFF4E5;color:#B26A00;border-radius:4px;font-weight:600">⚠ 무시 — ${issuer}만 단순 출고 (양사 전표 안 만듦)</div>`;
-  } else {
-    stateHtml = `<div style="margin-top:8px;color:#D7493A;font-weight:600;font-size:13px">⚠ 업무맨 확인 필요 — 아래 버튼 선택 후 등록 가능</div>`;
+    alertBox.innerHTML = `<div style="background:#FFF4E5;border-left:4px solid #B26A00;padding:10px;border-radius:6px;margin-top:8px">
+      <div style="font-weight:600;color:#B26A00;font-size:14px">⚠ 해당 주문은 ${issuer} 출고전표만 생성됨 (입고 없음)</div>
+      <div style="font-size:12px;color:#666;margin-top:4px">업무맨 결정 — ${other} 입고 처리 없이 ${issuer}만 출고</div>
+      <button type="button" onclick="confirmInternalTransfer('yes')" style="margin-top:6px;padding:6px 12px;background:#fff;color:var(--c-accent);border:1px solid var(--c-accent);border-radius:4px;cursor:pointer;font-size:12px">↩ 되돌리기 — 입고+출고 양사 전표 생성</button>
+    </div>`;
   }
-  alertBox.innerHTML = `<div class="alert-internal" style="background:#FFF8E1;border-left:4px solid #FFB300;padding:10px;border-radius:6px">
-    <div style="font-weight:600;color:#B26A00">⚠️ 양사간 내부거래 자동 판정</div>
-    <div style="margin-top:4px;font-size:13px">${conflicts.length}개 품목이 <b>${other}</b> 제품으로 자동 분류됨 (${other}→${issuer} 입고 후 ${issuer}이 출고)</div>
-    <ul style="margin:6px 0 4px 18px;padding:0">${itemList}</ul>
-    <div style="display:flex;gap:6px;margin-top:8px">
-      <button type="button" onclick="confirmInternalTransfer('yes')" style="flex:1;padding:8px 12px;background:${state==='yes'?'var(--c-accent)':'#fff'};color:${state==='yes'?'#fff':'#333'};border:1px solid var(--c-accent);border-radius:4px;cursor:pointer;font-weight:600;font-size:13px">✓ 맞음 — 양사 전표 생성</button>
-      <button type="button" onclick="confirmInternalTransfer('no')" style="flex:1;padding:8px 12px;background:${state==='no'?'#B26A00':'#fff'};color:${state==='no'?'#fff':'#333'};border:1px solid #B26A00;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px">✗ 아님 — ${issuer}만 출고</button>
-    </div>
-    ${stateHtml}
-  </div>`;
 }
 function confirmInternalTransfer(choice) {
   window._internalTransferConfirmed = choice;
@@ -1102,12 +1132,7 @@ function submitOrder() {
   if (opSel && !opSel.value) return alert('업무맨을 선택하세요 (위하고 사원코드 박힐 사람)');
   if (!SELECTED_CLIENT) return alert('거래처를 선택하세요');
   if (SELECTED_ITEMS.length === 0) return alert('품목을 1개 이상 추가하세요');
-  // 양사간 내부거래 미확인 시 차단
-  const _issuer_check = document.querySelector('input[name="issuer"]:checked').value;
-  const _conflicts = SELECTED_ITEMS.filter(it => it._owner !== 'BOTH' && it._owner !== _issuer_check);
-  if (_conflicts.length > 0 && !window._internalTransferConfirmed) {
-    return alert('양사간 내부거래 판정이 있습니다. 노란 박스에서 [✓ 맞음] 또는 [✗ 아님]을 선택해주세요.');
-  }
+  // 양사간 내부거래 — 디폴트 자동 확정 (입고+출고). 업무맨이 수정 안 누르면 그대로 진행.
 
   const issuer = document.querySelector('input[name="issuer"]:checked').value;
   const opName = opSel ? opSel.value : '';
