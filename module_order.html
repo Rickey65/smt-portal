@@ -381,16 +381,16 @@ body { background: var(--c-bg); }
   <button class="btn-reset" onclick="resetForm()">↻ 초기화</button>
   <button class="btn-submit" onclick="submitOrder()">✅ 주문 등록 + 거래명세표 발급</button>
 
-  <!-- 위하고 물류 엑셀 4종 (출고·입고·일반전표·세금계산서) — 컨펌된 풀 일괄 다운로드 -->
-  <div style="margin-top:14px;padding:14px;background:#F8FBFF;border:1px solid #C7DEEF;border-radius:8px">
-    <div style="font-size:13px;font-weight:600;margin-bottom:8px">📦 위하고 물류 엑셀 — 미처리 풀 (<span id="wehago-pool-cnt">0</span>건) 일괄 다운로드</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn-secondary" onclick="downloadWehagoOne('makeChulgo','출고전표')" style="flex:1;min-width:120px;padding:10px;background:#fff;border:1px solid var(--c-border);border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📤 출고전표</button>
-      <button class="btn-secondary" onclick="downloadWehagoOne('makeIpgo','입고전표')" style="flex:1;min-width:120px;padding:10px;background:#fff;border:1px solid var(--c-border);border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📥 입고전표 (양사거래)</button>
-      <button class="btn-secondary" onclick="downloadAllExcel()" style="flex:1;min-width:120px;padding:10px;background:var(--c-accent);color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📦 4종 일괄 (양사)</button>
+  <!-- 위하고 물류 엑셀 — 컴팩트 (접힌 details, 모바일 친화) -->
+  <details style="margin-top:10px;background:#F8FBFF;border:1px solid #C7DEEF;border-radius:6px">
+    <summary style="cursor:pointer;padding:8px 12px;font-size:12px;font-weight:600;color:#456">📦 위하고 물류 엑셀 (풀 <span id="wehago-pool-cnt">0</span>건) ▾</summary>
+    <div style="padding:8px 12px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid #DCE7F0">
+      <button class="btn-sm" onclick="downloadWehagoOne('makeChulgo','출고전표')" style="flex:1;min-width:80px;padding:6px 10px;background:#fff;border:1px solid var(--c-border);border-radius:4px;cursor:pointer;font-size:12px">📤 출고</button>
+      <button class="btn-sm" onclick="downloadWehagoOne('makeIpgo','입고전표')" style="flex:1;min-width:80px;padding:6px 10px;background:#fff;border:1px solid var(--c-border);border-radius:4px;cursor:pointer;font-size:12px">📥 입고</button>
+      <button class="btn-sm" onclick="downloadAllExcel()" style="flex:1;min-width:80px;padding:6px 10px;background:var(--c-accent);color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:12px">📦 4종 일괄</button>
     </div>
-    <div style="font-size:11px;color:#888;margin-top:8px">출고·입고전표는 물류 영역. 일반전표·세금계산서는 회계 처리 화면에서.</div>
-  </div>
+    <div style="font-size:10px;color:#999;padding:0 12px 8px">일반전표·세금계산서는 회계 처리 화면에서</div>
+  </details>
 </div>
 
 <script src="shared/data_loader.js"></script>
