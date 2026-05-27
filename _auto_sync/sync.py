@@ -677,3 +677,47 @@ def polish_client_name(client):
         client['거래처명'] = _POLISH_PAT.sub('', name).strip()
         if not client.get('폐업일자'): client['폐업일자'] = m.group(1)
     return client
+
+
+# 2026-05-26: 위하고 SmartA10 거래처 등록LIST는 한 거래처당 2행 (메인+서브)
+# Row1: 번호 코드 거래처명 사업자번호 업태 사업장주소 Fax번호 업체담당자명 ...
+# Row2: (빈)(빈) 대표자명 전화번호 종목 우편번호 담당사원 담당자전화 계좌번호 (빈) 담당자핸드폰 (빈)
+def parse_wehago_clients_2row(xls_path, company):
+    """위하고 거래처 자료 2행 1쌍 구조 파싱"""
+    try:
+        import xlrd
+    except ImportError:
+        return []
+    try:
+        wb = xlrd.open_workbook(str(xls_path))
+        ws = wb.sheet_by_index(0)
+    except Exception:
+        return []
+    # 헤더 자동 탐색
+    header_row = None
+    for r in range(20):
+        row = [str(ws.cell_value(r,c)) for c in range(ws.ncols)]
+        if '거래처명' in row and '사업장주소' in row:
+            header_row = r; break
+    if header_row is None: return []
+    rows = []
+    r = header_row + 2
+    while r + 1 < ws.nrows:
+        if not str(ws.cell_value(r,0)).strip() and not str(ws.cell_value(r,1)).strip():
+            r += 1; continue
+        def m(c): return str(ws.cell_value(r, c)).strip() if c < ws.ncols else ''
+        def s(c): return str(ws.cell_value(r+1, c)).strip() if (r+1 < ws.nrows and c < ws.ncols) else ''
+        cli = {
+            '번호': m(0), '코드': m(1), '거래처명': m(2),
+            '사업자(주민번호)': m(3), '대표자명': s(2),
+            '업태': m(4), '종목': s(4), '전화번호': s(3),
+            '사업장주소': m(5), '사업장주소(우편번호)': s(5),
+            'Fax번호': m(6), '업체담당자명': m(7), '담당사원': s(6),
+            '담당자전화': s(7), '담당자핸드폰': s(10),
+            '금융기관': m(8), '계좌번호': s(8), '예금주': m(9),
+            '거래처분류명': m(10), 'E-mail 주소': m(11),
+            '_company': company,
+        }
+        if cli['거래처명']: rows.append(cli)
+        r += 2
+    return rows

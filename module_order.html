@@ -682,8 +682,15 @@ function updateShipFields() {
   const cname = SELECTED_CLIENT ? (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || '') : '';
   const ceo = SELECTED_CLIENT ? (SELECTED_CLIENT.대표자 || '') : '';
   const cAddr = SELECTED_CLIENT ? (SELECTED_CLIENT.사업장주소 || SELECTED_CLIENT.주소 || '') : '';
-  // 거래처 전화번호 — 1) clients.json 우선 2) client_phones.json (운송장 시트) 보강
-  let cPhone = SELECTED_CLIENT ? (SELECTED_CLIENT.담당자휴대전화 || SELECTED_CLIENT.담당자전화 || SELECTED_CLIENT.대표전화 || SELECTED_CLIENT['Fax번호'] || '') : '';
+  // 거래처 전화번호 — 새 필드(전화번호/담당자전화/담당자핸드폰) 우선 + Fax 보강
+  let cPhone = SELECTED_CLIENT ? (
+    SELECTED_CLIENT['담당자핸드폰'] ||
+    SELECTED_CLIENT['담당자휴대전화'] ||
+    SELECTED_CLIENT['담당자전화'] ||
+    SELECTED_CLIENT['전화번호'] ||
+    SELECTED_CLIENT['대표전화'] ||
+    SELECTED_CLIENT['Fax번호'] || ''
+  ) : '';
   if (!cPhone && cname && typeof CLIENT_PHONES !== 'undefined') {
     // 거래처명 부분일치
     const norm = (x) => (x||'').replace(/\s+/g,'').replace(/[\(\)★]/g,'');

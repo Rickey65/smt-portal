@@ -185,7 +185,10 @@ function loadOrder(i){
   const client = CLIENTS.find(c => (c.거래처명 || c.상호) === cname) ||
                  CLIENTS.find(c => (c.거래처명 || c.상호 || '').includes(cname) || cname.includes(c.거래처명||'')) || null;
   const cAddr = client ? (client.사업장주소 || client.주소 || '') : '';
-  const cPhone = client ? (client.담당자휴대전화 || client.담당자전화 || client.대표전화 || '') : '';
+  const cPhone = client ? (
+    client['담당자핸드폰'] || client['담당자휴대전화'] || client['담당자전화'] ||
+    client['전화번호'] || client['대표전화'] || client['Fax번호'] || ''
+  ) : '';
 
   // 배송유형별 수신지 자동 채움
   const recv = o.수신지 || {};
