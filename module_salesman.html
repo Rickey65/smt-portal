@@ -659,11 +659,49 @@ function renderOrder(){
   });
 }
 function removeItem(i){ORDER_ITEMS.splice(i,1);renderOrder();updateSummary();}
+function _renderShipHistoryHints(type){
+  // 거래처별 과거 직배송/직직배송 이력 노출 (영업맨이 같은 거래처 반복 시 자동 추천)
+  if (!SELECTED_CLIENT) return;
+  const cname = SELECTED_CLIENT;
+  const recvBox = document.getElementById('direct-recv-box');
+  const sendBox = document.getElementById('direct2-send-box');
+  // 기존 hint 제거
+  ['recv-hint','send-hint'].forEach(id => { const e=document.getElementById(id); if(e) e.remove(); });
+  if (type === '직배송' || type === '직직배송') {
+    try {
+      const hist = JSON.parse(localStorage.getItem('direct_history_'+cname) || '[]');
+      if (hist.length) {
+        const hint = document.createElement('div');
+        hint.id = 'recv-hint';
+        hint.style.cssText = 'margin-top:6px;padding:8px;background:#FFF8E1;border-radius:6px;font-size:12px';
+        hint.innerHTML = '<b>📌 이 거래처 과거 수신처 (클릭하면 채움):</b><br>' +
+          hist.slice(0,5).map(h => `<a href="#" onclick="event.preventDefault();document.getElementById('recv-name').value='${(h.name||'').replace(/'/g,'')}';document.getElementById('recv-phone').value='${(h.phone||'').replace(/'/g,'')}';document.getElementById('recv-addr').value='${(h.addr||'').replace(/'/g,'')}';return false;" style="display:block;padding:4px;color:var(--c-accent);text-decoration:none">↳ ${h.name} · ${h.phone||''} · ${h.addr||''}</a>`).join('');
+        recvBox.appendChild(hint);
+      }
+    } catch(e){}
+  }
+  if (type === '직직배송') {
+    try {
+      const hist = JSON.parse(localStorage.getItem('direct2_history_'+cname) || '[]');
+      const hint = document.createElement('div');
+      hint.id = 'send-hint';
+      hint.style.cssText = 'margin-top:6px;padding:8px;background:#FFF8E1;border-radius:6px;font-size:12px';
+      if (hist.length) {
+        hint.innerHTML = '<b>📌 이 거래처 과거 발신처 (클릭하면 채움):</b><br>' +
+          hist.slice(0,5).map(h => `<a href="#" onclick="event.preventDefault();document.getElementById('send-name').value='${(h.name||'').replace(/'/g,'')}';(document.getElementById('send-phone')||{}).value='${(h.phone||'').replace(/'/g,'')}';document.getElementById('send-addr').value='${(h.addr||'').replace(/'/g,'')}';return false;" style="display:block;padding:4px;color:var(--c-accent);text-decoration:none">↳ ${h.name} · ${h.phone||''} · ${h.addr||''}</a>`).join('');
+      } else {
+        hint.innerHTML = '<span style="color:#B26A00">📌 이 거래처 직직배송 이력 없음 — 첫 입력 후 다음부터 자동 추천</span>';
+      }
+      sendBox.appendChild(hint);
+    } catch(e){}
+  }
+}
 function selectShipType(type){
   SHIP_TYPE=type;
   document.querySelectorAll('[data-ship]').forEach(c=>c.classList.toggle('selected',c.dataset.ship===type));
   document.getElementById('direct-recv-box').style.display=(type==='직배송'||type==='직직배송')?'block':'none';
   document.getElementById('direct2-send-box').style.display=(type==='직직배송')?'block':'none';
+  _renderShipHistoryHints(type);
 
   // K2 — 직배송: 발신=거래처 자동 / 수신=직접 입력 (영업맨이 받는 사람만)
   // 직직배송: 발신·수신 모두 영업맨 직접 입력
@@ -724,18 +762,32 @@ function updateSummary(){
     ${document.getElementById('memo').value ? `<div class="row"><span class="label">비고</span><span class="value">${document.getElementById('memo').value}</span></div>` : ''}`;
 }
 function submitOrder(){
-  // E. 직직배송 발신처 저장 (업무맨 화면에서 다음번 자동 추천)
-  if (SHIP_TYPE === '직직배송' && SELECTED_CLIENT) {
-    const cname = (typeof SELECTED_CLIENT === 'string' ? SELECTED_CLIENT : (SELECTED_CLIENT.거래처명 || SELECTED_CLIENT.상호 || ''));
+  // E. 직직배송 발신처 + 직배송 수신처를 거래처별 이력에 저장
+  const _cname = (typeof SELECTED_CLIENT === 'string' ? SELECTED_CLIENT : ((SELECTED_CLIENT||{}).거래처명 || (SELECTED_CLIENT||{}).상호 || ''));
+  if (SHIP_TYPE === '직직배송' && _cname) {
     const sName = (document.getElementById('send-name') || {}).value || '';
     const sPhone = (document.getElementById('send-phone') || {}).value || '';
     const sAddr = (document.getElementById('send-addr') || {}).value || '';
-    if (cname && (sName || sAddr)) {
+    if (sName || sAddr) {
       try {
-        const key = 'direct2_history_' + cname;
+        const key = 'direct2_history_' + _cname;
         const hist = JSON.parse(localStorage.getItem(key) || '[]');
         const filtered = hist.filter(h => h.name !== sName || h.addr !== sAddr);
         filtered.unshift({name: sName.trim(), phone: sPhone.trim(), addr: sAddr.trim(), _ts: Date.now()});
+        localStorage.setItem(key, JSON.stringify(filtered.slice(0, 10)));
+      } catch(e) {}
+    }
+  }
+  if (SHIP_TYPE === '직배송' && _cname) {
+    const rName = (document.getElementById('recv-name') || {}).value || '';
+    const rPhone = (document.getElementById('recv-phone') || {}).value || '';
+    const rAddr = (document.getElementById('recv-addr') || {}).value || '';
+    if (rName || rAddr) {
+      try {
+        const key = 'direct_history_' + _cname;
+        const hist = JSON.parse(localStorage.getItem(key) || '[]');
+        const filtered = hist.filter(h => h.name !== rName || h.addr !== rAddr);
+        filtered.unshift({name: rName.trim(), phone: rPhone.trim(), addr: rAddr.trim(), _ts: Date.now()});
         localStorage.setItem(key, JSON.stringify(filtered.slice(0, 10)));
       } catch(e) {}
     }

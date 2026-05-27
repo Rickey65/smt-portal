@@ -109,6 +109,10 @@
       const d = await fetchJson('data/shared/client_aliases.json');
       return (d && d.aliases) ? d.aliases : {};
     },
+    async clientPhones() {
+      const d = await fetchJson('data/shared/client_phones.json');
+      return (d && d.phones) ? d.phones : {};
+    },
     
     // 회사 정보 (거래명세표 등)
     companyInfo: {
