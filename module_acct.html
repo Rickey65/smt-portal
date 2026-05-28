@@ -608,9 +608,10 @@ function downloadBankIlban(){
     if (!BANK_CONFIRMED.has(i)) return;
     const d = e._tx.일자 || ''; const [, m, day] = d.split('-');
     // 차변 — 각 행에 거래처 박힘 (실제 가맹점 또는 통장)
-    e.차변.forEach(c => rows.push([+m, +day, 3, c.코드 || '', c.계정, c.거래처코드 || '', c.거래처 || e.거래처, e.적요, c.금액, '']));
+    // 빈 셀은 null로 (위하고 표준양식과 일치 — 빈문자열은 금액 형식 오류 위험)
+    e.차변.forEach(c => rows.push([+m, +day, 3, c.코드 || null, c.계정, c.거래처코드 || null, c.거래처 || e.거래처, e.적요, c.금액, null]));
     // 대변 — 각 행에 거래처
-    e.대변.forEach(c => rows.push([+m, +day, 4, c.코드 || '', c.계정, c.거래처코드 || '', c.거래처 || e.거래처, e.적요, '', c.금액]));
+    e.대변.forEach(c => rows.push([+m, +day, 4, c.코드 || null, c.계정, c.거래처코드 || null, c.거래처 || e.거래처, e.적요, null, c.금액]));
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{wch:5},{wch:5},{wch:6},{wch:8},{wch:15},{wch:9},{wch:25},{wch:35},{wch:14},{wch:14}];

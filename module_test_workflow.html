@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎯 워크플로우 시연 (1건 끝에서 끝까지)</title>
+<style>
+  :root { --c-text:#1a1a1a; --c-text-2:#6b6b6b; --c-border:#e0e0e0; --c-bg:#fafafa; --c-card:#fff; --c-accent:#1D9E75; --c-warn:#FFB300; --c-danger:#D7493A; --c-smt:#3B7EE5; --c-gw:#8845D5; --c-step:#5a6f8a; }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,'Malgun Gothic',sans-serif;margin:0;background:var(--c-bg);color:var(--c-text);font-size:14px;line-height:1.5}
+  .container{max-width:1100px;margin:0 auto;padding:14px}
+  .crumb{font-size:12px;color:#888;margin-bottom:6px}
+  .crumb a{color:#888;text-decoration:none}
+  h1{font-size:22px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .sub{color:#888;font-size:13px;margin-bottom:14px}
+
+  .ctrl{background:#fff;border:1px solid var(--c-border);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .ctrl .left{flex:1;min-width:260px}
+  .ctrl .left h2{margin:0 0 4px;font-size:15px}
+  .ctrl .left p{margin:0;font-size:12px;color:#888}
+  .btn{padding:9px 16px;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700}
+  .btn-primary{background:var(--c-accent);color:#fff}
+  .btn-secondary{background:#fff;color:#666;border:1px solid var(--c-border)}
+  .btn-danger{background:var(--c-danger);color:#fff}
+  .btn-sm{padding:5px 11px;font-size:12px;font-weight:600}
+  .btn-link{background:#f4f8fc;color:#36a;border:1px solid #ccd9e6;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;text-decoration:none;display:inline-block}
+  .btn-link:hover{background:#e8f1f9}
+
+  .order-card{background:#FFFAEB;border:1px solid #F2D87B;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px}
+  .order-card h3{margin:0 0 6px;font-size:14px;color:#7c5e00}
+  .order-card .row{display:flex;gap:10px;flex-wrap:wrap}
+  .order-card .row > div{min-width:120px}
+  .order-card .lbl{color:#999;font-size:11px}
+  .order-card .val{font-weight:600;color:#5a4500}
+
+  .step{background:#fff;border:1px solid var(--c-border);border-left:4px solid var(--c-step);border-radius:8px;padding:13px 15px;margin-bottom:10px}
+  .step.done{border-left-color:var(--c-accent);background:#F6FCF8}
+  .step.wait{border-left-color:#999;opacity:0.85}
+  .step.now{border-left-color:var(--c-warn);background:#FFFCEF}
+  .step .head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .step .num{display:inline-flex;width:26px;height:26px;background:var(--c-step);color:#fff;border-radius:50%;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-right:8px}
+  .step.done .num{background:var(--c-accent)}
+  .step.now .num{background:var(--c-warn)}
+  .step h2{margin:0;font-size:15px;display:flex;align-items:center;gap:0}
+  .step .meta{font-size:11px;color:#888;margin-top:4px}
+  .step .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .step .status{font-size:12px;font-weight:600;padding:3px 9px;border-radius:10px}
+  .status-done{background:#D8F1E1;color:#1D6B40}
+  .status-now{background:#FFE6A0;color:#7a5500}
+  .status-wait{background:#eee;color:#888}
+
+  .arrow{text-align:center;font-size:18px;color:#bbb;margin:-2px 0}
+  .footer{margin-top:14px;padding:12px 14px;background:#F4F7FA;border-radius:8px;font-size:11px;color:#5a6f8a}
+  .footer code{background:#fff;padding:1px 6px;border-radius:3px;font-size:11px}
+
+  .home{position:fixed;top:14px;left:14px;background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 12px;cursor:pointer;text-decoration:none;color:#666;font-size:13px;z-index:100}
+</style>
+</head>
+<body>
+<a class="home" href="index.html">🏠 홈</a>
+<div class="container" style="padding-top:50px">
+
+<div class="crumb"><a href="index.html">메인</a> › 시연용 워크플로우</div>
+<h1>🎯 워크플로우 시연 — 1건 끝에서 끝까지</h1>
+<div class="sub">가상거래 1건을 영업맨 입력부터 총무회계까지 6단계 흘려보내며 엑셀이 순차 생성되는지 확인</div>
+
+<div class="ctrl">
+  <div class="left">
+    <h2>가상거래 1건 생성·진행</h2>
+    <p>버튼 누르면 영업맨이 입력한 척하고 1건 박아둠. 그 다음부터 각 단계 카드의 [열기] 버튼으로 진입.</p>
+  </div>
+  <button class="btn btn-primary" onclick="seedOrder()">▶ 가상거래 1건 생성·시작</button>
+  <button class="btn btn-secondary" onclick="refresh()">↻ 상태 새로고침</button>
+  <button class="btn btn-danger" onclick="resetAll()">🗑 전체 초기화</button>
+</div>
+
+<div id="order-info" class="order-card" style="display:none">
+  <h3>📦 시연용 가상거래 정보</h3>
+  <div class="row">
+    <div><div class="lbl">주문ID</div><div class="val" id="oi-id">—</div></div>
+    <div><div class="lbl">일자</div><div class="val" id="oi-date">—</div></div>
+    <div><div class="lbl">거래처</div><div class="val" id="oi-cli">—</div></div>
+    <div><div class="lbl">품목</div><div class="val" id="oi-item">—</div></div>
+    <div><div class="lbl">금액</div><div class="val" id="oi-amt">—</div></div>
+    <div><div class="lbl">영업맨</div><div class="val" id="oi-sales">—</div></div>
+    <div><div class="lbl">발행회사</div><div class="val" id="oi-co">—</div></div>
+  </div>
+</div>
+
+<div id="step1" class="step">
+  <div class="head">
+    <h2><span class="num">1</span> 영업맨 입력</h2>
+    <span class="status status-wait" id="s1-status">대기</span>
+  </div>
+  <div class="meta">화면에서 거래처·품목 입력 → <code>localStorage.pending_orders</code>에 저장</div>
+  <div class="actions" style="margin-top:8px">
+    <a href="module_salesman.html" target="_blank" class="btn-link">▶ 영업맨 화면 열기</a>
+    <span class="meta" id="s1-detail" style="margin:0 0 0 10px"></span>
+  </div>
+</div>
+<div class="arrow">↓</div>
+
+<div id="step2" class="step">
+  <div class="head">
+    <h2><span class="num">2</span> 업무맨 처리</h2>
+    <span class="status status-wait" id="s2-status">대기</span>
+  </div>
+  <div class="meta">미처리 풀에서 1건 선택 → 양사거래 자동판정 → 입력자·발행회사 확인 → <code>주문 등록</code> 클릭</div>
+  <div class="actions" style="margin-top:8px">
+    <a href="module_order.html" target="_blank" class="btn-link">▶ 업무맨 화면 열기</a>
+    <span class="meta" id="s2-detail" style="margin:0 0 0 10px"></span>
+  </div>
+</div>
+<div class="arrow">↓</div>
+
+<div id="step3" class="step">
+  <div class="head">
+    <h2><span class="num">3</span> 거래명세표 + 택배 발송</h2>
+    <span class="status status-wait" id="s3-status">대기</span>
+  </div>
+  <div class="meta">주문 등록 시 자동 호출됨 (<code>latest_invoice</code> + <code>?orderId</code>). 시연 시 별도 탭으로 열려있어야 함.</div>
+  <div class="actions" style="margin-top:8px">
+    <a href="module_invoice.html?auto=1" target="_blank" class="btn-link">▶ 거래명세표 화면 열기</a>
+    <a href="module_shipping.html" target="_blank" class="btn-link">▶ 택배 화면 열기</a>
+    <span class="meta" id="s3-detail" style="margin:0 0 0 10px"></span>
+  </div>
+</div>
+<div class="arrow">↓</div>
+
+<div id="step4" class="step">
+  <div class="head">
+    <h2><span class="num">4</span> 위하고 엑셀 생성 (출고·입고·분개·세금계산서)</h2>
+    <span class="status status-wait" id="s4-status">대기</span>
+  </div>
+  <div class="meta">
+    업무맨 화면 하단 <code>📦 위하고 물류 엑셀</code> 박스 펴고 <code>📦 전체 일괄</code> 클릭 →
+    양사거래 자동판정 후 최대 8개 엑셀 일괄 다운로드 (출고전표·입고전표·일반전표 매출·일반전표 매입·세금계산서 × 발행회사·양사반대편)
+  </div>
+  <div class="actions" style="margin-top:8px">
+    <a href="module_order.html#wehago" target="_blank" class="btn-link">▶ 업무맨 화면 엑셀 박스 열기</a>
+    <button class="btn btn-sm btn-secondary" onclick="markDownloaded()">✅ 다운로드 완료 표시</button>
+    <span class="meta" id="s4-detail" style="margin:0 0 0 10px"></span>
+  </div>
+</div>
+<div class="arrow">↓</div>
+
+<div id="step5" class="step">
+  <div class="head">
+    <h2><span class="num">5</span> 물류회계 — 오늘 미회계 컨펌·일반전표 다운로드</h2>
+    <span class="status status-wait" id="s5-status">대기</span>
+  </div>
+  <div class="meta"><code>🚚 물류 회계</code> 탭에서 미처리 주문 분개 추천 검토 → 일괄 컨펌 → 일반전표 엑셀 다운로드 (양사 관리회계용)</div>
+  <div class="actions" style="margin-top:8px">
+    <a href="module_acct.html" target="_blank" class="btn-link">▶ 물류회계 화면 열기</a>
+    <span class="meta" id="s5-detail" style="margin:0 0 0 10px"></span>
+  </div>
+</div>
+<div class="arrow">↓</div>
+
+<div id="step6" class="step">
+  <div class="head">
+    <h2><span class="num">6</span> 총무회계 — 통장 입출금 분개</h2>
+    <span class="status status-wait" id="s6-status">대기</span>
+  </div>
+  <div class="meta"><code>💳 총무 회계</code> 탭에서 통장 엑셀 업로드 → 23,028건 학습 사전으로 자동 분개 추천 → 컨펌 → 일반전표 엑셀 다운로드 (경비·외상회수)</div>
+  <div class="actions" style="margin-top:8px">
+    <a href="module_acct.html#chongmu" target="_blank" class="btn-link">▶ 총무회계 화면 열기</a>
+    <span class="meta" id="s6-detail" style="margin:0 0 0 10px"></span>
+  </div>
+</div>
+
+<div class="footer">
+  <strong>현재 상태 (자동 새로고침):</strong>
+  pending_orders <code id="st-pending">0</code>건 ·
+  latest_invoice <code id="st-latest">없음</code> ·
+  confirmed_journal <code id="st-conf">0</code>건 ·
+  bank_confirmed <code id="st-bank">0</code>건 ·
+  downloads <code id="st-dl">0</code>회
+  <br><br>
+  💡 <strong>시연 가이드:</strong> 위에서 아래로 단계별 [열기] → 화면 작업 → 다시 이 페이지로 돌아오면 자동 새로고침되며 상태 갱신.
+  카드 좌측 색깔: <span style="color:#999">●</span> 대기 / <span style="color:var(--c-warn)">●</span> 진행중 / <span style="color:var(--c-accent)">●</span> 완료
+</div>
+
+</div>
+
+<script>
+const TEST_PREFIX = 'test_workflow_';
+
+function seedOrder(){
+  if (!confirm('가상거래 1건을 영업맨 입력에 추가합니다.\n(거래처: 시연용거래처(주), 품목: EU22is 1대 @1,000,000원)\n진행할까요?')) return;
+  const now = new Date();
+  const ymd = now.toISOString().slice(0,10);
+  const id = TEST_PREFIX + Date.now();
+  const order = {
+    _id: id, _test: true, _seedAt: now.toISOString(),
+    거래일자: ymd, 거래일: ymd,
+    거래처명: '시연용거래처(주)', 거래처: '시연용거래처(주)', 거래처코드: '999999',
+    영업맨: '김성원', 입력자: '임성우',
+    회사: 'SMT', 발행회사: 'SMT',
+    품목: [{ 품목명:'EU22is', 품목코드:'EU22is', 수량:1, 단가:1000000, 금액:1000000, 세액:100000, 합계금액:1100000, _owner:'SMT' }],
+    합계금액: 1100000, 공급가액: 1000000, 세액: 100000,
+    배송유형: '택배', 비고: '시연용 — 워크플로우 테스트'
+  };
+
+  let pending = [];
+  try { pending = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch(e){}
+  pending = pending.filter(p => !(p._id || '').startsWith(TEST_PREFIX));
+  pending.push(order);
+  localStorage.setItem('pending_orders', JSON.stringify(pending));
+  localStorage.setItem('demo_downloads', '0');
+  alert('✅ 가상거래 1건 생성됨\n주문ID: ' + id + '\n\n이제 단계 1부터 [열기] 눌러서 진행하세요.');
+  refresh();
+}
+
+function getTestOrder(){
+  let pending = [];
+  try { pending = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch(e){}
+  return pending.find(p => (p._id || '').startsWith(TEST_PREFIX));
+}
+
+function markDownloaded(){
+  const cur = parseInt(localStorage.getItem('demo_downloads') || '0', 10);
+  localStorage.setItem('demo_downloads', String(cur + 1));
+  alert('✅ 다운로드 완료 표시됨 (누적 ' + (cur+1) + '회)');
+  refresh();
+}
+
+function resetAll(){
+  if (!confirm('가상거래 + 다운로드 카운트만 삭제합니다.\n(통장 데이터·기존 운영 데이터는 보존)\n진행할까요?')) return;
+  let pending = [];
+  try { pending = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch(e){}
+  pending = pending.filter(p => !(p._id || '').startsWith(TEST_PREFIX));
+  localStorage.setItem('pending_orders', JSON.stringify(pending));
+  localStorage.removeItem('demo_downloads');
+  localStorage.removeItem('latest_invoice');
+  alert('✅ 시연 데이터 초기화 완료');
+  refresh();
+}
+
+function setStep(stepId, statusEl, status, detail){
+  const el = document.getElementById(stepId);
+  const stEl = document.getElementById(statusEl);
+  const dtEl = document.getElementById(stepId.replace('step','s') + '-detail');
+  el.classList.remove('done','wait','now');
+  el.classList.add(status === 'done' ? 'done' : status === 'now' ? 'now' : 'wait');
+  stEl.className = 'status ' + (status === 'done' ? 'status-done' : status === 'now' ? 'status-now' : 'status-wait');
+  stEl.textContent = status === 'done' ? '✓ 완료' : status === 'now' ? '진행중' : '대기';
+  if (dtEl) dtEl.textContent = detail || '';
+}
+
+function refresh(){
+  const order = getTestOrder();
+  const info = document.getElementById('order-info');
+  if (order) {
+    info.style.display = 'block';
+    document.getElementById('oi-id').textContent = order._id;
+    document.getElementById('oi-date').textContent = order.거래일자;
+    document.getElementById('oi-cli').textContent = order.거래처명;
+    const it = order.품목[0];
+    document.getElementById('oi-item').textContent = `${it.품목명} ${it.수량}대 @${it.단가.toLocaleString()}원`;
+    document.getElementById('oi-amt').textContent = order.합계금액.toLocaleString() + '원';
+    document.getElementById('oi-sales').textContent = order.영업맨;
+    document.getElementById('oi-co').textContent = order.발행회사;
+  } else {
+    info.style.display = 'none';
+  }
+
+  let pending = []; try{ pending = JSON.parse(localStorage.getItem('pending_orders')||'[]'); }catch(e){}
+  let latest = null; try{ latest = JSON.parse(localStorage.getItem('latest_invoice')||'null'); }catch(e){}
+  let conf = []; try{ conf = JSON.parse(localStorage.getItem('confirmed_journal')||'[]'); }catch(e){}
+  let bank = []; try{ bank = JSON.parse(localStorage.getItem('bank_confirmed')||'[]'); }catch(e){}
+  const dl = parseInt(localStorage.getItem('demo_downloads')||'0', 10);
+
+  const testPending = pending.find(p => (p._id||'').startsWith(TEST_PREFIX));
+  const testConf = conf.find(j => (j._orderId||'').startsWith(TEST_PREFIX));
+  const testInLatest = latest && (latest._id||'').startsWith(TEST_PREFIX);
+
+  if (testPending) setStep('step1','s1-status','done', '✓ pending_orders에 1건 저장됨');
+  else if (order) setStep('step1','s1-status','now', '대기 중');
+  else setStep('step1','s1-status','wait', '먼저 위 [가상거래 생성] 버튼을 누르세요');
+
+  if (testInLatest) setStep('step2','s2-status','done', '✓ 주문 등록 완료 (latest_invoice 박힘)');
+  else if (testPending) setStep('step2','s2-status','now', '대기 — 업무맨 화면에서 [주문 등록] 클릭 필요');
+  else setStep('step2','s2-status','wait', '');
+
+  if (testInLatest) setStep('step3','s3-status','done', '✓ 거래명세표·택배 자동 호출 가능');
+  else if (testPending) setStep('step3','s3-status','wait', '단계 2 완료 후 자동 진행');
+  else setStep('step3','s3-status','wait', '');
+
+  if (dl > 0) setStep('step4','s4-status','done', `✓ 다운로드 ${dl}회 완료`);
+  else if (testInLatest) setStep('step4','s4-status','now', '대기 — 위하고 엑셀 박스 펴고 [전체 일괄] 클릭');
+  else setStep('step4','s4-status','wait', '');
+
+  if (testConf) setStep('step5','s5-status','done', '✓ 분개 컨펌 완료 (일반전표 다운로드 가능)');
+  else if (dl > 0 || testInLatest) setStep('step5','s5-status','now', '대기 — 물류회계 화면에서 [일괄 컨펌]');
+  else setStep('step5','s5-status','wait', '');
+
+  if (bank.length > 0) setStep('step6','s6-status','done', `✓ 통장 ${bank.length}건 컨펌됨`);
+  else if (testConf) setStep('step6','s6-status','now', '대기 — 총무회계 탭에서 통장 엑셀 업로드');
+  else setStep('step6','s6-status','wait', '');
+
+  document.getElementById('st-pending').textContent = pending.length;
+  document.getElementById('st-latest').textContent = latest ? (latest._id || '있음') : '없음';
+  document.getElementById('st-conf').textContent = conf.length;
+  document.getElementById('st-bank').textContent = bank.length;
+  document.getElementById('st-dl').textContent = dl;
+}
+
+refresh();
+setInterval(refresh, 5000);
+window.addEventListener('focus', refresh);
+</script>
+</body>
+</html>
