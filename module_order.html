@@ -1297,11 +1297,21 @@ function submitOrder() {
     박스수: Number(document.getElementById('box-count').value),
     화물운송비: Number(document.getElementById('ship-fee').value) || 0,
     요금: (Number(document.getElementById('ship-fee').value) > 0) ? '선불' : '착불',
-    수신: {
-      이름: document.getElementById('recv-name').value,
-      연락처: document.getElementById('recv-phone').value,
-      주소: document.getElementById('recv-addr').value || (SELECTED_CLIENT.사업장주소 || SELECTED_CLIENT.주소 || '')
-    },
+    수신: (() => {
+      const st = document.querySelector('input[name="ship-type"]:checked').value;
+      const rName = document.getElementById('recv-name').value;
+      const rPhone = document.getElementById('recv-phone').value;
+      const rAddr = document.getElementById('recv-addr').value;
+      // 일반: 입력 없으면 거래처로 fallback. 직배송·직직배송: 입력 그대로 (fallback X)
+      if (st === '일반') {
+        return {
+          이름: rName,
+          연락처: rPhone,
+          주소: rAddr || (SELECTED_CLIENT.사업장주소 || SELECTED_CLIENT.주소 || '')
+        };
+      }
+      return { 이름: rName, 연락처: rPhone, 주소: rAddr };
+    })(),
     발신: {
       이름: document.getElementById('send-name').value,
       주소: document.getElementById('send-addr').value

@@ -216,19 +216,21 @@ function loadOrder(i){
   ) : '';
 
   // 배송유형별 수신지 자동 채움
-  const recv = o.수신지 || {};
+  // ✅ 키 호환: module_order는 '수신'으로 저장 — 과거 '수신지'도 지원
+  const recv = o.수신 || o.수신지 || {};
   const shipType = o.배송유형 || '일반';
   let recvName = '', recvPhone = '', recvAddr = '';
   if (shipType === '일반') {
     // 일반: 수신=거래처 자동
-    recvName = cname || recv.이름 || '';
-    recvPhone = cPhone || recv.연락처 || '';
-    recvAddr = cAddr || recv.주소 || '';
-  } else {
-    // 직배송·직직배송: 수신=영업맨이 입력한 받는 곳
     recvName = recv.이름 || cname || '';
     recvPhone = recv.연락처 || cPhone || '';
     recvAddr = recv.주소 || cAddr || '';
+  } else {
+    // 직배송·직직배송: 업무맨이 입력한 수신지 100% 우선 (거래처 fallback X)
+    // 영업맨/업무맨이 입력 안 했으면 비워둬서 사용자가 직접 확인하게
+    recvName = recv.이름 || '';
+    recvPhone = recv.연락처 || '';
+    recvAddr = recv.주소 || '';
   }
   document.getElementById('f-recv-name').value = recvName;
   document.getElementById('f-recv-phone').value = recvPhone;
