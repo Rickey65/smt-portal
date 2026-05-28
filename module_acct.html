@@ -137,42 +137,19 @@
       </div>
     </div>
 
-    <!-- B: 수금 매칭 (입금 → 외상매출금 회수) -->
-    <div class="card">
-      <h2>B. 수금 매칭 — 입금 → 외상매출금 회수</h2>
-      <div class="form-row">
-        <label>통장 엑셀</label>
-        <input type="file" id="bank-file" accept=".xlsx,.xls,.csv">
-        <button class="btn btn-sm btn-secondary" onclick="alert('통장 엑셀 업로드 → 자동 거래처 매칭 → 1-tap 수금 컨펌\n\n총무 회계에서 자료 받는 대로 활성화 예정')">ℹ 작동 방식</button>
-      </div>
-      <div id="acct-receipts-list" class="empty">통장 파일 업로드 후 자동 매칭</div>
-      <div class="form-row" style="justify-content:flex-end;margin-top:12px">
-        <button class="btn btn-primary" disabled>📥 수금 일반전표 엑셀 다운로드</button>
-      </div>
-    </div>
+    <!-- B 영역 삭제됨 — 수금 매칭은 💳 총무 회계 탭에서 통장 엑셀 업로드로 일원화 -->
 
-    <!-- C: 위하고 4종 엑셀 일괄 -->
+    <!-- B: 위하고 엑셀 일괄 (구 C — 번호 재정렬) -->
     <div class="card">
-      <h2>C. 위하고 엑셀 4종 일괄 다운로드</h2>
-      <div class="row" style="margin-top:8px">
+      <h2>B. 위하고 엑셀 — 출고·입고·세금계산서</h2>
+      <div class="row" style="margin-top:8px;gap:6px;display:flex;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="downloadWehago('makeChulgo','출고전표')">📤 출고전표</button>
         <button class="btn btn-secondary" onclick="downloadWehago('makeIpgo','입고전표')">📥 입고전표 (양사거래)</button>
-        <button class="btn btn-secondary" onclick="downloadWehago('makeIlban','일반전표')">📒 일반전표</button>
-        <button class="btn btn-secondary" onclick="downloadWehago('makeSegyumetan','세금계산서')">🧾 세금계산서 (월말)</button>
+        <button class="btn btn-warn" onclick="openTaxInvoicePreview()">🧾 세금계산서 미리보기 → 발급</button>
       </div>
-      <div style="font-size:11px;color:#888;margin-top:8px">컨펌된 매출 분개 + 양사 내부거래만 포함. 위하고 [회계관리 → 전표관리 → 일반전표입력 → Ctrl+U]에서 업로드.</div>
+      <div style="font-size:11px;color:#888;margin-top:8px">⚠️ 세금계산서는 발급 전 미리보기로 검토·수정 후 컨펌해야 다운로드됩니다 (부가세 신고용).</div>
     </div>
 
-    <!-- D: 세금계산서 (월말 일괄) -->
-    <div class="card">
-      <h2>D. 세금계산서 (월말 일괄 발급)</h2>
-      <div class="form-row">
-        <label>월 선택</label>
-        <select id="tax-month"></select>
-        <button class="btn btn-secondary" onclick="alert('월말 일괄 발급 — 다음 차수 진행')">📋 미발급 거래처 목록</button>
-        <button class="btn btn-primary" onclick="alert('월말 일괄 발급 — 다음 차수 진행')">🧾 세금계산서 일괄 발급</button>
-      </div>
-    </div>
   </div>
 
   <!-- ========== 💳 총무 회계 ========== -->
@@ -293,6 +270,21 @@ async function init(){
 
   renderStats();
   renderPendingList();
+
+  // 🔄 다른 탭(module_order)에서 주문 등록 후 이 탭으로 돌아오면 자동 갱신
+  window.addEventListener('focus', reloadPendingFromStorage);
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'pending_orders' || e.key === 'confirmed_journal' || e.key === 'bank_confirmed') {
+      reloadPendingFromStorage();
+    }
+  });
+}
+
+function reloadPendingFromStorage(){
+  try { PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch(e){}
+  try { CONFIRMED_JOURNAL = JSON.parse(localStorage.getItem('confirmed_journal') || '[]'); } catch(e){}
+  renderStats();
+  renderPendingList();
 }
 
 function switchTab(tab){
@@ -407,23 +399,35 @@ function renderPendingList(){
     wrap.innerHTML = '<div class="empty">오늘 미처리 주문 없음 — 영업맨/업무맨이 주문 등록 후 여기에 표시됩니다.</div>';
     return;
   }
-  let html = '<table><thead><tr><th width="100">증빙</th><th>거래처</th><th>품목</th><th width="100">공급가액</th><th width="80">계정</th><th>적요 (자동)</th><th width="100">액션</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th width="90">증빙</th><th>거래처</th><th>품목</th><th width="100">공급가액</th><th width="80">계정</th><th>적요</th><th width="170">액션</th></tr></thead><tbody>';
   PENDING_ORDERS.forEach((o, i) => {
-    const je = generateJournalEntry(o);
+    // 사용자가 수정한 분개 있으면 우선, 없으면 자동 분개
+    const confirmed = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+    const je = confirmed || generateJournalEntry(o);
+    const isCompleted = confirmed && confirmed._completed;
     const sCo = o.발행회사 === 'SMT' ? '<span class="badge smt">SMT</span>' : '<span class="badge gw">건웅</span>';
     const internal = je.양사거래 ? '<span class="badge alert">양사</span>' : '';
+    const edited = confirmed && confirmed._userEdited ? '<span class="badge" style="background:#FFE6A0;color:#7a5500">✎ 수정됨</span>' : '';
     const items = (o.품목 || []).map(it => `${it.품목명 || it.모델}×${it.수량||1}`).join(', ').slice(0,40);
-    const confirmed = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
-    const actionBtn = confirmed
-      ? '<span class="badge gen">✓ 컨펌</span>'
-      : `<button class="btn btn-sm btn-primary" onclick="confirmOne(${i})">✓ 컨펌</button>`;
-    html += `<tr>
+    let actionBtn;
+    if (isCompleted) {
+      actionBtn = '<span class="badge" style="background:#888;color:#fff">🔒 완료 (잠김)</span>';
+    } else if (confirmed) {
+      actionBtn = `<span class="badge gen">✓ 컨펌</span>
+        <button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="openEditModal(${i})">✎ 수정</button>
+        <button class="btn btn-sm" style="margin-left:2px;background:#fff;color:#D7493A;border:1px solid #D7493A" onclick="unconfirm(${i})">↺ 취소</button>`;
+    } else {
+      actionBtn = `<button class="btn btn-sm btn-primary" onclick="confirmOne(${i})">✓ 컨펌</button>
+        <button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="openEditModal(${i})">✎ 수정</button>`;
+    }
+    const rowStyle = isCompleted ? ' style="background:#f5f5f5;opacity:0.7"' : '';
+    html += `<tr${rowStyle}>
       <td>${(o._증빙번호 || '?').slice(0,12)}</td>
-      <td>${(o.거래처명 || '?').slice(0,15)} ${sCo} ${internal}</td>
+      <td>${(o.거래처명 || '?').slice(0,15)} ${sCo} ${internal} ${edited}</td>
       <td>${items}</td>
-      <td class="num">${je.공급가액.toLocaleString()}</td>
+      <td class="num">${(je.공급가액||0).toLocaleString()}</td>
       <td><span class="badge">${je.매출계정}</span></td>
-      <td style="font-size:11px;color:#555">${je.적요}</td>
+      <td style="font-size:11px;color:#555">${je.적요||''}</td>
       <td>${actionBtn}</td>
     </tr>`;
   });
@@ -433,21 +437,45 @@ function renderPendingList(){
 
 function confirmOne(i){
   const o = PENDING_ORDERS[i]; if (!o) return;
+  const existing = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+  if (existing && existing._completed) return alert('이미 완료 처리된 건은 다시 컨펌할 수 없습니다.');
+  if (existing) return;
   const je = generateJournalEntry(o);
-  if (CONFIRMED_JOURNAL.find(j => j._orderId === o._id)) return;
+  je._confirmedAt = new Date().toISOString();
+  je._completed = false;
+  je._userEdited = false;
   CONFIRMED_JOURNAL.push(je);
   saveConfirmed();
   renderPendingList(); renderStats();
 }
 
-function confirmAllPending(){
-  const newOnes = PENDING_ORDERS.filter(o => !CONFIRMED_JOURNAL.find(j => j._orderId === o._id));
-  if (newOnes.length === 0) return alert('컨펌 가능한 새 주문 없음');
-  if (!confirm(`${newOnes.length}건 일괄 컨펌? — 자동 매출 분개 생성`)) return;
-  newOnes.forEach(o => CONFIRMED_JOURNAL.push(generateJournalEntry(o)));
+function unconfirm(i){
+  const o = PENDING_ORDERS[i]; if (!o) return;
+  const existing = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+  if (!existing) return;
+  if (existing._completed) return alert('🔒 이미 완료(잠김) 처리된 건은 취소할 수 없습니다.');
+  if (!confirm('컨펌 취소하시겠습니까? — 수정 내용도 사라집니다.')) return;
+  CONFIRMED_JOURNAL = CONFIRMED_JOURNAL.filter(j => j._orderId !== o._id);
   saveConfirmed();
   renderPendingList(); renderStats();
-  alert(`✅ ${newOnes.length}건 컨펌 완료. C 영역에서 위하고 엑셀 다운로드 가능.`);
+}
+
+function confirmAllPending(){
+  const newOnes = PENDING_ORDERS.filter(o => {
+    const c = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+    return !c;  // 컨펌 안 된 것만
+  });
+  if (newOnes.length === 0) return alert('컨펌 가능한 새 주문 없음 (모두 컨펌·완료됨)');
+  if (!confirm(`${newOnes.length}건 일괄 컨펌? — 자동 매출 분개 생성. 컨펌 후 [✎ 수정]으로 개별 분개 수정 가능합니다.`)) return;
+  const ts = new Date().toISOString();
+  newOnes.forEach(o => {
+    const je = generateJournalEntry(o);
+    je._confirmedAt = ts; je._completed = false; je._userEdited = false;
+    CONFIRMED_JOURNAL.push(je);
+  });
+  saveConfirmed();
+  renderPendingList(); renderStats();
+  alert(`✅ ${newOnes.length}건 컨펌 완료. B 영역 [📥 일반전표 엑셀 다운로드] 클릭 시 완료(잠김) 처리됩니다.`);
 }
 
 function saveConfirmed(){
@@ -461,18 +489,147 @@ function loadByDate(){
 }
 
 function downloadIlbanXlsx(){
-  if (CONFIRMED_JOURNAL.length === 0) return alert('컨펌된 주문이 없습니다. A영역에서 [✓ 컨펌] 먼저.');
-  // 컨펌된 주문들을 WehagoExporter.makeIlban으로
+  // 컨펌됐지만 아직 완료(잠김) 안된 것만 다운로드
+  const targets = CONFIRMED_JOURNAL.filter(j => !j._completed);
+  if (targets.length === 0) return alert('다운로드 가능한 컨펌 건 없음 (모두 완료(잠김)됐거나 컨펌 안됨)');
   if (!window.WehagoExporter || !window.XLSX) return alert('XLSX 라이브러리 로딩 실패');
-  // 회사별 다운로드
-  const sCo = document.querySelector('#acct-staff option:checked')?.dataset?.co || 'SMT';
-  const orders = CONFIRMED_JOURNAL.filter(j => j.회사 === sCo).map(j => ({
-    일자: j.일자, 거래처코드: '', 거래처명: j.거래처, 발행회사: j.회사,
-    품목: [{ 품목명: j.적요, 수량: 1, 단가: j.공급가액 }]
-  }));
+  if (!confirm(`📥 일반전표 엑셀 ${targets.length}건 다운로드?\n\n⚠️ 다운로드 후 해당 건은 🔒 완료(잠김) 처리되어 더 이상 수정·재처리할 수 없습니다.`)) return;
+
+  const sCo = document.querySelector('input[name="company-toggle"]:checked')?.value || 'SMT';
+  // 컨펌된 분개를 그대로 orders 형식으로 (수정된 내용 반영)
+  const orders = targets.map(j => {
+    const o = PENDING_ORDERS.find(p => p._id === j._orderId) || {};
+    return {
+      ...o,
+      _je_override: j  // 수정된 분개 우선 사용
+    };
+  });
   const wb = WehagoExporter.makeIlban(orders, sCo);
   if (wb) {
     XLSX.writeFile(wb, `위하고_일반전표_${sCo}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    // 🔒 완료 처리 — 다시 처리·수정 불가
+    const ts = new Date().toISOString();
+    targets.forEach(j => { j._completed = true; j._completedAt = ts; });
+    saveConfirmed();
+    renderPendingList(); renderStats();
+    alert(`✅ ${targets.length}건 다운로드 완료. 🔒 완료(잠김) 처리됨 — 재처리 불가.`);
+  } else {
+    alert('엑셀 생성 실패');
+  }
+}
+
+// ========== 매출 분개 수정 모달 ==========
+let _editIdx = -1;
+function openEditModal(i){
+  const o = PENDING_ORDERS[i]; if (!o) return;
+  const existing = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+  if (existing && existing._completed) return alert('🔒 완료(잠김) 처리된 건은 수정할 수 없습니다.');
+  const je = existing || generateJournalEntry(o);
+  _editIdx = i;
+  document.getElementById('edit-modal').style.display = 'flex';
+  document.getElementById('em-client').value = je.거래처 || o.거래처명 || '';
+  document.getElementById('em-supply').value = je.공급가액 || 0;
+  document.getElementById('em-vat').value = je.부가세 || 0;
+  document.getElementById('em-acct').value = je.매출계정 || '상품매출';
+  document.getElementById('em-code').value = je.매출계정코드 || '401';
+  document.getElementById('em-memo').value = je.적요 || '';
+  document.getElementById('em-total').textContent = ((je.공급가액||0) + (je.부가세||0)).toLocaleString();
+}
+function closeEditModal(){ document.getElementById('edit-modal').style.display='none'; _editIdx = -1; }
+function recalcEditTotal(){
+  const s = +document.getElementById('em-supply').value || 0;
+  const v = +document.getElementById('em-vat').value || 0;
+  document.getElementById('em-total').textContent = (s+v).toLocaleString();
+}
+function autoVat(){
+  const s = +document.getElementById('em-supply').value || 0;
+  document.getElementById('em-vat').value = Math.round(s * 0.1);
+  recalcEditTotal();
+}
+function saveEdit(){
+  if (_editIdx < 0) return;
+  const o = PENDING_ORDERS[_editIdx]; if (!o) return;
+  const supply = +document.getElementById('em-supply').value || 0;
+  const vat = +document.getElementById('em-vat').value || 0;
+  const memo = document.getElementById('em-memo').value;
+  const acct = document.getElementById('em-acct').value;
+  const code = document.getElementById('em-code').value;
+  const client = document.getElementById('em-client').value;
+
+  let je = CONFIRMED_JOURNAL.find(j => j._orderId === o._id);
+  if (!je) {
+    je = generateJournalEntry(o);
+    je._confirmedAt = new Date().toISOString();
+    je._completed = false;
+    CONFIRMED_JOURNAL.push(je);
+  }
+  je.거래처 = client;
+  je.공급가액 = supply;
+  je.부가세 = vat;
+  je.총액 = supply + vat;
+  je.매출계정 = acct;
+  je.매출계정코드 = code;
+  je.적요 = memo;
+  je._userEdited = true;
+  je._editedAt = new Date().toISOString();
+  je.분개 = [
+    { 차변구분:'차변', 계정:'외상매출금', 계정코드:'108', 금액: supply+vat, 적요: memo },
+    { 차변구분:'대변', 계정: acct, 계정코드: code, 금액: supply, 적요: memo },
+    { 차변구분:'대변', 계정:'부가세예수금', 계정코드:'255', 금액: vat, 적요: memo },
+  ];
+  saveConfirmed();
+  closeEditModal();
+  renderPendingList(); renderStats();
+}
+
+// ========== 세금계산서 미리보기 모달 ==========
+function openTaxInvoicePreview(){
+  const targets = CONFIRMED_JOURNAL.filter(j => !j._completed && !j._taxIssued);
+  if (targets.length === 0) return alert('세금계산서 발급 대상 없음.\n(컨펌 완료 + 미발급 건만 표시)');
+  let html = '<table style="width:100%;font-size:12px"><thead><tr><th>거래처</th><th>공급가액</th><th>부가세</th><th>총액</th><th>적요</th><th>발급?</th></tr></thead><tbody>';
+  targets.forEach((j, idx) => {
+    const checked = (j._taxIncluded !== false) ? 'checked' : '';
+    html += `<tr>
+      <td>${j.거래처||'?'}</td>
+      <td class="num">${(j.공급가액||0).toLocaleString()}</td>
+      <td class="num">${(j.부가세||0).toLocaleString()}</td>
+      <td class="num"><strong>${((j.공급가액||0)+(j.부가세||0)).toLocaleString()}</strong></td>
+      <td style="font-size:11px;color:#666">${j.적요||''}</td>
+      <td><input type="checkbox" data-idx="${idx}" class="tax-chk" ${checked}></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('tax-preview-body').innerHTML = html;
+  document.getElementById('tax-modal').style.display = 'flex';
+  // 체크박스 — 포함 여부 표시
+  document.querySelectorAll('.tax-chk').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const idx = +e.target.dataset.idx;
+      targets[idx]._taxIncluded = e.target.checked;
+    });
+  });
+  window._taxTargets = targets;
+}
+function closeTaxModal(){ document.getElementById('tax-modal').style.display='none'; }
+function downloadTaxInvoice(){
+  const targets = (window._taxTargets || []).filter(j => j._taxIncluded !== false);
+  if (targets.length === 0) return alert('체크된 거래처 없음');
+  if (!confirm(`🧾 세금계산서 ${targets.length}건 발급?\n\n⚠️ 발급 후 해당 건은 🔒 완료(잠김) 처리되며 재발급 불가합니다.`)) return;
+  if (!window.WehagoExporter || !window.XLSX) return alert('XLSX 라이브러리 로딩 실패');
+  const sCo = document.querySelector('input[name="company-toggle"]:checked')?.value || 'SMT';
+  const orders = targets.map(j => {
+    const o = PENDING_ORDERS.find(p => p._id === j._orderId) || {};
+    return { ...o, _je_override: j };
+  });
+  const wb = WehagoExporter.makeSegyumetan(orders, sCo);
+  if (wb) {
+    XLSX.writeFile(wb, `위하고_세금계산서_${sCo}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const ts = new Date().toISOString();
+    targets.forEach(j => { j._taxIssued = true; j._taxIssuedAt = ts; });
+    saveConfirmed();
+    renderPendingList(); renderStats();
+    closeTaxModal();
+    alert(`✅ 세금계산서 ${targets.length}건 발급 완료. 🔒 발급 잠김.`);
   } else {
     alert('엑셀 생성 실패');
   }
@@ -680,6 +837,56 @@ init();
     <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-secondary" onclick="closeEdit()">취소</button>
       <button class="btn btn-primary" onclick="saveEdit()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 매출 분개 수정 모달 -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;width:90%;max-width:600px;border-radius:8px;padding:20px;box-shadow:0 8px 30px rgba(0,0,0,0.3)">
+    <h3 style="margin:0 0 14px;font-size:17px">✎ 매출 분개 수정</h3>
+    <div style="display:grid;grid-template-columns:90px 1fr 90px 1fr;gap:10px 12px;font-size:13px">
+      <label style="align-self:center">거래처</label>
+      <input id="em-client" type="text" style="grid-column:span 3;padding:7px;border:1px solid #ccc;border-radius:4px">
+
+      <label style="align-self:center">공급가액</label>
+      <input id="em-supply" type="number" oninput="recalcEditTotal()" style="padding:7px;border:1px solid #ccc;border-radius:4px;text-align:right">
+      <label style="align-self:center">부가세</label>
+      <div style="display:flex;gap:4px">
+        <input id="em-vat" type="number" oninput="recalcEditTotal()" style="flex:1;padding:7px;border:1px solid #ccc;border-radius:4px;text-align:right">
+        <button class="btn btn-sm btn-secondary" onclick="autoVat()" style="white-space:nowrap">10%</button>
+      </div>
+
+      <label style="align-self:center">총액</label>
+      <div style="grid-column:span 3;padding:7px;background:#F8FBFF;border-radius:4px;font-weight:700;color:#1a5fa3" id="em-total">0</div>
+
+      <label style="align-self:center">매출계정</label>
+      <select id="em-acct" style="padding:7px;border:1px solid #ccc;border-radius:4px" onchange="document.getElementById('em-code').value={상품매출:'401',제품매출:'404',발전기임대수입:'415'}[this.value]||''">
+        <option>상품매출</option><option>제품매출</option><option>발전기임대수입</option>
+      </select>
+      <label style="align-self:center">계정코드</label>
+      <input id="em-code" type="text" style="padding:7px;border:1px solid #ccc;border-radius:4px">
+
+      <label style="align-self:center">적요</label>
+      <input id="em-memo" type="text" style="grid-column:span 3;padding:7px;border:1px solid #ccc;border-radius:4px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <button class="btn btn-secondary" onclick="closeEditModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveEdit()">✅ 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 세금계산서 미리보기 모달 -->
+<div id="tax-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;width:95%;max-width:900px;max-height:85vh;overflow:auto;border-radius:8px;padding:20px;box-shadow:0 8px 30px rgba(0,0,0,0.3)">
+    <h3 style="margin:0 0 8px;font-size:17px">🧾 세금계산서 발급 미리보기 — 검토·체크 후 발급</h3>
+    <div style="font-size:12px;color:#888;margin-bottom:12px">⚠️ 발급 후 해당 건은 🔒 잠김 처리됩니다. 수정이 필요하면 발급 전 [✎ 수정] 버튼으로 분개부터 수정하세요.</div>
+    <div id="tax-preview-body"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-secondary" onclick="closeTaxModal()">취소</button>
+      <button class="btn btn-warn" onclick="downloadTaxInvoice()">🧾 체크된 건 세금계산서 발급 (엑셀 다운로드)</button>
     </div>
   </div>
 </div>

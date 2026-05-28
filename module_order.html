@@ -541,6 +541,12 @@ async function init() {
   updatePoolCount();
   updateBanner();
   updateModeUI();
+
+  // 🔄 다른 탭(module_salesman)에서 주문 던지면 이 탭도 자동 갱신
+  window.addEventListener('focus', reloadPendingFromStorage);
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'pending_orders') reloadPendingFromStorage();
+  });
   
   // 배송 유형 변경 감지
   document.querySelectorAll('input[name="ship-type"]').forEach(r => {
@@ -1348,6 +1354,10 @@ function submitOrder() {
   if (confirm(`📠 배송 처리 화면도 열까요?\n증빙번호: ${order._증빙번호}\n→ 발송통지서 자동 채움 + 택배사 팩스 발송`)) {
     window.open('module_shipping.html?orderId=' + order._id, '_blank');
   }
+  // 💰 회계 처리 화면 안내 (5단계로 명시적 연결)
+  if (confirm(`💰 회계 처리 화면도 열까요?\n→ 방금 등록한 주문이 [물류 회계] 탭에 자동 표시됩니다.\n→ 분개 컨펌·일반전표 다운로드 (위하고 업로드용)`)) {
+    window.open('module_acct.html', '_blank');
+  }
   resetForm();
 }
 
@@ -1399,6 +1409,16 @@ async function downloadWehagoOne(fnName, label){
 function updateWehagoPoolCnt(){
   const el = document.getElementById('wehago-pool-cnt');
   if (el && typeof PENDING_ORDERS !== 'undefined') el.textContent = PENDING_ORDERS.length;
+}
+
+function reloadPendingFromStorage(){
+  try { PENDING_ORDERS = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch(e){}
+  updatePoolCount();
+  // 펜딩 모달이 열려있으면 다시 그림
+  const modal = document.getElementById('pending-modal');
+  if (modal && modal.style.display !== 'none' && typeof renderPendingList === 'function') {
+    try { renderPendingList(); } catch(e){}
+  }
 }
 
 function updatePoolCount() {
